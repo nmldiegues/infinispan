@@ -32,6 +32,7 @@ import org.infinispan.eviction.EvictionManager;
 import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.remoting.rpc.RpcManager;
+import org.infinispan.transaction.TransactionTable;
 import org.infinispan.util.concurrent.locks.LockManager;
 import org.infinispan.stats.Stats;
 
@@ -130,6 +131,11 @@ public abstract class AbstractDelegatingAdvancedCache<K, V> extends AbstractDele
    @Override
    public TransactionManager getTransactionManager() {
       return cache.getTransactionManager();
+   }
+   
+   @Override
+   public TransactionTable getTxTable() {
+      return cache.getTxTable();
    }
 
    @Override

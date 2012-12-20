@@ -669,9 +669,10 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
       return transactionManager;
    }
 
+   @Override
    public TransactionTable getTxTable() {
-    return txTable;
-}
+       return txTable;
+   }
 
 @Override
    public LockManager getLockManager() {

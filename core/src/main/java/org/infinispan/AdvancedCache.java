@@ -33,6 +33,7 @@ import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.stats.Stats;
+import org.infinispan.transaction.TransactionTable;
 import org.infinispan.util.concurrent.locks.LockManager;
 
 import javax.transaction.TransactionManager;
@@ -226,6 +227,13 @@ public interface AdvancedCache<K, V> extends Cache<K, V> {
     */
    TransactionManager getTransactionManager();
 
+   /**
+    * Returns the transaction table used in this cache.
+    * 
+    * @return the transaction table used in this cache.
+    */
+   TransactionTable getTxTable();
+   
    /**
     * Returns the component that deals with all aspects of acquiring and
     * releasing locks for cache entries.
