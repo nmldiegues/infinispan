@@ -17,6 +17,7 @@ import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
+import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.SingleKeyNonTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
@@ -229,7 +230,11 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          if (internalGMUCacheEntry.getMaximumTransactionVersion() != null) {
             entryVersionList.add(internalGMUCacheEntry.getMaximumTransactionVersion());
          }
-         txInvocationContext.getCacheTransaction().addReadKey(key);
+         
+         if (!txInvocationContext.hasFlag(Flag.READ_WITHOUT_REGISTERING)) {
+             txInvocationContext.getCacheTransaction().addReadKey(key);
+         }
+         
          if (local) {
             txInvocationContext.setAlreadyReadOnThisNode(true);
             txInvocationContext.addReadFrom(cll.getAddress());

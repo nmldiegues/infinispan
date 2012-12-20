@@ -173,7 +173,13 @@ public enum Flag {
     * indicates that the write skew check must be skipped. It happens when the commit or rollback command are received
     * before the prepare command (total order based scheme)
     */
-   SKIP_WRITE_SKEW_CHECK;
+   SKIP_WRITE_SKEW_CHECK,
+   /**
+    * Indicates that a read in the context of a transaction should not be used for validating it. The 
+    * read should still reflect a consistent snapshot, but it can never cause a transaction to abort.
+    * This application assumes responsability of guaranteeing consistency if using this.
+    */
+   READ_WITHOUT_REGISTERING;
 
    /**
     * Creates a copy of a Flag Set removing instances of FAIL_SILENTLY.
