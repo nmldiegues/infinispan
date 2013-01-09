@@ -223,9 +223,8 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
                        txInvocationContext.getGlobalTransaction().prettyPrint(),
                        internalGMUCacheEntry, local);
          }
-         if (txInvocationContext.hasModifications() && !internalGMUCacheEntry.isMostRecent()) {
-            throw new CacheException("Read-Write transaction read an old value and should rollback");
-         }
+         
+         shouldEarlyAbort(txInvocationContext, internalGMUCacheEntry);
 
          if (internalGMUCacheEntry.getMaximumTransactionVersion() != null) {
             entryVersionList.add(internalGMUCacheEntry.getMaximumTransactionVersion());
@@ -244,6 +243,12 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       if (entryVersionList.size() > 1) {
          EntryVersion[] txVersionArray = new EntryVersion[entryVersionList.size()];
          txInvocationContext.setTransactionVersion(versionGenerator.mergeAndMax(entryVersionList.toArray(txVersionArray)));
+      }
+   }
+
+   protected void shouldEarlyAbort(TxInvocationContext txInvocationContext, InternalGMUCacheEntry internalGMUCacheEntry) {
+      if (txInvocationContext.hasModifications() && !internalGMUCacheEntry.isMostRecent()) {
+         throw new CacheException("Read-Write transaction read an old value and should rollback");
       }
    }
 
