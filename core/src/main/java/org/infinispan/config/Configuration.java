@@ -171,6 +171,10 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
    @XmlElement
    DataPlacementType dataPlacement = new DataPlacementType().setConfiguration(this);
 
+   GarbageCollectorType garbageCollector  = new GarbageCollectorType().setConfiguration(this);
+
+   ConditionalExecutorServiceType conditionalExecutorService = new ConditionalExecutorServiceType().setConfiguration(this);
+
    private org.infinispan.configuration.cache.Configuration newConfig;
 
    public Configuration(org.infinispan.configuration.cache.Configuration config) {
@@ -252,7 +256,7 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
          // The classloader is not set for this configuration, and we have a global config
          return globalConfiguration.getClassLoader();
       else
-         // Return the default CL 
+         // Return the default CL
          return Thread.currentThread().getContextClassLoader();
    }
 
@@ -1040,7 +1044,7 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
     * </p>
     *
     * <p>
-    * If the threshold is set to -1, then unicasts will always be used. If the threshold is set to 0, then multicast 
+    * If the threshold is set to -1, then unicasts will always be used. If the threshold is set to 0, then multicast
     * will be always be used.
     * </p>
     *
@@ -1149,6 +1153,38 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
    // ------------------------------------------------------------------------------------------------------------
    //   GETTERS
    // ------------------------------------------------------------------------------------------------------------
+
+   public int getCorePoolSizeForConditionalExecutorService() {
+      return conditionalExecutorService.corePoolSize;
+   }
+
+   public int getMaxPoolSizeForConditionalExecutorService() {
+      return conditionalExecutorService.maxPoolSize;
+   }
+
+   public long getKeepAliveTimeForConditionalExecutorService() {
+      return conditionalExecutorService.keepAliveTime;
+   }
+
+   public boolean isGarbageCollectorEnabled() {
+      return garbageCollector.enabled;
+   }
+
+   public int getTransactionThreshold() {
+      return garbageCollector.transactionThreshold;
+   }
+
+   public int getVersionGCMaxIdle() {
+      return garbageCollector.versionGCMaxIdle;
+   }
+
+   public int getL1GCInterval() {
+      return garbageCollector.l1GCInterval;
+   }
+
+   public int getViewGCBackOff() {
+      return garbageCollector.viewGCBackOff;
+   }
 
    public boolean isUseAsyncMarshalling() {
       return clustering.async.asyncMarshalling;
@@ -2398,8 +2434,8 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
    }
 
    /**
-    * Recovery makes sure data in both transactional resource and Infinispan end up in a consistent state. 
-    * Fore more details see 
+    * Recovery makes sure data in both transactional resource and Infinispan end up in a consistent state.
+    * Fore more details see
     * <a href="https://docs.jboss.org/author/display/ISPN/Transaction+recovery">Infinispan Transaction Recovery</a>.
     */
    @XmlAccessorType(XmlAccessType.PROPERTY)
@@ -4490,8 +4526,8 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
    /**
     * Allows you to tune various unsafe or non-standard characteristics. Certain operations such as Cache.put() that are
     * supposed to return the previous value associated with the specified key according to the java.util.Map contract
-    * will not fulfill this contract if unsafe toggle is turned on. Use with care. See details at 
-    * <a href="https://docs.jboss.org/author/display/ISPN/Technical+FAQs">Technical FAQ</a> 
+    * will not fulfill this contract if unsafe toggle is turned on. Use with care. See details at
+    * <a href="https://docs.jboss.org/author/display/ISPN/Technical+FAQs">Technical FAQ</a>
     *
     * @see <a href="../../../config.html#ce_default_unsafe">Configuration reference</a>
     */
@@ -4826,6 +4862,140 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
 
       public String toString(){
          return "Indexing[enabled="+enabled+",localOnly="+indexLocalOnly+"]";
+      }
+   }
+
+   @Deprecated
+   public static class GarbageCollectorType extends AbstractFluentConfigurationBean implements GarbageCollectorConfig {
+
+      private boolean enabled = false;
+      private int transactionThreshold = 1000;
+      private int versionGCMaxIdle = 60;
+      private int l1GCInterval = 30;
+      private int viewGCBackOff = 120;
+
+      @Override
+      public GarbageCollectorConfig enable(boolean enable) {
+         testImmutability("enabled");
+         this.enabled = enable;
+         return this;
+      }
+
+      @Override
+      public GarbageCollectorConfig setTransactionThreshold(int threshold) {
+         testImmutability("transactionThreshold");
+         this.transactionThreshold = threshold;
+         return this;
+      }
+
+      @Override
+      public GarbageCollectorConfig setVersionGCMaxIdle(int idle) {
+         testImmutability("versionGCMaxIdle");
+         this.versionGCMaxIdle = idle;
+         return this;
+      }
+
+      @Override
+      public GarbageCollectorConfig setL1GCInterval(int interval) {
+         testImmutability("l1GCInterval");
+         this.l1GCInterval = interval;
+         return this;
+      }
+
+      @Override
+      public GarbageCollectorConfig setViewGCBackOff(int backOff) {
+         testImmutability("viewGCBackOff");
+         this.viewGCBackOff = backOff;
+         return this;
+      }
+
+      @Override
+      protected GarbageCollectorType setConfiguration(Configuration config) {
+         super.setConfiguration(config);
+         return this;
+      }
+
+      @Override
+      public boolean equals(Object o) {
+         if (this == o) return true;
+         if (o == null || getClass() != o.getClass()) return false;
+
+         GarbageCollectorType that = (GarbageCollectorType) o;
+
+         if (enabled != that.enabled) return false;
+         if (l1GCInterval != that.l1GCInterval) return false;
+         if (transactionThreshold != that.transactionThreshold) return false;
+         if (versionGCMaxIdle != that.versionGCMaxIdle) return false;
+         if (viewGCBackOff != that.viewGCBackOff) return false;
+
+         return true;
+      }
+
+      @Override
+      public int hashCode() {
+         int result = (enabled ? 1 : 0);
+         result = 31 * result + transactionThreshold;
+         result = 31 * result + versionGCMaxIdle;
+         result = 31 * result + l1GCInterval;
+         result = 31 * result + viewGCBackOff;
+         return result;
+      }
+   }
+
+   @Deprecated
+   public static class ConditionalExecutorServiceType extends AbstractFluentConfigurationBean implements ConditionalExecutorServiceConfig {
+
+      private int corePoolSize;
+      private int maxPoolSize;
+      private long keepAliveTime;
+
+      @Override
+      public ConditionalExecutorServiceConfig setCorePoolSize(int size) {
+         testImmutability("corePoolSize");
+         this.corePoolSize = size;
+         return this;
+      }
+
+      @Override
+      public ConditionalExecutorServiceConfig setMaxPoolSize(int size) {
+         testImmutability("maxPoolSize");
+         this.maxPoolSize = size;
+         return this;
+      }
+
+      @Override
+      public ConditionalExecutorServiceConfig setKeepAliveTime(long time) {
+         testImmutability("keepAliveTime");
+         this.keepAliveTime = time;
+         return this;
+      }
+
+      @Override
+      protected ConditionalExecutorServiceType setConfiguration(Configuration config) {
+         super.setConfiguration(config);
+         return this;
+      }
+
+      @Override
+      public boolean equals(Object o) {
+         if (this == o) return true;
+         if (o == null || getClass() != o.getClass()) return false;
+
+         ConditionalExecutorServiceType that = (ConditionalExecutorServiceType) o;
+
+         if (corePoolSize != that.corePoolSize) return false;
+         if (keepAliveTime != that.keepAliveTime) return false;
+         if (maxPoolSize != that.maxPoolSize) return false;
+
+         return true;
+      }
+
+      @Override
+      public int hashCode() {
+         int result = corePoolSize;
+         result = 31 * result + maxPoolSize;
+         result = 31 * result + (int) (keepAliveTime ^ (keepAliveTime >>> 32));
+         return result;
       }
    }
 

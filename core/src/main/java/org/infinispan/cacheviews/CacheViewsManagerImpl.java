@@ -206,10 +206,10 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
       // then ask the coordinator to join and use its existing cache view
       if (!isCoordinator) {
          final CacheViewControlCommand cmd = new CacheViewControlCommand(cacheName,
-               CacheViewControlCommand.Type.REQUEST_JOIN, self);
+                                                                         CacheViewControlCommand.Type.REQUEST_JOIN, self);
          // If we get a SuspectException we can ignore it, the new coordinator will come asking for our state anyway
          Map<Address,Response> rspList = transport.invokeRemotely(Collections.singleton(coordinator), cmd,
-               ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS, timeout, false, null, false, false);
+                                                                  ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS, timeout, false, null, false, false);
          checkRemoteResponse(cacheName, cmd, rspList);
       }
    }
@@ -226,7 +226,7 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
 
          // finally broadcast the leave request to all the members
          final CacheViewControlCommand cmd = new CacheViewControlCommand(cacheName,
-               CacheViewControlCommand.Type.REQUEST_LEAVE, self);
+                                                                         CacheViewControlCommand.Type.REQUEST_LEAVE, self);
          // ignore any response from the other members
          transport.invokeRemotely(members, cmd, ResponseMode.ASYNCHRONOUS, timeout, false, null, false, false);
       } catch (Exception e) {
@@ -239,17 +239,17 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
     * Called on the coordinator to install a new view in the cluster.
     * It follows the protocol in the class description.
     */
-   boolean clusterInstallView(String cacheName, CacheView newView) throws Exception {
+   boolean clusterInstallView(String cacheName, CacheView newView, int replicationDegree) throws Exception {
       CacheViewInfo cacheViewInfo = viewsInfo.get(cacheName);
       boolean success = false;
       try {
          log.debugf("Installing new view %s for cache %s", newView, cacheName);
-         clusterPrepareView(cacheName, newView);
+         clusterPrepareView(cacheName, newView, replicationDegree);
 
          Set<Address> leavers = cacheViewInfo.getPendingChanges().getLeavers();
          if (cacheViewInfo.getPendingView().containsAny(leavers)) {
             log.debugf("Cannot commit cache view %s, some nodes already left the cluster: %s",
-                  cacheViewInfo.getPendingView(), leavers);
+                       cacheViewInfo.getPendingView(), leavers);
             // will still run the rollback
             return false;
          }
@@ -279,18 +279,17 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
    /**
     * The prepare phase of view installation.
     */
-   private CacheView clusterPrepareView(final String cacheName, final CacheView pendingView) throws Exception {
+   private CacheView clusterPrepareView(final String cacheName, final CacheView pendingView, final int replicationDegree) throws Exception {
       final CacheViewInfo cacheViewInfo = viewsInfo.get(cacheName);
       final CacheView committedView = cacheViewInfo.getCommittedView();
       final List<CacheView> viewHistory = cacheViewInfo.getViewHistory();
       log.tracef("%s: Preparing view %d on members %s", cacheName, pendingView.getViewId(), pendingView.getMembers());
 
-
-
       final CacheViewControlCommand cmd = new CacheViewControlCommand(cacheName,
-            CacheViewControlCommand.Type.PREPARE_VIEW, self, pendingView.getViewId(),
-            pendingView.getMembers(), committedView.getViewId(), committedView.getMembers(),
-            viewHistory);
+                                                                      CacheViewControlCommand.Type.PREPARE_VIEW, self, pendingView.getViewId(),
+                                                                      pendingView.getMembers(), committedView.getViewId(), committedView.getMembers(),
+                                                                      viewHistory);
+      cmd.setReplicationDegree(replicationDegree);
 
       Set<Address> leavers = cacheViewInfo.getPendingChanges().getLeavers();
       if (pendingView.containsAny(leavers))
@@ -301,7 +300,7 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
 
       if (configuration.transaction().transactionProtocol().isTotalOrder()) {
          boolean distributed = configuration.clustering().cacheMode().isDistributed();
-         //in total order, the coordinator must prcess the prepare view command.
+         //in total order, the coordinator must process the prepare view command.
          List<Address> pendingViewMembers = new LinkedList<Address>(pendingView.getMembers());
          pendingViewMembers.add(self);
 
@@ -324,7 +323,7 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
          Future<Object> localFuture = asyncTransportExecutor.submit(new Callable<Object>() {
             @Override
             public Object call() throws Exception {
-               handlePrepareView(cacheName, pendingView, committedView, viewHistory);
+               handlePrepareView(cacheName, pendingView, committedView, viewHistory, replicationDegree);
                return null;
             }
          });
@@ -355,10 +354,10 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
          // it's ok to send the rollback to nodes that don't have the cache yet, they will just ignore it
          // on the other hand we *have* to send the rollback to any nodes that got the prepare
          final CacheViewControlCommand cmd = new CacheViewControlCommand(cacheName,
-               CacheViewControlCommand.Type.ROLLBACK_VIEW, self, newViewId, null, committedViewId, null, null);
+                                                                         CacheViewControlCommand.Type.ROLLBACK_VIEW, self, newViewId, null, committedViewId, null, null);
          // wait until we get all the responses, but ignore the results
          Map<Address, Response> rspList = transport.invokeRemotely(validTargets, cmd,
-               ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS, timeout, false, null, false, false);
+                                                                   ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS, timeout, false, null, false, false);
          checkRemoteResponse(cacheName, cmd, rspList);
       } catch (Throwable t) {
          log.cacheViewRollbackFailure(t, committedViewId, cacheName);
@@ -387,10 +386,10 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
       try {
          // broadcast the command to all the members
          final CacheViewControlCommand cmd = new CacheViewControlCommand(cacheName,
-               CacheViewControlCommand.Type.COMMIT_VIEW, self, viewId);
+                                                                         CacheViewControlCommand.Type.COMMIT_VIEW, self, viewId);
          // wait until we get all the responses, but ignore the results
          Map<Address, Response> rspList = transport.invokeRemotely(validTargets, cmd,
-               ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS, timeout, false, null, false, false);
+                                                                   ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS, timeout, false, null, false, false);
          checkRemoteResponse(cacheName, cmd, rspList);
       } catch (Throwable t) {
          log.cacheViewCommitFailure(t, viewId, cacheName);
@@ -432,11 +431,16 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
     *  Handle the request to move keys   by Li
     */
    public void handleRequestMoveKeys(String cacheName){
-	  log.error("signaling moving keys");
+      CacheViewInfo cacheViewInfo = getCacheViewInfo(cacheName);
+      cacheViewInfo.getPendingChanges().requestMoveKeys();
+      viewTriggerThread.wakeUp();
+   }
 
-	  CacheViewInfo cacheViewInfo = getCacheViewInfo(cacheName);
-	  cacheViewInfo.getPendingChanges().requestMoveKeys();
-	  viewTriggerThread.wakeUp();
+   @Override
+   public void handleReplicationDegree(String cacheName, int replicationDegree) {
+      CacheViewInfo cacheViewInfo = getCacheViewInfo(cacheName);
+      cacheViewInfo.getPendingChanges().requestNewReplicationDegree(replicationDegree);
+      viewTriggerThread.wakeUp();
    }
 
    /**
@@ -487,7 +491,7 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
    }
 
    @Override
-   public void handlePrepareView(String cacheName, CacheView pendingView, CacheView committedView, List<CacheView> viewHistory) throws Exception {
+   public void handlePrepareView(String cacheName, CacheView pendingView, CacheView committedView, List<CacheView> viewHistory, int replicationDegree) throws Exception {
       boolean isLocal = pendingView.contains(self);
 
       if (getConfiguration(cacheName).transaction().transactionProtocol().isTotalOrder() &&
@@ -506,7 +510,7 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
 
       if (!isLocal && !isCoordinator) {
          throw new IllegalStateException(String.format("%s: Received prepare cache view request, but we are not a member. View is %s",
-               cacheName, pendingView));
+                                                       cacheName, pendingView));
       }
 
       // The first time we get a PREPARE_VIEW our committed view id is -1, we need to accept any view
@@ -518,7 +522,7 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
       if (isLocal) {
          CacheViewListener cacheViewListener = cacheViewInfo.getListener();
          if (cacheViewListener != null) {
-            cacheViewListener.prepareView(pendingView, lastCommittedView, viewHistory);
+            cacheViewListener.prepareView(pendingView, lastCommittedView, viewHistory, replicationDegree);
          } else {
             throw new IllegalStateException(String.format("%s: Received cache view prepare request after the local node has already shut down", cacheName));
          }
@@ -592,6 +596,21 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
          }
       }
       return result;
+   }
+
+   @Override
+   public void gcViewHistory(String cacheName, int minimumViewId) {
+      CacheViewInfo cacheViewInfo = viewsInfo.get(cacheName);
+      if (cacheViewInfo == null) {
+         return;
+      }
+      cacheViewInfo.gc(minimumViewId);
+   }
+
+   @Override
+   public int getViewHistorySize(String cacheName) {
+      CacheViewInfo cacheViewInfo = viewsInfo.get(cacheName);
+      return cacheViewInfo == null ? 0 : cacheViewInfo.getViewHistory().size();
    }
 
    private void handleNewView(List<Address> newMembers, boolean mergeView, boolean initialView) {
@@ -696,7 +715,7 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
                @Override
                public Map<Address, Response> call() throws Exception {
                   return transport.invokeRemotely(Collections.singleton(member), cmd,
-                        ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS, timeout, true, null, false, false);
+                                                  ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS, timeout, true, null, false, false);
                }
             });
             futures.add(future);
@@ -743,7 +762,7 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
                @Override
                public int compare(Address o1, Address o2) {
                   return recoveryInfo.get(o2).get(cacheName).getViewId() -
-                  recoveryInfo.get(o1).get(cacheName).getViewId();
+                        recoveryInfo.get(o1).get(cacheName).getViewId();
                }
             });
             log.tracef("%s: Recovered members (including joiners) are %s", cacheName, recoveredMembers);
@@ -787,11 +806,11 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
                }
                if (minViewId != highestViewId) {
                   log.tracef("Found partition %d (%s) that should have committed view id %d but not all of them do (min view id %d), " +
-                        "committing the view", partitionCount, partitionMembers, highestViewId, minViewId);
+                                   "committing the view", partitionCount, partitionMembers, highestViewId, minViewId);
                   clusterCommitView(cacheName, highestViewId, partitionMembers, false);
                } else {
                   log.tracef("Found partition %d (%s) that has committed view id %d, sending a rollback command " +
-                        "to clear any pending prepare", partitionCount, partitionMembers, highestViewId);
+                                   "to clear any pending prepare", partitionCount, partitionMembers, highestViewId);
                   clusterRollbackView(cacheName, highestViewId, partitionMembers, false);
                }
 
@@ -894,7 +913,9 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
                      PendingCacheViewChanges pendingChanges = cacheViewInfo.getPendingChanges();
                      CacheView pendingView = pendingChanges.createPendingView(cacheViewInfo.getCommittedView());
                      if (pendingView != null) {
-                        cacheViewInstallerExecutor.submit(new ViewInstallationTask(cacheViewInfo.getCacheName(), pendingView));
+                        cacheViewInstallerExecutor.submit(new ViewInstallationTask(cacheViewInfo.getCacheName(),
+                                                                                   pendingView,
+                                                                                   pendingChanges.getReplicationDegree()));
                      }
                   } catch (RuntimeException e) {
                      log.errorTriggeringViewInstallation(e, cacheViewInfo.getCacheName());
@@ -912,17 +933,19 @@ public class CacheViewsManagerImpl implements CacheViewsManager {
    public class ViewInstallationTask implements Callable<Object> {
       private final String cacheName;
       private final CacheView newView;
+      private final int replicationDegree;
 
-      public ViewInstallationTask(String cacheName, CacheView newView) {
+      public ViewInstallationTask(String cacheName, CacheView newView, int replicationDegree) {
 
          this.cacheName = cacheName;
          this.newView = newView;
+         this.replicationDegree = replicationDegree;
       }
 
       @Override
       public Object call() throws Exception {
          try {
-            clusterInstallView(cacheName, newView);
+            clusterInstallView(cacheName, newView, replicationDegree);
          } catch (Throwable t) {
             log.viewInstallationFailure(t, cacheName);
          }

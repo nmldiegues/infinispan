@@ -32,7 +32,8 @@ public class ReplGMUVersionGenerator implements GMUVersionGenerator {
    private ClusterSnapshot currentClusterSnapshot;
    private int currentViewId;
 
-   public ReplGMUVersionGenerator() {}
+   public ReplGMUVersionGenerator() {
+   }
 
    @Inject
    public final void init(RpcManager rpcManager, Cache cache) {
@@ -69,6 +70,25 @@ public class ReplGMUVersionGenerator implements GMUVersionGenerator {
       }
 
       return new GMUReplicatedVersion(cacheName, currentViewId, this, merge(entryVersions));
+   }
+
+   @Override
+   public final GMUVersion mergeAndMin(EntryVersion... entryVersions) {
+      if (entryVersions.length == 0) {
+         return new GMUReplicatedVersion(cacheName, currentViewId, this, NON_EXISTING);
+      }
+      long minVersion = NON_EXISTING;
+
+      for (EntryVersion entryVersion : entryVersions) {
+         long value = toGMUVersion(entryVersion).getThisNodeVersionValue();
+         if (minVersion == NON_EXISTING) {
+            minVersion = value;
+         } else if (value != NON_EXISTING) {
+            minVersion = Math.min(minVersion, value);
+         }
+      }
+
+      return new GMUReplicatedVersion(cacheName, currentViewId, this, minVersion);
    }
 
    @Override
@@ -121,7 +141,7 @@ public class ReplGMUVersionGenerator implements GMUVersionGenerator {
          int viewId = currentViewId;
          ClusterSnapshot clusterSnapshot = getClusterSnapshot(viewId);
          long[] newVersions = new long[clusterSnapshot.size()];
-         for (int i = 0;  i < clusterSnapshot.size(); ++i) {
+         for (int i = 0; i < clusterSnapshot.size(); ++i) {
             newVersions[i] = ((GMUDistributedVersion) entryVersion).getVersionValue(clusterSnapshot.get(i));
          }
          return new GMUDistributedVersion(cacheName, viewId, this, newVersions);
@@ -154,6 +174,16 @@ public class ReplGMUVersionGenerator implements GMUVersionGenerator {
       currentViewId = cacheView.getViewId();
       currentClusterSnapshot = new ClusterSnapshot(cacheView.getMembers(), HASH);
       notifyAll();
+   }
+
+   @Override
+   public void gcCacheView(int minViewId) {
+      //no-op
+   }
+
+   @Override
+   public int getViewHistorySize() {
+      return 1; //only the most recent in saved
    }
 
    private long merge(EntryVersion... entryVersions) {

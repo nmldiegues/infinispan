@@ -25,6 +25,7 @@ package org.infinispan;
 import org.infinispan.atomic.Delta;
 import org.infinispan.batch.BatchContainer;
 import org.infinispan.commands.CommandsFactory;
+import org.infinispan.commands.SetClassCommand;
 import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.control.LockControlCommand;
 import org.infinispan.commands.read.EntrySetCommand;
@@ -1052,4 +1053,11 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
       withFlags(Flag.SKIP_REMOTE_LOOKUP, Flag.SKIP_CACHE_LOAD)
             .put(key, value, defaultLifespan, MILLISECONDS, defaultMaxIdleTime, MILLISECONDS);
    }
+
+    public void setClass(String transactionalClass){
+      SetClassCommand command = commandsFactory.buildSetClassCommand(transactionalClass);
+      InvocationContext ctx = getInvocationContextForRead(null, null, null, 1);
+      invoker.invoke(ctx, command);
+    }
+
 }

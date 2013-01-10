@@ -10,10 +10,6 @@ package org.infinispan.stats.translations;
 
 public class ExposedStatistics {
 
-   public static enum TransactionalClasses {
-      DEFAULT_CLASS
-   }
-
    public static enum IspnStats {
       LOCK_WAITING_TIME(true, true),         // C
       LOCK_HOLD_TIME(true, true),            // C
@@ -46,6 +42,8 @@ public class ExposedStatistics {
       NUM_SUCCESSFUL_GETS_WR_TX(true,true),        // C
       NUM_SUCCESSFUL_REMOTE_GETS_WR_TX(true,true), // C
       NUM_SUCCESSFUL_REMOTE_GETS_RO_TX(true,true), // C
+      LOCAL_GET_EXECUTION(true, true),
+      ALL_GET_EXECUTION(true,true),
       REMOTE_GET_EXECUTION(true, true),            // C
       REMOTE_PUT_EXECUTION(true, true),            // C
       NUM_REMOTE_PUT(true, true),                  // C
@@ -132,7 +130,16 @@ public class ExposedStatistics {
       NUM_NODES_COMMIT(true, false),            //L
       NUM_NODES_ROLLBACK(true, false),          //L
       NUM_NODES_COMPLETE_NOTIFY(true, false),   //L
-      NUM_NODES_GET(true, false);               //L
+      NUM_NODES_GET(true, false),               //L
+
+      //Additional Stats
+      TBC_EXECUTION_TIME(true,false),
+      TBC_COUNT(true,false),
+      TBC(false,false), //Time between operations in Transaction   // ONLY FOR QUERY, derived on the fly
+
+      NTBC_EXECUTION_TIME(true,false),
+      NTBC_COUNT(true,false),
+      NTBC(false,false); //Time between Transactions in a thread   // ONLY FOR QUERY, derived on the fly
 
       private boolean local;
       private boolean remote;

@@ -25,6 +25,7 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -171,5 +172,16 @@ public class CacheViewInfo {
       List<Address> leavers = MembershipArithmetic.getMembersLeft(getCommittedView().getMembers(), newMembers);
       leavers.addAll(getPendingChanges().computeMissingJoiners(newMembers));
       return leavers;
+   }
+
+   public final void gc(int minViewId) {
+      synchronized (lock) {
+         Iterator<CacheView> iterator = viewHistory.iterator();
+         while (iterator.hasNext()) {
+            if (iterator.next().getViewId() < minViewId) {
+               iterator.remove();
+            }
+         }
+      }
    }
 }

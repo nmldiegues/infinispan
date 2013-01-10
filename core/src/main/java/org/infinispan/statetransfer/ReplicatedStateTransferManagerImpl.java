@@ -44,7 +44,7 @@ public class ReplicatedStateTransferManagerImpl extends BaseStateTransferManager
    }
 
    @Override
-   protected ReplicatedStateTransferTask createStateTransferTask(int viewId, List<Address> members, boolean initialView) {
+   protected ReplicatedStateTransferTask createStateTransferTask(int viewId, List<Address> members, boolean initialView, int replicationDegree) {
       if (isTotalOrder()) {
          return new TotalOrderReplicatedStateTransferTask(rpcManager, configuration, dataContainer, this, stateTransferLock,
                                                           cacheNotifier, viewId, members, chOld, chNew, initialView,
@@ -62,7 +62,7 @@ public class ReplicatedStateTransferManagerImpl extends BaseStateTransferManager
    }
 
    @Override
-   protected ConsistentHash createConsistentHash(List<Address> members) {
+   protected ConsistentHash createConsistentHash(List<Address> members, int replicationDegree) {
       // The user will not be able to configure the consistent hash in replicated mode
       // We are always going to use the default consistent hash function.
       return ConsistentHashHelper.createConsistentHash(configuration, members);

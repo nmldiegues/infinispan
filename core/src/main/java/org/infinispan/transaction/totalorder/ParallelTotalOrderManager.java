@@ -1,11 +1,12 @@
 package org.infinispan.transaction.totalorder;
 
 import org.infinispan.CacheException;
+import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.context.Flag;
 import org.infinispan.context.impl.TxInvocationContext;
-import org.infinispan.executors.ControllableExecutorService;
-import org.infinispan.factories.annotations.ComponentName;
+import org.infinispan.executors.ConditionalExecutorService;
+import org.infinispan.executors.ConditionalRunnable;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.jmx.annotations.MBean;
@@ -18,17 +19,14 @@ import org.infinispan.util.logging.LogFactory;
 import org.jgroups.blocks.RequestHandler;
 import org.rhq.helpers.pluginAnnotations.agent.DisplayType;
 import org.rhq.helpers.pluginAnnotations.agent.Metric;
-import org.rhq.helpers.pluginAnnotations.agent.Operation;
 import org.rhq.helpers.pluginAnnotations.agent.Units;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static org.infinispan.factories.KnownComponentNames.TOTAL_ORDER_EXECUTOR;
 
 /**
  * @author Pedro Ruivo
@@ -46,13 +44,11 @@ public class ParallelTotalOrderManager extends BaseTotalOrderManager {
     * this map is used to keep track of concurrent transactions.
     */
    private final ConcurrentMap<Object, TxDependencyLatch> keysLocked = new ConcurrentHashMap<Object, TxDependencyLatch>();
-   private volatile ExecutorService validationExecutorService;
-   private volatile boolean controllableExecutorService;
+   private ConditionalExecutorService validationExecutorService;
 
    @Inject
-   public void inject(@ComponentName(TOTAL_ORDER_EXECUTOR) ExecutorService e) {
-      validationExecutorService = e;
-      controllableExecutorService = validationExecutorService instanceof ControllableExecutorService;
+   public void inject(ConditionalExecutorService conditionalExecutorService) {
+      validationExecutorService = conditionalExecutorService;
    }
 
    @Override
@@ -76,12 +72,24 @@ public class ParallelTotalOrderManager extends BaseTotalOrderManager {
          }
       }
 
+      if (prepareCommand instanceof GMUPrepareCommand) {
+         for (Object key : ((GMUPrepareCommand) prepareCommand).getReadSet()) {
+            previousTxs.add(keysLocked.get(key));
+         }
+         previousTxs.remove(remoteTransaction.getDependencyLatch());
+      }
+
       ppp.setPreviousTransactions(previousTxs);
 
       if (trace)
          log.tracef("Transaction [%s] write set is %s", remoteTransaction.getDependencyLatch(), keysModified);
 
-      validationExecutorService.execute(ppp);
+      try {
+         validationExecutorService.execute(ppp);
+      } catch (Exception e) {
+         log.fatal("Executor service is not enabled!");
+         throw new RuntimeException(e);
+      }
       return RequestHandler.DO_NOT_REPLY;
    }
 
@@ -103,82 +111,6 @@ public class ParallelTotalOrderManager extends BaseTotalOrderManager {
       super.resetStatistics();
       waitTimeInQueue.set(0);
       initializationDuration.set(0);
-   }
-
-   @ManagedAttribute(description = "The minimum number of threads in the thread pool")
-   @Metric(displayName = "Minimum Number of Threads", displayType = DisplayType.DETAIL)
-   public int getThreadPoolCoreSize() {
-      if (controllableExecutorService) {
-         return ((ControllableExecutorService) validationExecutorService).getCorePoolSize();
-      } else {
-         return 1;
-      }
-   }
-
-   @ManagedOperation(description = "Set the minimum number of threads in the thread pool")
-   @Operation(displayName = "Set Minimum Number Of Threads")
-   public void setThreadPoolCoreSize(int size) {
-      if (controllableExecutorService) {
-         ((ControllableExecutorService) validationExecutorService).setCorePoolSize(size);
-      }
-   }
-
-   @ManagedAttribute(description = "The maximum number of threads in the thread pool")
-   @Metric(displayName = "Maximum Number of Threads", displayType = DisplayType.DETAIL)
-   public int getThreadPoolMaximumPoolSize() {
-      if (controllableExecutorService) {
-         return ((ControllableExecutorService) validationExecutorService).getMaximumPoolSize();
-      } else {
-         return 1;
-      }
-   }
-
-   @ManagedOperation(description = "Set the maximum number of threads in the thread pool")
-   @Operation(displayName = "Set Maximum Number Of Threads")
-   public void setThreadPoolMaximumPoolSize(int size) {
-      if (controllableExecutorService) {
-         ((ControllableExecutorService) validationExecutorService).setMaximumPoolSize(size);
-      }
-   }
-
-   @ManagedAttribute(description = "The keep alive time of an idle thread in the thread pool (milliseconds)")
-   @Metric(displayName = "Keep Alive Time of a Idle Thread", units = Units.MILLISECONDS,
-           displayType = DisplayType.DETAIL)
-   public long getThreadPoolKeepTime() {
-      if (controllableExecutorService) {
-         return ((ControllableExecutorService) validationExecutorService).getKeepAliveTime();
-      } else {
-         return 0;
-      }
-   }
-
-   @ManagedOperation(description = "Set the idle time of a thread in the thread pool (milliseconds)")
-   @Operation(displayName = "Set Keep Alive Time of Idle Threads")
-   public void setThreadPoolKeepTime(long time) {
-      if (controllableExecutorService) {
-         ((ControllableExecutorService) validationExecutorService).setKeepAliveTime(time);
-      }
-   }
-
-   @ManagedAttribute(description = "The percentage of occupation of the queue")
-   @Metric(displayName = "Percentage of Occupation of the Queue", units = Units.PERCENTAGE,
-           displayType = DisplayType.SUMMARY)
-   public double getNumberOfTransactionInPendingQueue() {
-      if (controllableExecutorService) {
-         return ((ControllableExecutorService) validationExecutorService).getQueueOccupationPercentage();
-      } else {
-         return 0D;
-      }
-   }
-
-   @ManagedAttribute(description = "The approximate percentage of active threads in the thread pool")
-   @Metric(displayName = "Percentage of Active Threads", units = Units.PERCENTAGE, displayType = DisplayType.SUMMARY)
-   public double getPercentageActiveThreads() {
-      if (controllableExecutorService) {
-         return ((ControllableExecutorService) validationExecutorService).getUsagePercentage();
-      } else {
-         return 0D;
-      }
    }
 
    @ManagedAttribute(description = "Average time in the queue before the validation (milliseconds)")
@@ -207,8 +139,8 @@ public class ParallelTotalOrderManager extends BaseTotalOrderManager {
    }
 
    /**
-    * constructs a new thread to be passed to the thread pool. this is overridden in distributed mode that has a different
-    * behavior
+    * constructs a new thread to be passed to the thread pool. this is overridden in distributed mode that has a
+    * different behavior
     *
     * @param prepareCommand      the prepare command
     * @param txInvocationContext the context
@@ -243,7 +175,7 @@ public class ParallelTotalOrderManager extends BaseTotalOrderManager {
    /**
     * This class is used to validate transaction in repeatable read with write skew check
     */
-   protected class ParallelPrepareProcessor implements Runnable {
+   private class ParallelPrepareProcessor implements ConditionalRunnable {
 
       protected final RemoteTransaction remoteTransaction;
       protected final PrepareCommand prepareCommand;
@@ -273,14 +205,12 @@ public class ParallelTotalOrderManager extends BaseTotalOrderManager {
       }
 
       @Override
-      public void run() {
+      public final void run() {
          processStartTime = now();
          boolean exception = false;
          try {
             if (trace) log.tracef("Validating transaction %s ",
                                   prepareCommand.getGlobalTransaction().prettyPrint());
-
-
             initializeValidation();
             initializationEndTime = now();
 
@@ -301,6 +231,32 @@ public class ParallelTotalOrderManager extends BaseTotalOrderManager {
          }
       }
 
+      @Override
+      public final boolean isReady() {
+         previousTransactions.remove(remoteTransaction.getDependencyLatch());
+         for (TxDependencyLatch prevTx : previousTransactions) {
+            try {
+               if (!prevTx.await(0, TimeUnit.SECONDS)) {
+                  if (log.isTraceEnabled()) {
+                     log.tracef("[%s] is not ready to prepare due to %s",
+                                prepareCommand.getGlobalTransaction().prettyPrint(), prevTx);
+                  }
+                  return false;
+               }
+            } catch (InterruptedException e) {
+               if (log.isTraceEnabled()) {
+                  log.tracef("[%s ]Interrupted while checking is the previous conflicting transactions has finished",
+                             prepareCommand.getGlobalTransaction().prettyPrint());
+               }
+               return false;
+            }
+         }
+         if (log.isTraceEnabled()) {
+            log.tracef("[%s] is ready to prepare", prepareCommand.getGlobalTransaction().prettyPrint());
+         }
+         return true;
+      }
+
       /**
        * set the initialization of the thread before the validation ensures the validation order in conflicting
        * transactions
@@ -311,35 +267,6 @@ public class ParallelTotalOrderManager extends BaseTotalOrderManager {
          String gtx = prepareCommand.getGlobalTransaction().prettyPrint();
          //TODO is this really needed?
          invocationContextContainer.setContext(txInvocationContext);
-
-         /*
-         we need to ensure the order before cancelling the transaction, because of this scenario:
-
-         Tx2 receives a rollback command
-         Tx1 is deliver and touch Key_X
-         Tx1 is blocked (ensure the order)
-         Tx2 is deliver and touch Key_X (and saves the latch of Tx1)
-         Tx3 is deliver and touch Key_X (and saves the latch of Tx2)
-         Tx2 is immediately aborted (already received the rollback) and releases the latch
-         Tx3 commits and writes in Key_X
-         Tx1 later aborts (in the other nodes, Tx1 commits and Tx3 aborts)
-         */
-         //if (remoteTransaction.isMarkedForRollback()) {
-         //   throw new CacheException("Cannot prepare transaction" + gtx + ". it was already marked as rollback");
-         //}
-
-         boolean isResend = prepareCommand.isOnePhaseCommit();
-         if (isResend) {
-            previousTransactions.remove(remoteTransaction.getDependencyLatch());
-         } else if (previousTransactions.contains(remoteTransaction.getDependencyLatch())) {
-            throw new IllegalStateException("Dependency transaction must not contains myself in the set");
-         }
-
-         for (TxDependencyLatch prevTx : previousTransactions) {
-            if (trace) log.tracef("Transaction %s will wait for %s", gtx, prevTx);
-            prevTx.await();
-         }
-
          remoteTransaction.markForPreparing();
 
          if (remoteTransaction.isMarkedForRollback()) {
@@ -358,22 +285,19 @@ public class ParallelTotalOrderManager extends BaseTotalOrderManager {
       /**
        * finishes the transaction, ie, mark the modification as applied and set the result (exception or not) invokes
        * the method {@link this.finishTransaction} if the transaction has the one phase commit set to true
+       *
        * @param exception true if the result is an exception
        */
-      protected void finishPrepare(boolean exception) {
+      private void finishPrepare(boolean exception) {
          remoteTransaction.markPreparedAndNotify();
          if (prepareCommand.isOnePhaseCommit()) {
-            markTxCompleted();
+            finishTransaction(remoteTransaction);
+            transactionTable.removeRemoteTransaction(prepareCommand.getGlobalTransaction());
          } else if (exception) {
             finishTransaction(remoteTransaction);
             //Note: I cannot remove from the remote table, otherwise, when the rollback arrives, it will create a
             // new remote transaction!
          }
-      }
-
-      protected void markTxCompleted() {
-         finishTransaction(remoteTransaction);
-         transactionTable.removeRemoteTransaction(prepareCommand.getGlobalTransaction());
       }
    }
 }

@@ -27,7 +27,6 @@ import java.util.Set;
 public class TotalOrderVersionedEntryWrappingInterceptor extends VersionedEntryWrappingInterceptor {
 
    private static final Log log = LogFactory.getLog(TotalOrderVersionedEntryWrappingInterceptor.class);
-
    private boolean trace;
 
    @Start
@@ -62,9 +61,8 @@ public class TotalOrderVersionedEntryWrappingInterceptor extends VersionedEntryW
             log.tracef("Transaction %s will be committed in the 2nd phase", ctx.getGlobalTransaction().prettyPrint());
       }
 
-      return visitor.getKeysValidated();
+      return configuration.getCacheMode().isReplicated() ? null : visitor.getKeysValidated();
    }
-
 
    public class VersionCheckWrappingEntryVisitor extends EntryWrappingVisitor {
 
@@ -115,7 +113,7 @@ public class TotalOrderVersionedEntryWrappingInterceptor extends VersionedEntryW
             clusterMvccEntry.setVersion(versionSeen);
          }
 
-         if(!clusterMvccEntry.performWriteSkewCheck(dataContainer)) {
+         if (!clusterMvccEntry.performWriteSkewCheck(dataContainer)) {
             throw WriteSkewException.createException(mvccEntry.getKey(), dataContainer.get(mvccEntry.getKey(), null),
                                                      mvccEntry, prepareCommand.getGlobalTransaction());
          }

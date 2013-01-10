@@ -15,6 +15,8 @@ import java.util.Collection;
 public interface GMUVersionGenerator extends VersionGenerator {
    GMUVersion mergeAndMax(EntryVersion... entryVersions);
 
+   GMUVersion mergeAndMin(EntryVersion... entryVersions);
+
    GMUVersion calculateCommitVersion(EntryVersion prepareVersion, Collection<Address> affectedOwners);
 
    GMUCacheEntryVersion convertVersionToWrite(EntryVersion version, int subVersion);

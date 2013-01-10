@@ -1,5 +1,6 @@
 package org.infinispan.distribution.wrappers;
 
+import org.infinispan.commands.SetClassCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.PrepareCommand;
@@ -21,6 +22,7 @@ import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.transport.Transport;
 import org.infinispan.remoting.transport.jgroups.CommandAwareRpcDispatcher;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
+import org.infinispan.stats.NodeScopeStatisticCollector;
 import org.infinispan.stats.TransactionsStatisticsRegistry;
 import org.infinispan.stats.translations.ExposedStatistics.IspnStats;
 import org.infinispan.transaction.TransactionTable;
@@ -69,6 +71,19 @@ public abstract class CustomStatsInterceptor extends BaseCustomInterceptor {
    }
 
    @Override
+   public Object visitSetClassCommand(InvocationContext ctx, SetClassCommand command) throws Throwable {
+     log.tracef("visitSetClassCommand invoked");
+     Object ret;
+     if(ctx.isInTxScope()){
+        this.initStatsIfNecessary(ctx);
+     }
+     TransactionsStatisticsRegistry.setTransactionalClass(command.getTransactionalClass());
+     //TransactionsStatisticsRegistry.putThreadClasses(Thread.currentThread().getId(), command.getTransactionalClass());
+     //System.out.println(threadClasses.get(Thread.currentThread().getId()));
+     return invokeNextInterceptor(ctx, command);
+   }
+
+   @Override
    public Object visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
       if (log.isTraceEnabled()) {
          log.tracef("Visit Put Key Value command %s. Is it in transaction scope? %s. Is it local? %s", command,
@@ -80,6 +95,7 @@ public abstract class CustomStatsInterceptor extends BaseCustomInterceptor {
          TransactionsStatisticsRegistry.setUpdateTransaction();
          long currTime = System.nanoTime();
          TransactionsStatisticsRegistry.incrementValue(IspnStats.NUM_PUT);
+         TransactionsStatisticsRegistry.addNTBCValue(currTime);
          try {
             ret =  invokeNextInterceptor(ctx,command);
          } catch (TimeoutException e) {
@@ -102,6 +118,7 @@ public abstract class CustomStatsInterceptor extends BaseCustomInterceptor {
             TransactionsStatisticsRegistry.addValue(IspnStats.REMOTE_PUT_EXECUTION,System.nanoTime() - currTime);
             TransactionsStatisticsRegistry.incrementValue(IspnStats.NUM_REMOTE_PUT);
          }
+         TransactionsStatisticsRegistry.setLastOpTimestamp(System.nanoTime());
          return ret;
       }
       else
@@ -117,6 +134,8 @@ public abstract class CustomStatsInterceptor extends BaseCustomInterceptor {
       boolean isTx = ctx.isInTxScope();
       Object ret;
       if(isTx){
+         long currTimeForAllGetCommand = System.nanoTime();
+         TransactionsStatisticsRegistry.addNTBCValue(currTimeForAllGetCommand);
          this.initStatsIfNecessary(ctx);
          long currTime = 0;
          boolean isRemoteKey = isRemote(command.getKey());
@@ -125,12 +144,14 @@ public abstract class CustomStatsInterceptor extends BaseCustomInterceptor {
          }
 
          ret = invokeNextInterceptor(ctx,command);
+         long lastTimeOp = System.nanoTime();
          if(isRemoteKey){
             TransactionsStatisticsRegistry.incrementValue(IspnStats.NUM_REMOTE_GET);
-            TransactionsStatisticsRegistry.addValue(IspnStats.REMOTE_GET_EXECUTION, System.nanoTime() - currTime);
+            TransactionsStatisticsRegistry.addValue(IspnStats.REMOTE_GET_EXECUTION, lastTimeOp - currTime);
          }
-
+         TransactionsStatisticsRegistry.addValue(IspnStats.ALL_GET_EXECUTION, lastTimeOp - currTimeForAllGetCommand);
          TransactionsStatisticsRegistry.incrementValue(IspnStats.NUM_GET);
+         TransactionsStatisticsRegistry.setLastOpTimestamp(lastTimeOp);
       }
       else{
          ret = invokeNextInterceptor(ctx,command);
@@ -139,6 +160,7 @@ public abstract class CustomStatsInterceptor extends BaseCustomInterceptor {
    }
 
    protected boolean isRemote(Object key){
+      //Why?!?!
       return false;
    }
 
@@ -150,6 +172,7 @@ public abstract class CustomStatsInterceptor extends BaseCustomInterceptor {
       }
       this.initStatsIfNecessary(ctx);
       long currTime = System.nanoTime();
+      TransactionsStatisticsRegistry.addNTBCValue(currTime);
       Object ret = invokeNextInterceptor(ctx,command);
       updateTime(IspnStats.COMMIT_EXECUTION_TIME, IspnStats.NUM_COMMIT_COMMAND, currTime);
       TransactionsStatisticsRegistry.setTransactionOutcome(true);
@@ -703,4 +726,446 @@ public abstract class CustomStatsInterceptor extends BaseCustomInterceptor {
       TransactionsStatisticsRegistry.reset();
    }
 
+   @ManagedAttribute(description = "Average Local processing Get time (in microseconds)")
+   @Metric(displayName = "Average Local Get time")
+   public long getAvgLocalGetTime() {
+       return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.LOCAL_GET_EXECUTION)));
+   }
+
+   @ManagedAttribute(description = "Average TCB time (in microseconds)")
+   @Metric(displayName = "Average TCB time")
+   public long getAvgTCBTime() {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.TBC)));
+   }
+
+   @ManagedAttribute(description = "Average NTCB time (in microseconds)")
+   @Metric(displayName = "Average NTCB time")
+   public long getAvgNTCBTime() {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.NTBC)));
+   }
+
+   //JMX with Transactional class xxxxxxxxx
+
+   @ManagedOperation(description = "Average number of puts performed by a successful local transaction per class")
+   @Operation(displayName = "Number of puts per class")
+   public long getAvgNumPutsBySuccessfulLocalTx(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.PUTS_PER_LOCAL_TX,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average Prepare Round-Trip Time duration (in microseconds) per class")
+   @Operation(displayName = "Average Prepare RTT per class")
+   public long getAvgPrepareRtt(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.RTT_PREPARE),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average Commit Round-Trip Time duration (in microseconds) per class")
+   @Operation(displayName = "Average Commit RTT per class")
+   public long getAvgCommitRtt(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.RTT_COMMIT),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average Remote Get Round-Trip Time duration (in microseconds) per class")
+   @Operation(displayName = "Average Remote Get RTT per class")
+   public long getAvgRemoteGetRtt(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.RTT_GET),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average Rollback Round-Trip Time duration (in microseconds) per class")
+   @Operation(displayName = "Average Rollback RTT per class")
+   public long getAvgRollbackRtt(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.RTT_ROLLBACK),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average asynchronous Prepare duration (in microseconds) per class")
+   @Operation(displayName = "Average Prepare Async per class")
+   public long getAvgPrepareAsync(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.ASYNC_PREPARE),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average asynchronous Commit duration (in microseconds) per class")
+   @Operation(displayName = "Average Commit Async per class")
+   public long getAvgCommitAsync(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.ASYNC_COMMIT),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average asynchronous Complete Notification duration (in microseconds) per class")
+   @Operation(displayName = "Average Complete Notification Async per class")
+   public long getAvgCompleteNotificationAsync(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.ASYNC_COMPLETE_NOTIFY),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average asynchronous Rollback duration (in microseconds) per class")
+   @Operation(displayName = "Average Rollback Async per class")
+   public long getAvgRollbackAsync(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.ASYNC_ROLLBACK),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average number of nodes in Commit destination set per class")
+   @Operation(displayName = "Average Number of Nodes in Commit Destination Set per class")
+   public long getAvgNumNodesCommit(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.NUM_NODES_COMMIT),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average number of nodes in Complete Notification destination set per class")
+   @Operation(displayName = "Average Number of Nodes in Complete Notification Destination Set per class")
+   public long getAvgNumNodesCompleteNotification(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.NUM_NODES_COMPLETE_NOTIFY),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average number of nodes in Remote Get destination set per class")
+   @Operation(displayName = "Average Number of Nodes in Remote Get Destination Set per class")
+   public long getAvgNumNodesRemoteGet(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.NUM_NODES_GET),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average number of nodes in Prepare destination set per class")
+   @Operation(displayName = "Average Number of Nodes in Prepare Destination Set per class")
+   public long getAvgNumNodesPrepare(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.NUM_NODES_PREPARE),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average number of nodes in Rollback destination set per class")
+   @Operation(displayName = "Average Number of Nodes in Rollback Destination Set per class")
+   public long getAvgNumNodesRollback(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.NUM_NODES_ROLLBACK),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Application Contention Factor per class")
+   @Operation(displayName = "Application Contention Factor per class")
+   public double getApplicationContentionFactor(String transactionalClass) {
+      return (Double)TransactionsStatisticsRegistry.getAttribute((IspnStats.APPLICATION_CONTENTION_FACTOR),transactionalClass);
+   }
+
+   @Deprecated
+   @ManagedOperation(description = "Local Contention Probability per class")
+   @Operation(displayName = "Local Conflict Probability per class")
+   public double getLocalContentionProbability(String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getAttribute((IspnStats.LOCAL_CONTENTION_PROBABILITY),transactionalClass);
+   }
+
+   @ManagedOperation(description = "Remote Contention Probability per class")
+   @Operation(displayName = "Remote Conflict Probability per class")
+   public double getRemoteContentionProbability(String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getAttribute((IspnStats.REMOTE_CONTENTION_PROBABILITY),transactionalClass);
+   }
+
+   @ManagedOperation(description = "Lock Contention Probability per class")
+   @Operation(displayName = "Lock Contention Probability per class")
+   public double getLockContentionProbability(String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getAttribute((IspnStats.LOCK_CONTENTION_PROBABILITY),transactionalClass);
+   }
+
+   @ManagedOperation(description = "Local execution time of a transaction without the time waiting for lock acquisition per class")
+   @Operation(displayName = "Local Execution Time Without Locking Time per class")
+   public long getLocalExecutionTimeWithoutLock(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.LOCAL_EXEC_NO_CONT,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average lock holding time (in microseconds) per class")
+   @Operation(displayName = "Average Lock Holding Time per class")
+   public long getAvgLockHoldTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.LOCK_HOLD_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average lock local holding time (in microseconds) per class")
+   @Operation(displayName = "Average Lock Local Holding Time per class")
+   public long getAvgLocalLockHoldTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.LOCK_HOLD_TIME_LOCAL,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average lock remote holding time (in microseconds) per class")
+   @Operation(displayName = "Average Lock Remote Holding Time per class")
+   public long getAvgRemoteLockHoldTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.LOCK_HOLD_TIME_REMOTE,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average local commit duration time (2nd phase only) (in microseconds) per class")
+   @Operation(displayName = "Average Commit Time per class")
+   public long getAvgCommitTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.COMMIT_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average local rollback duration time (2nd phase only) (in microseconds) per class")
+   @Operation(displayName = "Average Rollback Time per class")
+   public long getAvgRollbackTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.ROLLBACK_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average prepare command size (in bytes) per class")
+   @Operation(displayName = "Average Prepare Command Size per class")
+   public long getAvgPrepareCommandSize(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.PREPARE_COMMAND_SIZE,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average commit command size (in bytes) per class")
+   @Operation(displayName = "Average Commit Command Size per class")
+   public long getAvgCommitCommandSize(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.COMMIT_COMMAND_SIZE,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average clustered get command size (in bytes) per class")
+   @Operation(displayName = "Average Clustered Get Command Size per class")
+   public long getAvgClusteredGetCommandSize(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.CLUSTERED_GET_COMMAND_SIZE,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average time waiting for the lock acquisition (in microseconds) per class")
+   @Operation(displayName = "Average Lock Waiting Time per class")
+   public long getAvgLockWaitingTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.LOCK_WAITING_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average transaction arrival rate, originated locally and remotely (in transaction " +
+           "per second) per class")
+   @Operation(displayName = "Average Transaction Arrival Rate per class")
+   public double getAvgTxArrivalRate(String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getAttribute(IspnStats.ARRIVAL_RATE,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Percentage of Write transaction executed locally (committed and aborted) per class")
+   @Operation(displayName = "Percentage of Write Transactions per class")
+   public double getPercentageWriteTransactions(String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getAttribute(IspnStats.TX_WRITE_PERCENTAGE,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Percentage of Write transaction executed in all successfully executed " +
+           "transactions (local transaction only) per class")
+   @Operation(displayName = "Percentage of Successfully Write Transactions per class")
+   public double getPercentageSuccessWriteTransactions(String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getAttribute(IspnStats.SUCCESSFUL_WRITE_PERCENTAGE,transactionalClass);
+   }
+
+   @ManagedOperation(description = "The number of aborted transactions due to timeout in lock acquisition per class")
+   @Operation(displayName = "Number of Aborted Transaction due to Lock Acquisition Timeout per class")
+   public long getNumAbortedTxDueTimeout(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_LOCK_FAILED_TIMEOUT,transactionalClass);
+   }
+
+   @ManagedOperation(description = "The number of aborted transactions due to deadlock per class")
+   @Operation(displayName = "Number of Aborted Transaction due to Deadlock per class")
+   public long getNumAbortedTxDueDeadlock(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_LOCK_FAILED_DEADLOCK,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average successful read-only transaction duration (in microseconds) per class")
+   @Operation(displayName = "Average Read-Only Transaction Duration per class")
+   public long getAvgReadOnlyTxDuration(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.RO_TX_SUCCESSFUL_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average successful write transaction duration (in microseconds) per class")
+   @Operation(displayName = "Average Write Transaction Duration per class")
+   public long getAvgWriteTxDuration(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.WR_TX_SUCCESSFUL_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average write transaction local execution time (in microseconds) per class")
+   @Operation(displayName = "Average Write Transaction Local Execution Time per class")
+   public long getAvgWriteTxLocalExecution(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.WR_TX_LOCAL_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average number of locks per write local transaction per class")
+   @Operation(displayName = "Average Number of Lock per Local Transaction per class")
+   public long getAvgNumOfLockLocalTx(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_LOCK_PER_LOCAL_TX,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average number of locks per write remote transaction per class")
+   @Operation(displayName = "Average Number of Lock per Remote Transaction per class")
+   public long getAvgNumOfLockRemoteTx(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_LOCK_PER_REMOTE_TX,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average number of locks per successfully write local transaction per class")
+   @Operation(displayName = "Average Number of Lock per Successfully Local Transaction per class")
+   public long getAvgNumOfLockSuccessLocalTx(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_LOCK_PER_SUCCESS_LOCAL_TX,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average time it takes to execute the prepare command locally (in microseconds) per class")
+   @Operation(displayName = "Average Local Prepare Execution Time per class")
+   public long getAvgLocalPrepareTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.LOCAL_PREPARE_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average time it takes to execute the prepare command remotely (in microseconds) per class")
+   @Operation(displayName = "Average Remote Prepare Execution Time per class")
+   public long getAvgRemotePrepareTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.REMOTE_PREPARE_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average time it takes to execute the commit command locally (in microseconds) per class")
+   @Operation(displayName = "Average Local Commit Execution Time per class")
+   public long getAvgLocalCommitTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.LOCAL_COMMIT_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average time it takes to execute the commit command remotely (in microseconds) per class")
+   @Operation(displayName = "Average Remote Commit Execution Time per class")
+   public long getAvgRemoteCommitTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.REMOTE_COMMIT_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average time it takes to execute the rollback command locally (in microseconds) per class")
+   @Operation(displayName = "Average Local Rollback Execution Time per class")
+   public long getAvgLocalRollbackTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.LOCAL_ROLLBACK_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average time it takes to execute the rollback command remotely (in microseconds) per class")
+   @Operation(displayName = "Average Remote Rollback Execution Time per class")
+   public long getAvgRemoteRollbackTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.REMOTE_ROLLBACK_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average time it takes to execute the rollback command remotely (in microseconds) per class")
+   @Operation(displayName = "Average Remote Transaction Completion Notify Execution Time per class")
+   public long getAvgRemoteTxCompleteNotifyTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.TX_COMPLETE_NOTIFY_EXECUTION_TIME,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Abort Rate per class")
+   @Operation(displayName = "Abort Rate per class")
+   public double getAbortRate(String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getAttribute(IspnStats.ABORT_RATE,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Throughput (in transactions per second) per class")
+   @Operation(displayName = "Throughput per class")
+   public double getThroughput(String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getAttribute(IspnStats.THROUGHPUT,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average number of get operations per (local) read-only transaction per class")
+   @Operation(displayName = "Average number of get operations per (local) read-only transaction per class")
+   public long getAvgGetsPerROTransaction(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_SUCCESSFUL_GETS_RO_TX,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average number of get operations per (local) read-write transaction per class")
+   @Operation(displayName = "Average number of get operations per (local) read-write transaction per class")
+   public long getAvgGetsPerWrTransaction(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_SUCCESSFUL_GETS_WR_TX,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average number of remote get operations per (local) read-write transaction per class")
+   @Operation(displayName = "Average number of remote get operations per (local) read-write transaction per class")
+   public long getAvgRemoteGetsPerWrTransaction(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_SUCCESSFUL_REMOTE_GETS_WR_TX,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average number of remote get operations per (local) read-only transaction per class")
+   @Operation(displayName = "Average number of remote get operations per (local) read-only transaction per class")
+   public long getAvgRemoteGetsPerROTransaction(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_SUCCESSFUL_REMOTE_GETS_RO_TX,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average cost of a remote get per class")
+   @Operation(displayName = "Remote get cost per class")
+   public long getRemoteGetExecutionTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.REMOTE_GET_EXECUTION,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average number of put operations per (local) read-write transaction per class")
+   @Operation(displayName = "Average number of put operations per (local) read-write transaction per class")
+   public long getAvgPutsPerWrTransaction(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_SUCCESSFUL_PUTS_WR_TX,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average number of remote put operations per (local) read-write transaction per class")
+   @Operation(displayName = "Average number of remote put operations per (local) read-write transaction per class")
+   public long getAvgRemotePutsPerWrTransaction(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_SUCCESSFUL_REMOTE_PUTS_WR_TX,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average cost of a remote put per class")
+   @Operation(displayName = "Remote put cost per class")
+   public long getRemotePutExecutionTime(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.REMOTE_PUT_EXECUTION,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Number of gets performed since last reset per class")
+   @Operation(displayName = "Number of Gets per class")
+   public long getNumberOfGets(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_GET,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Number of remote gets performed since last reset per class")
+   @Operation(displayName = "Number of Remote Gets per class")
+   public long getNumberOfRemoteGets(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_REMOTE_GET,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Number of puts performed since last reset per class")
+   @Operation(displayName = "Number of Puts per class")
+   public long getNumberOfPuts(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_PUT,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Number of remote puts performed since last reset per class")
+   @Operation(displayName = "Number of Remote Puts per class")
+   public long getNumberOfRemotePuts(String transactionalClass){
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_REMOTE_PUT,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Number of committed transactions since last reset per class")
+   @Operation(displayName = "Number Of Commits per class")
+   public long getNumberOfCommits(String transactionalClass) {
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_COMMITS,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Number of local committed transactions since last reset per class")
+   @Operation(displayName = "Number Of Local Commits per class")
+   public long getNumberOfLocalCommits(String transactionalClass) {
+      return (Long)TransactionsStatisticsRegistry.getAttribute(IspnStats.NUM_LOCAL_COMMITS,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Write skew probability per class")
+   @Operation(displayName = "Write Skew Probability per class")
+   public double getWriteSkewProbability(String transactionalClass) {
+      return (Double)TransactionsStatisticsRegistry.getAttribute(IspnStats.WRITE_SKEW_PROBABILITY,transactionalClass);
+   }
+
+   @ManagedOperation(description = "K-th percentile of local read-only transactions execution time per class")
+   @Operation(displayName = "K-th Percentile Local Read-Only Transactions per class")
+   public double getPercentileLocalReadOnlyTransaction(int percentile,String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getPercentile(IspnStats.RO_LOCAL_PERCENTILE, percentile,transactionalClass);
+   }
+
+   @ManagedOperation(description = "K-th percentile of remote read-only transactions execution time per class")
+   @Operation(displayName = "K-th Percentile Remote Read-Only Transactions per class")
+   public double getPercentileRemoteReadOnlyTransaction(int percentile,String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getPercentile(IspnStats.RO_REMOTE_PERCENTILE, percentile,transactionalClass);
+   }
+
+   @ManagedOperation(description = "K-th percentile of local write transactions execution time per class")
+   @Operation(displayName = "K-th Percentile Local Write Transactions per class")
+   public double getPercentileLocalRWriteTransaction(int percentile,String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getPercentile(IspnStats.WR_LOCAL_PERCENTILE, percentile,transactionalClass);
+   }
+
+   @ManagedOperation(description = "K-th percentile of remote write transactions execution time per class")
+   @Operation(displayName = "K-th Percentile Remote Write Transactions per class")
+   public double getPercentileRemoteWriteTransaction(int percentile,String transactionalClass){
+      return (Double)TransactionsStatisticsRegistry.getPercentile(IspnStats.WR_REMOTE_PERCENTILE, percentile,transactionalClass);
+   }
+
+   @ManagedOperation(description = "Average Local processing Get time (in microseconds) per class")
+   @Operation(displayName = "Average Local Get time per class")
+   public long getAvgLocalGetTime(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.LOCAL_GET_EXECUTION),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average TCB time (in microseconds) per class")
+   @Operation(displayName = "Average TCB time per class")
+   public long getAvgTCBTime(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.TBC),transactionalClass));
+   }
+
+   @ManagedOperation(description = "Average NTCB time (in microseconds) per class")
+   @Operation(displayName = "Average NTCB time per class")
+   public long getAvgNTCBTime(String transactionalClass) {
+      return (Long)(TransactionsStatisticsRegistry.getAttribute((IspnStats.NTBC),transactionalClass));
+   }
 }

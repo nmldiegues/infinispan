@@ -110,6 +110,30 @@ public class DistGMUVersionGenerator implements GMUVersionGenerator {
    }
 
    @Override
+   public GMUVersion mergeAndMin(EntryVersion... entryVersions) {
+      int viewId = currentViewId;
+      ClusterSnapshot clusterSnapshot = getClusterSnapshot(viewId);
+      long[] versions = create(true, clusterSnapshot.size());
+      if (entryVersions.length == 0) {
+         return new GMUDistributedVersion(cacheName, viewId, this, versions);
+      }
+
+      for (EntryVersion entryVersion : entryVersions) {
+         GMUVersion gmuVersion = toGMUVersion(entryVersion);
+         for (int i = 0; i < clusterSnapshot.size(); ++i) {
+            long value = gmuVersion.getVersionValue(clusterSnapshot.get(i));
+            if (versions[i] == NON_EXISTING) {
+               versions[i] = value;
+            } else if (value != NON_EXISTING) {
+               versions[i] = Math.min(versions[i], value);
+            }
+         }
+      }
+
+      return new GMUDistributedVersion(cacheName, viewId, this, versions);
+   }
+
+   @Override
    public final GMUVersion calculateCommitVersion(EntryVersion prepareVersion,
                                                   Collection<Address> affectedOwners) {
       int viewId = currentViewId;
@@ -139,7 +163,7 @@ public class DistGMUVersionGenerator implements GMUVersionGenerator {
       if (version == null) {
          return null;
       }
-      GMUVersion gmuVersion  = toGMUVersion(version);
+      GMUVersion gmuVersion = toGMUVersion(version);
       return new GMUReadVersion(cacheName, currentViewId, this, gmuVersion.getThisNodeVersionValue());
    }
 
@@ -242,7 +266,7 @@ public class DistGMUVersionGenerator implements GMUVersionGenerator {
          int viewId = currentViewId;
          ClusterSnapshot clusterSnapshot = getClusterSnapshot(viewId);
          long[] newVersions = new long[clusterSnapshot.size()];
-         for (int i = 0;  i < clusterSnapshot.size(); ++i) {
+         for (int i = 0; i < clusterSnapshot.size(); ++i) {
             newVersions[i] = ((GMUDistributedVersion) entryVersion).getVersionValue(clusterSnapshot.get(i));
          }
          return new GMUDistributedVersion(cacheName, viewId, this, newVersions);
@@ -252,7 +276,7 @@ public class DistGMUVersionGenerator implements GMUVersionGenerator {
 
    @Override
    public synchronized final ClusterSnapshot getClusterSnapshot(int viewId) {
-      if(viewId < viewIdClusterSnapshot.firstKey()) {
+      if (viewId < viewIdClusterSnapshot.firstKey()) {
          //we don't have this view id anymore
          return null;
       }
@@ -297,6 +321,16 @@ public class DistGMUVersionGenerator implements GMUVersionGenerator {
       currentViewId = viewId;
       viewIdClusterSnapshot.put(viewId, new ClusterSnapshot(addresses, HASH));
       notifyAll();
+   }
+
+   @Override
+   public synchronized void gcCacheView(int minViewId) {
+      viewIdClusterSnapshot.headMap(minViewId).clear();
+   }
+
+   @Override
+   public synchronized int getViewHistorySize() {
+      return viewIdClusterSnapshot.size();
    }
 
    private long[] create(boolean fill, int size) {
@@ -357,7 +391,7 @@ public class DistGMUVersionGenerator implements GMUVersionGenerator {
       List<Integer> ownersIndex = new LinkedList<Integer>();
       long commitValue = 0;
 
-      for(Address owner : addresses) {
+      for (Address owner : addresses) {
          int index = clusterSnapshot.indexOf(owner);
          if (index < 0) {
             continue;

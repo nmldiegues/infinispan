@@ -28,13 +28,13 @@ import java.util.Map;
 /**
  * An enumeration of all the recognized XML element local names, by name.
  *
- * @author Pete Muir 
+ * @author Pete Muir
  */
 public enum Element {
    // must be first
    UNKNOWN(null),
 
-   // 
+   //
    ADVANCED_EXTERNALIZER("advancedExternalizer"),
    ADVANCED_EXTERNALIZERS("advancedExternalizers"),
    ASYNC("async"),
@@ -79,8 +79,9 @@ public enum Element {
    TRANSPORT("transport"),
    UNSAFE("unsafe"),
    VERSIONING("versioning"),
-   TOTAL_ORDER_EXECUTOR("totalOrderExecutor"),
-   DATA_PLACEMENT("dataPlacement")
+   DATA_PLACEMENT("dataPlacement"),
+   GARBAGE_COLLECTOR("garbageCollector"),
+   CONDITIONAL_EXECUTOR_SERVICE("conditionalExecutorService")
    ;
 
    private final String name;

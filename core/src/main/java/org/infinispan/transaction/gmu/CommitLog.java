@@ -11,6 +11,7 @@ import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
+import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.gmu.manager.CommittedTransaction;
 import org.infinispan.util.Util;
 import org.infinispan.util.concurrent.IsolationLevel;
@@ -66,7 +67,18 @@ public class CommitLog {
 
    }
 
-   public synchronized GMUVersion getCurrentVersion() {
+   public final void initLocalTransaction(LocalTransaction localTransaction) {
+      if (!enabled) {
+         return;
+      }
+      GMUVersion transactionVersion;
+      synchronized (this) {
+         transactionVersion = versionGenerator.updatedVersion(mostRecentVersion);
+      }
+      localTransaction.setTransactionVersion(transactionVersion);
+   }
+
+   public final synchronized GMUVersion getCurrentVersion() {
       assertEnabled();
       //versions are immutable
       GMUVersion version = versionGenerator.updatedVersion(mostRecentVersion);
@@ -77,7 +89,7 @@ public class CommitLog {
       return version;
    }
 
-   public EntryVersion getOldestVersion() {
+   public final EntryVersion getOldestVersion() {
       VersionEntry iterator;
       synchronized (this) {
          iterator = currentVersion;
@@ -88,7 +100,7 @@ public class CommitLog {
       return iterator.getVersion();
    }
 
-   public EntryVersion getEntry(EntryVersion entryVersion) {
+   public final EntryVersion getEntry(EntryVersion entryVersion) {
       GMUVersion gmuEntryVersion = toGMUVersion(entryVersion);
       VersionEntry versionEntry;
       synchronized (this) {
@@ -103,7 +115,7 @@ public class CommitLog {
       return getOldestVersion();
    }
 
-   public GMUVersion getAvailableVersionLessThan(EntryVersion other) {
+   public final GMUVersion getAvailableVersionLessThan(EntryVersion other) {
       assertEnabled();
       if (other == null) {
          synchronized (this) {
@@ -171,7 +183,7 @@ public class CommitLog {
       return gmuReadVersion;
    }
 
-   public synchronized void insertNewCommittedVersions(Collection<CommittedTransaction> transactions) {
+   public final synchronized void insertNewCommittedVersions(Collection<CommittedTransaction> transactions) {
       assertEnabled();
       for (CommittedTransaction transaction : transactions) {
          if (log.isTraceEnabled()) {
@@ -190,7 +202,7 @@ public class CommitLog {
       notifyAll();
    }
 
-   public synchronized void updateMostRecentVersion(EntryVersion newVersion) {
+   public final synchronized void updateMostRecentVersion(EntryVersion newVersion) {
       /*
       assertEnabled();
       GMUVersion gmuEntryVersion = toGMUVersion(newVersion);
@@ -203,7 +215,7 @@ public class CommitLog {
       */
    }
 
-   public synchronized boolean waitForVersion(EntryVersion version, long timeout) throws InterruptedException {
+   public final synchronized boolean waitForVersion(EntryVersion version, long timeout) throws InterruptedException {
       assertEnabled();
       if (timeout < 0) {
          if (log.isTraceEnabled()) {
@@ -268,6 +280,64 @@ public class CommitLog {
       } finally {
          Util.close(bufferedWriter);
       }
+   }
+
+   /**
+    * removes the older version than {@param minVersion} and returns the minimum usable version to remove the old values
+    * in data container
+    *
+    * @param minVersion the minimum visible version
+    * @return the minimum usable version (to remove entries in data container)
+    */
+   public final GMUVersion gcOlderVersions(GMUVersion minVersion) {
+      VersionEntry iterator;
+      VersionEntry removeFromHere = null;
+      GMUVersion minimumVisibleVersion = null;
+      synchronized (this) {
+         iterator = currentVersion;
+      }
+
+      while (iterator != null) {
+         if (isLessOrEquals(iterator.getVersion(), minVersion)) {
+            if (minimumVisibleVersion == null) {
+               minimumVisibleVersion = iterator.getVersion();
+               removeFromHere = iterator;
+            }
+         } else {
+            minimumVisibleVersion = null;
+            removeFromHere = null;
+         }
+         iterator = iterator.getPrevious();
+      }
+
+      while (removeFromHere != null) {
+         VersionEntry previous = removeFromHere.getPrevious();
+         removeFromHere.setPrevious(null);
+         removeFromHere = previous;
+      }
+
+      if (log.isTraceEnabled()) {
+         log.tracef("gcOlderVersion(%s) ==> %s", minVersion, minimumVisibleVersion);
+      }
+
+      return minimumVisibleVersion;
+   }
+
+   public final int calculateMinimumViewId() {
+      VersionEntry iterator;
+      int minimumViewId;
+      synchronized (this) {
+         minimumViewId = currentVersion.getVersion().getViewId();
+         iterator = currentVersion.getPrevious();
+      }
+      while (iterator != null) {
+         minimumViewId = Math.min(minimumViewId, iterator.getVersion().getViewId());
+      }
+      return minimumViewId;
+   }
+
+   public boolean tryWaitForVersion(GMUVersion minGMUVersion) {
+      return currentVersion.getVersion().getThisNodeVersionValue() >= minGMUVersion.getThisNodeVersionValue();
    }
 
    private void assertEnabled() {

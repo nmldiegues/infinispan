@@ -17,14 +17,11 @@ import javax.transaction.Transaction;
 public class ProtocolManager {
 
    private static final Log log = LogFactory.getLog(ProtocolManager.class);
-
    private final StatisticManager statisticManager;
-
    private long epoch = 0;
    private ReconfigurableProtocol current;
    private ReconfigurableProtocol old;
    private State state;
-
    private StatisticManager.Stats currentStat;
 
    public ProtocolManager(StatisticManager statisticManager) {
@@ -34,19 +31,20 @@ public class ProtocolManager {
    /**
     * init the protocol manager with the initial replication protocol
     *
-    * @param actual  the initial replication protocol
+    * @param actual the initial replication protocol
+    * @param epoch  the initial epoch
     */
-   public final synchronized void init(ReconfigurableProtocol actual) {
+   public final synchronized void init(ReconfigurableProtocol actual, long epoch) {
       this.old = null;
       this.current = actual;
       this.state = State.SAFE;
-      this.epoch = 0;
+      this.epoch = epoch;
    }
 
    /**
     * returns the current replication protocol
     *
-    * @return  the current replication protocol
+    * @return the current replication protocol
     */
    public final synchronized ReconfigurableProtocol getCurrent() {
       return current;
@@ -66,7 +64,7 @@ public class ProtocolManager {
    /**
     * atomically changes the current protocol and increments the epoch
     *
-    * @param newProtocol   the new replication protocol to use
+    * @param newProtocol the new replication protocol to use
     */
    public final synchronized void change(ReconfigurableProtocol newProtocol, boolean safe) {
       if (safe) {
@@ -96,8 +94,8 @@ public class ProtocolManager {
    /**
     * check if the {@param reconfigurableProtocol} is the current replication protocol in use
     *
-    * @param reconfigurableProtocol the replication protocol to check                                   
-    * @return                       true if it is the current replication protocol, false otherwise
+    * @param reconfigurableProtocol the replication protocol to check
+    * @return true if it is the current replication protocol, false otherwise
     */
    public final synchronized boolean isCurrentProtocol(ReconfigurableProtocol reconfigurableProtocol) {
       return reconfigurableProtocol == current || reconfigurableProtocol.equals(current);
@@ -106,7 +104,7 @@ public class ProtocolManager {
    /**
     * atomically returns the current replication protocol and epoch
     *
-    * @return  the current replication protocol and epoch
+    * @return the current replication protocol and epoch
     */
    public final synchronized CurrentProtocolInfo getCurrentProtocolInfo() {
       return new CurrentProtocolInfo(epoch, current, old, state);
@@ -115,8 +113,8 @@ public class ProtocolManager {
    /**
     * returns when the current epoch is higher or equals than {@param epoch}, blocking until that condition is true
     *
-    * @param epoch                  the epoch to be ensured
-    * @throws InterruptedException  if it is interrupted while waiting
+    * @param epoch the epoch to be ensured
+    * @throws InterruptedException if it is interrupted while waiting
     */
    public final synchronized void ensure(long epoch) throws InterruptedException {
       if (log.isDebugEnabled()) {
@@ -133,7 +131,7 @@ public class ProtocolManager {
    /**
     * returns true if the current state is unsafe
     *
-    * @return  true if the current state is unsafe
+    * @return true if the current state is unsafe
     */
    public final synchronized boolean isUnsafe() {
       return state == State.UNSAFE;
@@ -141,7 +139,8 @@ public class ProtocolManager {
 
    /**
     * returns true if the current state is switch in progress
-    * @return  true if the current state is switch in progress
+    *
+    * @return true if the current state is switch in progress
     */
    public final synchronized boolean isInProgress() {
       return state == State.IN_PROGRESS;
@@ -150,7 +149,7 @@ public class ProtocolManager {
    /**
     * ensure that the switch is not in progress when the method returns
     *
-    * @throws InterruptedException  if interrupted while waiting for the switch to end
+    * @throws InterruptedException if interrupted while waiting for the switch to end
     */
    public final synchronized void ensureNotInProgress() throws InterruptedException {
       if (log.isDebugEnabled()) {
@@ -172,14 +171,27 @@ public class ProtocolManager {
          execProtocol.commitTransaction(transaction);
          current.addLocalTransaction(globalTransaction, writeSet);
       }
-      return getCurrentProtocolInfo();      
+      return getCurrentProtocolInfo();
    }
-   
+
    public final synchronized void addNumberOfTransactionsAborted(int val) {
       if (currentStat != null) {
          currentStat.addNumberOfTransactionAborted(val);
       }
-   }   
+   }
+
+   public final synchronized long getEpoch() {
+      return epoch;
+   }
+
+   /**
+    * the possible states
+    */
+   private static enum State {
+      SAFE,
+      UNSAFE,
+      IN_PROGRESS
+   }
 
    /**
     * class used to atomically retrieve the current replication protocol and epoch
@@ -225,14 +237,5 @@ public class ProtocolManager {
                ", state=" + state +
                '}';
       }
-   }
-
-   /**
-    * the possible states
-    */
-   private static enum State {
-      SAFE,
-      UNSAFE,
-      IN_PROGRESS
    }
 }

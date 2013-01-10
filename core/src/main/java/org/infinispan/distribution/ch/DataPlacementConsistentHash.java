@@ -5,12 +5,13 @@ import org.infinispan.dataplacement.lookup.ObjectLookup;
 import org.infinispan.remoting.transport.Address;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
 /**
- * The consistent hash function implementation that the Object Lookup implementations from the Data Placement 
+ * The consistent hash function implementation that the Object Lookup implementations from the Data Placement
  * optimization
  *
  * @author Zhongmiao Li
@@ -20,9 +21,9 @@ import java.util.Set;
  */
 public class DataPlacementConsistentHash extends AbstractConsistentHash {
 
-   private ConsistentHash defaultConsistentHash;
    private final ObjectLookup[] objectsLookup;
    private final ClusterSnapshot clusterSnapshot;
+   private ConsistentHash defaultConsistentHash;
 
    public DataPlacementConsistentHash(ClusterSnapshot clusterSnapshot) {
       this.clusterSnapshot = clusterSnapshot;
@@ -40,9 +41,17 @@ public class DataPlacementConsistentHash extends AbstractConsistentHash {
       objectsLookup[index] = objectLookup;
    }
 
+   public void setDefault(ConsistentHash defaultHash) {
+      defaultConsistentHash = defaultHash;
+   }
+
    @Override
    public void setCaches(Set<Address> caches) {
       defaultConsistentHash.setCaches(caches);
+   }
+
+   public ConsistentHash getDefaultHash() {
+      return defaultConsistentHash;
    }
 
    @Override
@@ -67,17 +76,32 @@ public class DataPlacementConsistentHash extends AbstractConsistentHash {
 
       List<Integer> newOwners = lookup.query(key);
 
-      if (newOwners == null || newOwners.size() != defaultOwners.size()) {
+      if (newOwners == null) {
          return defaultOwners;
       }
 
-      List<Address> ownersAddress = new LinkedList<Address>();
+      LinkedList<Address> ownersAddress = new LinkedList<Address>();
       for (int index : newOwners) {
          Address owner = clusterSnapshot.get(index);
          if (owner == null) {
-            return defaultOwners;
+            continue;
          }
          ownersAddress.add(owner);
+      }
+
+      if (ownersAddress.size() > replCount) {
+         while (ownersAddress.size() > replCount) {
+            ownersAddress.removeLast();
+         }
+      } else if (ownersAddress.size() < replCount) {
+         Iterator<Address> iterator = defaultOwners.iterator();
+         while (ownersAddress.size() < replCount && iterator.hasNext()) {
+            Address address = iterator.next();
+            if (ownersAddress.contains(address)) {
+               continue;
+            }
+            ownersAddress.add(address);
+         }
       }
 
       return ownersAddress;
@@ -89,11 +113,4 @@ public class DataPlacementConsistentHash extends AbstractConsistentHash {
    }
 
 
-   public void setDefault(ConsistentHash defaultHash) {
-      defaultConsistentHash = defaultHash;
-   }
-
-   public ConsistentHash getDefaultHash() {
-      return defaultConsistentHash;
-   }
 }

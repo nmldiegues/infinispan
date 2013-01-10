@@ -5,8 +5,8 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 /**
- * Manages the round Id, blocks commands from round ahead of time and data placement request if another request is 
- * in progress
+ * Manages the round Id, blocks commands from round ahead of time and data placement request if another request is in
+ * progress
  *
  * @author Pedro Ruivo
  * @since 5.2
@@ -14,19 +14,14 @@ import org.infinispan.util.logging.LogFactory;
 public class RoundManager {
 
    private static final Log log = LogFactory.getLog(RoundManager.class);
-
    private long currentRoundId;
    private long nextRoundId;
-
    private ClusterSnapshot roundClusterSnapshot;
-
    //in milliseconds
    private long coolDownTime;
    //after this time, a next round can start
    private long nextRoundTimestamp;
-
    private boolean roundInProgress;
-
    private boolean enabled = false;
 
    public RoundManager(long coolDownTime) {
@@ -45,7 +40,7 @@ public class RoundManager {
    /**
     * returns the current round Id
     *
-    * @return  the current round Id
+    * @return the current round Id
     */
    public final synchronized long getCurrentRoundId() {
       return currentRoundId;
@@ -54,7 +49,7 @@ public class RoundManager {
    /**
     * returns a new round Id. this is invoked by the coordinator before start a new round´
     *
-    * @return           a new round Id
+    * @return a new round Id
     * @throws Exception if the last request happened recently or another request is in progress
     */
    public final synchronized long getNewRoundId() throws Exception {
@@ -78,13 +73,35 @@ public class RoundManager {
    }
 
    /**
+    * checks if the replication degree change can happen and updates the new round timestamp
+    *
+    * @throws Exception if the last request happened recently or another request is in progress
+    */
+   public final synchronized void replicationDegreeRequest() throws Exception {
+      if (!enabled) {
+         log.warn("Trying to change the replication degree but Data Placement is not enabled");
+         throw new Exception("Data Placement optimization not enabled");
+      }
+
+      if (System.currentTimeMillis() < nextRoundTimestamp) {
+         log.warn("Trying to change the replication degree but the last optimization happened recently");
+         throw new Exception("Cannot start the next round. The last optimization happened recently");
+      }
+
+      if (roundInProgress) {
+         log.warn("Trying to change the replication degree another optimization is already in progress");
+         throw new Exception("Cannot start the next round. Another optimization is in progress");
+      }
+
+      updateNextRoundTimestamp();
+   }
+
+   /**
     * it blocks the current thread until the current round is higher or equals to the round id
     *
-    *
-    *
-    * @param roundId    the round id
-    * @param sender     the sender address 
-    * @return           true if the round id is ensured, false otherwise (not enabled or interrupted)    
+    * @param roundId the round id
+    * @param sender  the sender address
+    * @return true if the round id is ensured, false otherwise (not enabled or interrupted)
     */
    public final synchronized boolean ensure(long roundId, Address sender) {
       if (!enabled) {
@@ -130,9 +147,9 @@ public class RoundManager {
    /**
     * invoked in all members when a new round starts
     *
-    * @param roundId                the new round id
-    * @param roundClusterSnapshot   the round cluster snapshot
-    * @param myAddress              the node address
+    * @param roundId              the new round id
+    * @param roundClusterSnapshot the round cluster snapshot
+    * @param myAddress            the node address
     */
    public final synchronized boolean startNewRound(long roundId, ClusterSnapshot roundClusterSnapshot, Address myAddress) {
       currentRoundId = roundId;
@@ -156,27 +173,27 @@ public class RoundManager {
    }
 
    /**
-    * sets the new cool down time. it only takes effect after the next round
-    *
-    * @param coolDownTime  the new cool down time in milliseconds
-    */
-   public final synchronized void setCoolDownTime(long coolDownTime) {
-      this.coolDownTime = coolDownTime;
-   }
-
-   /**
     * returns the current cool down time between data placement rounds
     *
-    * @return  the current cool down time between data placement rounds
+    * @return the current cool down time between data placement rounds
     */
    public final synchronized long getCoolDownTime() {
       return coolDownTime;
    }
 
    /**
+    * sets the new cool down time. it only takes effect after the next round
+    *
+    * @param coolDownTime the new cool down time in milliseconds
+    */
+   public final synchronized void setCoolDownTime(long coolDownTime) {
+      this.coolDownTime = coolDownTime;
+   }
+
+   /**
     * returns true if a data placement round is in progress
     *
-    * @return  true if a data placement round is in progress, false otherwise
+    * @return true if a data placement round is in progress, false otherwise
     */
    public final synchronized boolean isRoundInProgress() {
       return roundInProgress;
@@ -185,7 +202,7 @@ public class RoundManager {
    /**
     * returns true if the data placement is enabled
     *
-    * @return  true if the data placement is enabled, false otherwise
+    * @return true if the data placement is enabled, false otherwise
     */
    public final synchronized boolean isEnabled() {
       return enabled;

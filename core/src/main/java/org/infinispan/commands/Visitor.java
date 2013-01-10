@@ -97,5 +97,7 @@ public interface Visitor {
    Object visitUnknownCommand(InvocationContext ctx, VisitableCommand command) throws Throwable;
    
    Object visitDistributedExecuteCommand(InvocationContext ctx, DistributedExecuteCommand<?> command) throws Throwable;
+
+   Object visitSetClassCommand(InvocationContext ctx, SetClassCommand command) throws Throwable;
      
 }

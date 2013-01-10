@@ -76,15 +76,19 @@ public class DistributedStateTransferTask extends BaseStateTransferTask {
    private Collection<Address> newCacheSet;
    private final Collection<Object> keysMoved = new LinkedList<Object>();
    private TransactionTable transactionTable;
+   private final int finalNumOwners;
+   private final int initialNumOwners;
 
    public DistributedStateTransferTask(RpcManager rpcManager, Configuration configuration, DataContainer dataContainer,
                                        DistributedStateTransferManagerImpl stateTransferManager,
                                        DistributionManager dm, StateTransferLock stateTransferLock,
                                        CacheNotifier cacheNotifier, int newViewId, Collection<Address> members,
-                                       ConsistentHash chOld, ConsistentHash chNew, boolean initialView, TransactionTable transactionTable) {
+                                       ConsistentHash chOld, ConsistentHash chNew, boolean initialView, TransactionTable transactionTable, int finalNumOwners) {
       super(stateTransferManager, rpcManager, stateTransferLock, cacheNotifier, configuration, dataContainer, members, newViewId, chNew, chOld, initialView);
       this.dm = dm;
       this.stateTransferManager = stateTransferManager;
+      this.initialNumOwners = dm.getReplicationDegree();
+      this.finalNumOwners = finalNumOwners > 0 ? finalNumOwners : dm.getReplicationDegree();
 
       // Cache sets for notification
       oldCacheSet = chOld != null ? Immutables.immutableCollectionWrap(chOld.getCaches()) : Collections.<Address>emptySet();
@@ -100,7 +104,7 @@ public class DistributedStateTransferTask extends BaseStateTransferTask {
 
       if (log.isDebugEnabled())
          log.debugf("Commencing rehash %d on node: %s. Before start, data container had %d entries",
-               newViewId, self, dataContainer.size(null));
+                    newViewId, self, dataContainer.size(null));
       //newCacheSet = Collections.emptySet();
       //oldCacheSet = Collections.emptySet();
       keysToRemove = new ArrayList<Object>();
@@ -120,13 +124,11 @@ public class DistributedStateTransferTask extends BaseStateTransferTask {
          // notify listeners that a rehash is about to start
          cacheNotifier.notifyDataRehashed(oldCacheSet, newCacheSet, newViewId, true, null);
 
-         int numOwners = configuration.getNumOwners();
-
          // Contains the state to be pushed to various servers. The state is a hashmap of servers to entry collections
          final Map<Address, Collection<InternalCacheEntry>> states = new HashMap<Address, Collection<InternalCacheEntry>>();
 
          for (InternalCacheEntry ice : dataContainer) {
-            rebalance(ice.getKey(), ice, numOwners, chOld, chNew, null, states, keysToRemove);
+            rebalance(ice.getKey(), ice, chOld, chNew, null, states, keysToRemove);
          }
 
          checkIfCancelled();
@@ -135,7 +137,7 @@ public class DistributedStateTransferTask extends BaseStateTransferTask {
          CacheStore cacheStore = stateTransferManager.getCacheStoreForStateTransfer();
          if (cacheStore != null) {
             for (Object key : cacheStore.loadAllKeys(new ReadOnlyDataContainerBackedKeySet(dataContainer))) {
-               rebalance(key, null, numOwners, chOld, chNew, cacheStore, states, keysToRemove);
+               rebalance(key, null, chOld, chNew, cacheStore, states, keysToRemove);
             }
          } else {
             if (trace) log.trace("No cache store or cache store is shared, not rebalancing stored keys");
@@ -147,18 +149,18 @@ public class DistributedStateTransferTask extends BaseStateTransferTask {
          for (Map.Entry<Address, Collection<InternalCacheEntry>> entry : states.entrySet()) {
             pushPartialState(Collections.singleton(entry.getKey()), entry.getValue(), null);
          }
-         
+
          // Push locks if the cache is transactional and it is distributed
          if (shouldPushLocks() && transactionTable != null) {
             log.debug("Starting lock migration");
             Map<Address, Collection<LockInfo>> locksToMigrate = new HashMap<Address, Collection<LockInfo>>();
-            rebalanceLocks(numOwners, locksToMigrate, transactionTable.getRemoteTransactions());
-            rebalanceLocks(numOwners, locksToMigrate, transactionTable.getLocalTransactions());
+            rebalanceLocks(locksToMigrate, transactionTable.getRemoteTransactions());
+            rebalanceLocks(locksToMigrate, transactionTable.getLocalTransactions());
             for (Map.Entry<Address, Collection<LockInfo>> e : locksToMigrate.entrySet()) {
                pushPartialState(Collections.singleton(e.getKey()), null, e.getValue());
             }
          }
-         
+
          // And wait for all the push RPCs to end
          finishPushingState();
       } else {
@@ -166,11 +168,11 @@ public class DistributedStateTransferTask extends BaseStateTransferTask {
       }
    }
 
-   private void rebalanceLocks(int numOwners, Map<Address, Collection<LockInfo>> locksToMigrate, Collection<? extends CacheTransaction> tx) throws StateTransferCancelledException {
+   private void rebalanceLocks(Map<Address, Collection<LockInfo>> locksToMigrate, Collection<? extends CacheTransaction> tx) throws StateTransferCancelledException {
       for (CacheTransaction cacheTx : tx) {
          for (Object key : cacheTx.getLockedKeys()) {
             Address oldLockOwner = self;
-            Address newLockOwner = chNew.locate(key, numOwners).get(0);
+            Address newLockOwner = chNew.locate(key, finalNumOwners).get(0);
             if (!oldLockOwner.equals(newLockOwner)) {
                log.tracef("Migrating lock %s from node %s to ", key, oldLockOwner, newLockOwner);
                Collection<LockInfo> lockInfo = locksToMigrate.get(newLockOwner);
@@ -192,6 +194,7 @@ public class DistributedStateTransferTask extends BaseStateTransferTask {
    public void commitStateTransfer() {
       // update the distribution manager's consistent hash
       dm.setConsistentHash(chNew);
+      dm.setReplicationDegree(finalNumOwners);
 
       if (configuration.isRehashEnabled() && !initialView) {
          // now we can invalidate the keys
@@ -211,18 +214,17 @@ public class DistributedStateTransferTask extends BaseStateTransferTask {
     *
     * @param key          The key
     * @param value        The value; <code>null</code> if the value is not in the data container
-    * @param numOwners    The number of owners (grabbed from the configuration)
     * @param chOld        The old (current) consistent hash
     * @param chNew        The new consistent hash
     * @param cacheStore   If the value is <code>null</code>, try to load it from this cache store
     * @param states       The result hashmap. Keys are servers, values are states (hashmaps) to be pushed to them
     * @param keysToRemove A list that the keys that we need to remove will be added to
     */
-   private void rebalance(Object key, InternalCacheEntry value, int numOwners, ConsistentHash chOld, ConsistentHash chNew,
-                            CacheStore cacheStore, Map<Address, Collection<InternalCacheEntry>> states, List<Object> keysToRemove) throws StateTransferCancelledException {
+   private void rebalance(Object key, InternalCacheEntry value, ConsistentHash chOld, ConsistentHash chNew,
+                          CacheStore cacheStore, Map<Address, Collection<InternalCacheEntry>> states, List<Object> keysToRemove) throws StateTransferCancelledException {
       // 1. Get the old and new servers for key K
-      List<Address> oldOwners = chOld.locate(key, numOwners);
-      List<Address> newOwners = chNew.locate(key, numOwners);
+      List<Address> oldOwners = chOld.locate(key, initialNumOwners);
+      List<Address> newOwners = chNew.locate(key, finalNumOwners);
 
       // 2. If the target set for K hasn't changed --> no-op
       if (oldOwners.equals(newOwners))
@@ -240,7 +242,7 @@ public class DistributedStateTransferTask extends BaseStateTransferTask {
       }
 
       if (trace) log.tracef("Rebalancing key %s from %s to %s, pushing owner is %s",
-            key, oldOwners, newOwners, pushingOwner);
+                            key, oldOwners, newOwners, pushingOwner);
 
       // 4. Push K to all the new servers which are *not* in the old servers list
       if (self.equals(pushingOwner)) {

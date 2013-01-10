@@ -55,15 +55,13 @@ public class GlobalConfiguration {
    private final TransportConfiguration transport;
    private final SerializationConfiguration serialization;
    private final ShutdownConfiguration shutdown;
-   private final ExecutorFactoryConfiguration totalOrderExecutor;
-   
+
    private final ClassLoader cl;
-   
+
    GlobalConfiguration(ExecutorFactoryConfiguration asyncListenerExecutor,
          ExecutorFactoryConfiguration asyncTransportExecutor, ScheduledExecutorFactoryConfiguration evictionScheduledExecutor,
          ScheduledExecutorFactoryConfiguration replicationQueueScheduledExecutor, GlobalJmxStatisticsConfiguration globalJmxStatistics,
-         TransportConfiguration transport, SerializationConfiguration serialization, ShutdownConfiguration shutdown, ClassLoader cl,
-                       ExecutorFactoryConfiguration totalOrderExecutor) {
+         TransportConfiguration transport, SerializationConfiguration serialization, ShutdownConfiguration shutdown, ClassLoader cl) {
       this.asyncListenerExecutor = asyncListenerExecutor;
       this.asyncTransportExecutor = asyncTransportExecutor;
       this.evictionScheduledExecutor = evictionScheduledExecutor;
@@ -73,44 +71,43 @@ public class GlobalConfiguration {
       this.serialization = serialization;
       this.shutdown = shutdown;
       this.cl = cl;
-      this.totalOrderExecutor = totalOrderExecutor;
    }
-   
+
    public ExecutorFactoryConfiguration asyncListenerExecutor() {
       return asyncListenerExecutor;
    }
-   
+
    public ExecutorFactoryConfiguration asyncTransportExecutor() {
       return asyncTransportExecutor;
    }
-   
+
    public ScheduledExecutorFactoryConfiguration evictionScheduledExecutor() {
       return evictionScheduledExecutor;
    }
-   
+
    public ScheduledExecutorFactoryConfiguration replicationQueueScheduledExecutor() {
       return replicationQueueScheduledExecutor;
    }
-   
+
    public GlobalJmxStatisticsConfiguration globalJmxStatistics() {
       return globalJmxStatistics;
    }
-   
+
    public TransportConfiguration transport() {
       return transport;
    }
-   
+
    public SerializationConfiguration serialization() {
       return serialization;
    }
-   
+
    public ShutdownConfiguration shutdown() {
       return shutdown;
    }
-   
+
    /**
     * Get the classloader in use by this configuration.
-    * 
+    *
     * @return
     */
    public ClassLoader classLoader() {
@@ -129,12 +126,7 @@ public class GlobalConfiguration {
             ", serialization=" + serialization +
             ", shutdown=" + shutdown +
             ", cl=" + cl +
-            ", totalOrderExecutor=" + totalOrderExecutor +
             '}';
-   }
-
-   public ExecutorFactoryConfiguration totalOrderExecutor() {
-      return totalOrderExecutor;
    }
 }
 

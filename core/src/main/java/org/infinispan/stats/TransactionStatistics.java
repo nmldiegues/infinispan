@@ -2,13 +2,11 @@ package org.infinispan.stats;
 
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.stats.translations.ExposedStatistics.IspnStats;
-import org.infinispan.stats.translations.ExposedStatistics.TransactionalClasses;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -24,8 +22,9 @@ public abstract class TransactionStatistics implements InfinispanStat {
    protected long initTime;
    private boolean isReadOnly;
    private boolean isCommit;
-   private TransactionalClasses transactionalClass;
-   private Map<Object, Long> takenLocks = new ConcurrentHashMap<Object, Long>();
+   private String transactionalClass;
+   private Map<Object, Long> takenLocks = new HashMap<Object, Long>();
+   private long lastOpTimestamp;
 
    private final StatisticsContainer statisticsContainer;
 
@@ -36,7 +35,7 @@ public abstract class TransactionStatistics implements InfinispanStat {
       this.initTime = System.nanoTime();
       this.isReadOnly = true; //as far as it does not tries to perform a put operation
       this.takenLocks = new HashMap<Object, Long>();
-      this.transactionalClass = TransactionalClasses.DEFAULT_CLASS;
+      this.transactionalClass = "DEFAULT_ISPN_CLASS";
       this.statisticsContainer = new StatisticsContainerImpl(size);
       this.configuration = configuration;
       if (log.isTraceEnabled()) {
@@ -45,8 +44,12 @@ public abstract class TransactionStatistics implements InfinispanStat {
       }
    }
 
-   public final TransactionalClasses getTransactionalClass(){
+   public final String getTransactionalClass(){
       return this.transactionalClass;
+   }
+
+   public final void setTransactionalClass(String className){
+      this.transactionalClass = className;
    }
 
    public final boolean isCommit(){
@@ -164,6 +167,14 @@ public abstract class TransactionStatistics implements InfinispanStat {
       for(Object o:this.takenLocks.keySet())
          ret-=this.takenLocks.get(o);
       return ret;
+   }
+
+   public void setLastOpTimestamp(long lastOpTimestamp) {
+      this.lastOpTimestamp = lastOpTimestamp;
+   }
+
+   public long getLastOpTimestamp() {
+      return lastOpTimestamp;
    }
 }
 

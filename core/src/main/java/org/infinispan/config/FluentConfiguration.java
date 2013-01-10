@@ -380,7 +380,7 @@ public class FluentConfiguration extends AbstractFluentConfigurationBean {
    @Deprecated public static interface ExpirationConfig extends FluentTypes {
       /**
        * Maximum lifespan of a cache entry, after which the entry is expired cluster-wide, in
-       * milliseconds. -1 means the entries never expire. 
+       * milliseconds. -1 means the entries never expire.
        *
        * Note that this can be overridden on a per-entry basis by using the Cache API.
        *
@@ -391,7 +391,7 @@ public class FluentConfiguration extends AbstractFluentConfigurationBean {
       /**
        * Maximum idle time a cache entry will be maintained in the cache, in milliseconds. If the
        * idle time is exceeded, the entry will be expired cluster-wide. -1 means the entries never
-       * expire. 
+       * expire.
        *
        * Note that this can be overridden on a per-entry basis by using the Cache API.
        *
@@ -635,7 +635,7 @@ public class FluentConfiguration extends AbstractFluentConfigurationBean {
        * </p>
        *
        * <p>
-       * If the threshold is set to -1, then unicasts will always be used. If the threshold is set to 0, then multicast 
+       * If the threshold is set to -1, then unicasts will always be used. If the threshold is set to 0, then multicast
        * will be always be used.
        * </p>
        *
@@ -838,6 +838,22 @@ public class FluentConfiguration extends AbstractFluentConfigurationBean {
       DataPlacementConfig addProperty(String key, String value);
       DataPlacementConfig maxNumberOfKeysToRequest(int maxNumberOfKeysToRequest);
    }
+
+   @Deprecated
+   public static interface GarbageCollectorConfig extends FluentTypes {
+      GarbageCollectorConfig enable(boolean enable);
+      GarbageCollectorConfig setTransactionThreshold(int threshold);
+      GarbageCollectorConfig setVersionGCMaxIdle(int idle);
+      GarbageCollectorConfig setL1GCInterval(int interval);
+      GarbageCollectorConfig setViewGCBackOff(int backOff);
+   }
+
+   @Deprecated
+   public static interface ConditionalExecutorServiceConfig extends FluentTypes {
+      ConditionalExecutorServiceConfig setCorePoolSize(int size);
+      ConditionalExecutorServiceConfig setMaxPoolSize(int size);
+      ConditionalExecutorServiceConfig setKeepAliveTime(long time);
+   }
 }
 
 @Deprecated
@@ -898,6 +914,10 @@ interface FluentTypes {
    FluentConfiguration.VersioningConfig versioning();
 
    FluentConfiguration.DataPlacementConfig dataPlacement();
+
+   FluentConfiguration.GarbageCollectorConfig garbageCollector();
+
+   FluentConfiguration.ConditionalExecutorServiceConfig conditionalExecutorService();
 
    Configuration build();
 }
@@ -1065,6 +1085,16 @@ abstract class AbstractFluentConfigurationBean extends AbstractNamedCacheConfigu
    @Override
    public FluentConfiguration.DataPlacementConfig dataPlacement() {
       return config.dataPlacement;
+   }
+
+   @Override
+   public FluentConfiguration.GarbageCollectorConfig garbageCollector() {
+      return config.garbageCollector;
+   }
+
+   @Override
+   public FluentConfiguration.ConditionalExecutorServiceConfig conditionalExecutorService() {
+      return config.conditionalExecutorService;
    }
 }
 

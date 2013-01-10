@@ -125,6 +125,8 @@ public interface DistributionManager {
 
    /**
     * Sets the consistent hash implementation in use.
+    *
+    *
     * @param consistentHash consistent hash to set to
     * @return previous consistent hash, the last one for which rehash completed
     */
@@ -159,5 +161,9 @@ public interface DistributionManager {
     * @return a list of addresses which represent a combined set of all addresses affected by the set of keys.
     */
    Collection<Address> getAffectedNodes(Collection<Object> affectedKeys);
+
+   int getReplicationDegree();
+
+   void setReplicationDegree(int replicationDegree);
 }
 

@@ -191,6 +191,11 @@ public class DefaultDataContainer extends AbstractDataContainer<InternalCacheEnt
       }
    }
 
+   @Override
+   public void gc(EntryVersion minimumVersion) {
+      //no-op
+   }
+
    public static class DefaultEntryIterator extends EntryIterator {
 
 

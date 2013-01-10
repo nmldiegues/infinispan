@@ -37,17 +37,19 @@ public class Configuration {
    private final VersioningConfiguration versioningConfiguration;
    private final UnsafeConfiguration unsafeConfiguration;
    private final DataPlacementConfiguration dataPlacementConfiguration;
+   private final GarbageCollectorConfiguration garbageCollectorConfiguration;
+   private final ConditionalExecutorServiceConfiguration conditionalExecutorServiceConfiguration;
 
    Configuration(ClusteringConfiguration clusteringConfiguration,
-         CustomInterceptorsConfiguration customInterceptorsConfiguration,
-         DataContainerConfiguration dataContainerConfiguration, DeadlockDetectionConfiguration deadlockDetectionConfiguration,
-         EvictionConfiguration evictionConfiguration, ExpirationConfiguration expirationConfiguration,
-         IndexingConfiguration indexingConfiguration, InvocationBatchingConfiguration invocationBatchingConfiguration,
-         JMXStatisticsConfiguration jmxStatisticsConfiguration,
-         LoadersConfiguration loadersConfiguration,
-         LockingConfiguration lockingConfiguration, StoreAsBinaryConfiguration storeAsBinaryConfiguration,
-         TransactionConfiguration transactionConfiguration, UnsafeConfiguration unsafeConfiguration,
-         VersioningConfiguration versioningConfiguration, ClassLoader cl, DataPlacementConfiguration dataPlacementConfiguration) {
+                 CustomInterceptorsConfiguration customInterceptorsConfiguration,
+                 DataContainerConfiguration dataContainerConfiguration, DeadlockDetectionConfiguration deadlockDetectionConfiguration,
+                 EvictionConfiguration evictionConfiguration, ExpirationConfiguration expirationConfiguration,
+                 IndexingConfiguration indexingConfiguration, InvocationBatchingConfiguration invocationBatchingConfiguration,
+                 JMXStatisticsConfiguration jmxStatisticsConfiguration,
+                 LoadersConfiguration loadersConfiguration,
+                 LockingConfiguration lockingConfiguration, StoreAsBinaryConfiguration storeAsBinaryConfiguration,
+                 TransactionConfiguration transactionConfiguration, UnsafeConfiguration unsafeConfiguration,
+                 VersioningConfiguration versioningConfiguration, ClassLoader cl, DataPlacementConfiguration dataPlacementConfiguration, GarbageCollectorConfiguration garbageCollectorConfiguration, ConditionalExecutorServiceConfiguration conditionalExecutorServiceConfiguration) {
       this.clusteringConfiguration = clusteringConfiguration;
       this.customInterceptorsConfiguration = customInterceptorsConfiguration;
       this.dataContainerConfiguration = dataContainerConfiguration;
@@ -65,6 +67,8 @@ public class Configuration {
       this.versioningConfiguration = versioningConfiguration;
       this.classLoader = cl;
       this.dataPlacementConfiguration = dataPlacementConfiguration;
+      this.garbageCollectorConfiguration = garbageCollectorConfiguration;
+      this.conditionalExecutorServiceConfiguration = conditionalExecutorServiceConfiguration;
    }
 
    /**
@@ -140,6 +144,14 @@ public class Configuration {
       return dataPlacementConfiguration;
    }
 
+   public GarbageCollectorConfiguration garbageCollector() {
+      return garbageCollectorConfiguration;
+   }
+
+   public ConditionalExecutorServiceConfiguration conditionalExecutorService() {
+      return conditionalExecutorServiceConfiguration;
+   }
+
    @Override
    public String toString() {
       return "Configuration{" +
@@ -160,6 +172,8 @@ public class Configuration {
             ", versioning=" + versioningConfiguration +
             ", unsafe=" + unsafeConfiguration +
             ", dataPlacement=" + dataPlacementConfiguration +
+            ", garbageCollector=" + garbageCollectorConfiguration +
+            ", conditionalExecutorServiceConfiguration=" + conditionalExecutorServiceConfiguration +
             '}';
    }
 
@@ -205,6 +219,13 @@ public class Configuration {
       if (dataPlacementConfiguration != null ? !dataPlacementConfiguration.equals(that.dataPlacementConfiguration) :
             that.dataContainerConfiguration != null)
          return false;
+      if (garbageCollectorConfiguration != null ? !garbageCollectorConfiguration.equals(that.garbageCollectorConfiguration) :
+      that.garbageCollectorConfiguration != null)
+         return false;
+      if (conditionalExecutorServiceConfiguration != null ?
+            !conditionalExecutorServiceConfiguration.equals(that.conditionalExecutorServiceConfiguration) :
+            that.conditionalExecutorServiceConfiguration != null)
+         return false;
 
       return true;
    }
@@ -228,6 +249,9 @@ public class Configuration {
       result = 31 * result + (versioningConfiguration != null ? versioningConfiguration.hashCode() : 0);
       result = 31 * result + (unsafeConfiguration != null ? unsafeConfiguration.hashCode() : 0);
       result = 31 * result + (dataPlacementConfiguration != null ? dataPlacementConfiguration.hashCode() : 0);
+      result = 31 * result + (garbageCollectorConfiguration != null ? garbageCollectorConfiguration.hashCode() : 0);
+      result = 31 * result + (conditionalExecutorServiceConfiguration != null ?
+                                    conditionalExecutorServiceConfiguration.hashCode() : 0);
       return result;
    }
 

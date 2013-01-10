@@ -32,6 +32,7 @@ import java.util.List;
 public interface VersionGenerator {
    /**
     * Generates a new entry version
+    *
     * @return a new entry version
     */
    IncrementableEntryVersion generateNew();
@@ -41,4 +42,8 @@ public interface VersionGenerator {
    void updateViewHistory(List<CacheView> viewHistory);
 
    void addCacheView(CacheView cacheView);
+
+   void gcCacheView(int minViewId);
+
+   int getViewHistorySize();
 }

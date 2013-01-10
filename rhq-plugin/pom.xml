@@ -32,7 +32,7 @@
    <parent>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-parent</artifactId>
-      <version>5.2.0-cloudtm-v0-SNAPSHOT</version>
+      <version>5.2.0-cloudtm-SNAPSHOT</version>
       <relativePath>../parent/pom.xml</relativePath>
    </parent>
 
@@ -101,28 +101,28 @@
          <artifactId>persistence-api</artifactId>
          <scope>provided</scope>
       </dependency>
-      
+
       <dependency>
          <groupId>org.hibernate</groupId>
          <artifactId>hibernate-core</artifactId>
          <version>${version.hibernate.core}</version>
          <scope>provided</scope>
       </dependency>
-      
+
       <dependency>
          <groupId>org.hibernate</groupId>
          <artifactId>hibernate-annotations</artifactId>
          <version>${version.hibernate.annotations}</version>
          <scope>provided</scope>
       </dependency>
-      
+
       <!-- Dependencies for plugin descriptor generation -->
       <dependency>
          <groupId>${project.groupId}</groupId>
          <artifactId>infinispan-core</artifactId>
          <scope>provided</scope>
       </dependency>
-      
+
       <dependency>
          <groupId>${project.groupId}</groupId>
          <artifactId>infinispan-server-core</artifactId>
@@ -169,7 +169,7 @@
                </execution>
             </executions>
          </plugin>
-         
+
          <!-- <plugin>
              <artifactId>maven-dependency-plugin</artifactId>
              <executions>
@@ -198,7 +198,7 @@
                  </execution>
              </executions>
          </plugin> -->
- 
+
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-javadoc-plugin</artifactId>

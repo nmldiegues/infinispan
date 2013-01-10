@@ -47,6 +47,7 @@ public class TransactionCommitManager {
    private Transport transport;
    private Cache cache;
    private CommitContextEntries commitContextEntries;
+   private GarbageCollectorManager garbageCollectorManager;
 
    public TransactionCommitManager() {
       sortedTransactionQueue = new SortedTransactionQueue();
@@ -54,13 +55,15 @@ public class TransactionCommitManager {
 
    @Inject
    public void inject(InvocationContextContainer icc, VersionGenerator versionGenerator, CommitLog commitLog,
-                      Transport transport, Cache cache, CommitContextEntries commitContextEntries) {
+                      Transport transport, Cache cache, CommitContextEntries commitContextEntries,
+                      GarbageCollectorManager garbageCollectorManager) {
       this.icc = icc;
       this.versionGenerator = toGMUVersionGenerator(versionGenerator);
       this.commitLog = commitLog;
       this.transport = transport;
       this.cache = cache;
       this.commitContextEntries = commitContextEntries;
+      this.garbageCollectorManager = garbageCollectorManager;
    }
 
    //AFTER THE VersionGenerator
@@ -167,6 +170,7 @@ public class TransactionCommitManager {
                   } finally {
                      icc.clearThreadLocal();
                      subVersion++;
+                     garbageCollectorManager.notifyCommittedTransaction();
                   }
                }
 

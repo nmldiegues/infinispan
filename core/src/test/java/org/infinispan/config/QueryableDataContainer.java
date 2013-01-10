@@ -141,6 +141,11 @@ public class QueryableDataContainer implements DataContainer {
       return delegate.dumpTo(filePath);
    }
 
+   @Override
+   public void gc(EntryVersion minimumVersion) {
+      delegate.gc(minimumVersion);
+   }
+
    public Collection<String> getLoggedOperations() {
 	   return loggedOperations;
    }

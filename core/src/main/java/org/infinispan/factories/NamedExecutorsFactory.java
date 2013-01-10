@@ -23,7 +23,6 @@
 package org.infinispan.factories;
 
 import org.infinispan.config.ConfigurationException;
-import org.infinispan.executors.DefaultDynamicExecutorFactory;
 import org.infinispan.executors.ExecutorFactory;
 import org.infinispan.executors.LazyInitializingExecutorService;
 import org.infinispan.executors.LazyInitializingScheduledExecutorService;
@@ -53,7 +52,6 @@ public class NamedExecutorsFactory extends NamedComponentFactory implements Auto
    private ExecutorService asyncTransportExecutor;
    private ScheduledExecutorService evictionExecutor;
    private ScheduledExecutorService asyncReplicationExecutor;
-   private ExecutorService totalOrderExecutor;
 
    @Override
    @SuppressWarnings("unchecked")
@@ -97,15 +95,6 @@ public class NamedExecutorsFactory extends NamedComponentFactory implements Auto
                }
             }
             return (T) asyncReplicationExecutor;
-         } else if (componentName.equals(TOTAL_ORDER_EXECUTOR)) {
-            synchronized (this) {
-               if (totalOrderExecutor == null) {
-                  totalOrderExecutor = buildAndConfigureExecutorService(
-                        globalConfiguration.getTotalOrderExecutorFactoryClass(),
-                        globalConfiguration.getTotalOrderExecutorProperties(), componentName);
-               }
-            }
-            return (T) totalOrderExecutor;
          } else {
             throw new ConfigurationException("Unknown named executor " + componentName);
          }
@@ -122,7 +111,6 @@ public class NamedExecutorsFactory extends NamedComponentFactory implements Auto
       if (asyncTransportExecutor != null) asyncTransportExecutor.shutdownNow();
       if (asyncReplicationExecutor != null) asyncReplicationExecutor.shutdownNow();
       if (evictionExecutor != null) evictionExecutor.shutdownNow();
-      if (totalOrderExecutor != null) totalOrderExecutor.shutdownNow();
    }
 
    private ExecutorService buildAndConfigureExecutorService(String factoryName, Properties p, String componentName) throws Exception {

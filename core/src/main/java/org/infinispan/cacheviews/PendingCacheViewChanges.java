@@ -33,13 +33,14 @@ import java.util.Set;
 
 /**
  * This class is used on the coordinator to keep track of changes since the last merge.
- * 
+ *
  * When the coordinator changes or in case of a merge, the new coordinator recovers the last committed view
  * from all the members and rolls back any uncommitted views, then it prepares a new view if necessary.
  */
 public class PendingCacheViewChanges {
    private static final Log log = LogFactory.getLog(PendingCacheViewChanges.class);
 
+   private static final int NO_REPLICATION_DEGREE_CHANGE = -1;
    private final Object lock = new Object();
 
    private final String cacheName;
@@ -54,8 +55,9 @@ public class PendingCacheViewChanges {
    // True if there was a merge since the last committed view
    private Set<Address> recoveredMembers;
    //The flag to move keys
-   private boolean shouldMoveKey=false;
-   
+   private boolean shouldMoveKey = false;
+   private int replicationDegree = NO_REPLICATION_DEGREE_CHANGE;
+
    private boolean viewInstallationInProgress;
 
    public PendingCacheViewChanges(String cacheName) {
@@ -72,24 +74,20 @@ public class PendingCacheViewChanges {
    public CacheView createPendingView(CacheView committedView) {
       synchronized (lock) {
          // TODO Enforce view installation policy here?
-    	  if(shouldMoveKey == false){
- 	         if (viewInstallationInProgress) {
- 	            log.tracef("Cannot create a new view, there is another view installation in progress");
- 	            return null;
- 	         }
- 	         if (leavers.size() == 0 && joiners.size() == 0 && recoveredMembers == null) {
- 	            log.tracef("Cannot create a new view, we have no joiners or leavers");
- 	            return null;
- 	         }
-     	 }
-     	 else{
-     		 log.error("shouldMoveKey is TRUE");
-     		 shouldMoveKey = false;
-     	 }
+         if(!shouldMoveKey && replicationDegree == NO_REPLICATION_DEGREE_CHANGE){
+            if (viewInstallationInProgress) {
+               log.tracef("Cannot create a new view, there is another view installation in progress");
+               return null;
+            }
+            if (leavers.size() == 0 && joiners.size() == 0 && recoveredMembers == null) {
+               log.tracef("Cannot create a new view, we have no joiners or leavers");
+               return null;
+            }
+         }
 
          Collection<Address> baseMembers = recoveredMembers != null ? recoveredMembers : committedView.getMembers();
          log.tracef("Previous members are %s, joiners are %s, leavers are %s, recovered after merge = %s",
-               baseMembers, joiners, leavers, recoveredMembers != null);
+                    baseMembers, joiners, leavers, recoveredMembers != null);
          List<Address> members = new ArrayList<Address>(baseMembers);
          // If a node is both in leavers and in joiners we should install a view without it first
          // so that other nodes don't consider it an old owner, so we first add it as a joiner
@@ -136,16 +134,17 @@ public class PendingCacheViewChanges {
          leavers.retainAll(committedView.getMembers());
          joiners.removeAll(committedView.getMembers());
          recoveredMembers = null;
-         
+
          shouldMoveKey = false;
          log.tracef("Should move key set to false");
+         replicationDegree = NO_REPLICATION_DEGREE_CHANGE;
 
          viewInstallationInProgress = false;
          if (committedView.getViewId() > lastViewId) {
             lastViewId = committedView.getViewId();
          }
       }
-      
+
    }
 
    /**
@@ -159,13 +158,13 @@ public class PendingCacheViewChanges {
          joiners.add(joiner);
       }
    }
-   
+
    /**
     * Signal to move keys
     */
    public void requestMoveKeys(){
-	   shouldMoveKey = true;
-	   log.tracef("Should move key set to TRUE");
+      shouldMoveKey = true;
+      log.tracef("Should move key set to TRUE");
    }
 
    /**
@@ -198,7 +197,7 @@ public class PendingCacheViewChanges {
          joiners.addAll(recoveredJoiners);
          joiners.removeAll(recoveredMembers);
          log.tracef("%s: Members after coordinator change: %s, joiners: %s, leavers: %s",
-               cacheName, recoveredMembers, joiners, leavers);
+                    cacheName, recoveredMembers, joiners, leavers);
       }
    }
 
@@ -248,5 +247,13 @@ public class PendingCacheViewChanges {
       synchronized (lock) {
          return lastViewId;
       }
+   }
+
+   public final void requestNewReplicationDegree(int replicationDegree) {
+      this.replicationDegree = replicationDegree;
+   }
+
+   public final int getReplicationDegree() {
+      return replicationDegree;
    }
 }

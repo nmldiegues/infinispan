@@ -52,18 +52,15 @@ public abstract class LocalTransaction extends AbstractCacheTransaction {
 
    private static final Log log = LogFactory.getLog(LocalTransaction.class);
    private static final boolean trace = log.isTraceEnabled();
-
-   private Set<Address> remoteLockedNodes;
-   protected Set<Object> readKeys = null;
-
-   /** mark as volatile as this might be set from the tx thread code on view change*/
-   private volatile boolean isMarkedForRollback;
-
    private final Transaction transaction;
-
    private final boolean implicitTransaction;
+   protected Set<Object> readKeys = null;
+   private Set<Address> remoteLockedNodes;
+   /**
+    * mark as volatile as this might be set from the tx thread code on view change
+    */
+   private volatile boolean isMarkedForRollback;
    private boolean prepareSent = false;
-
    private boolean alreadyReadOnThisNode;
    private Set<Address> readFrom;
 

@@ -246,6 +246,17 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
    }
 
+   @Override
+   public final void gc(EntryVersion minimumVersion) {
+      for (DataContainerVersionChain versionChain : entries.values()) {
+         versionChain.gc(minimumVersion);
+      }
+   }
+
+   public final VersionChain<?> getVersionChain(Object key) {
+      return entries.get(key);
+   }
+
    public final String stateToString() {
       StringBuilder stringBuilder = new StringBuilder(8132);
       for (Map.Entry<Object, DataContainerVersionChain> entry : entries.entrySet()) {
@@ -342,6 +353,18 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       @Override
       public void reincarnate(VersionBody<InternalCacheEntry> other) {
          throw new IllegalStateException("This cannot happen");
+      }
+
+      @Override
+      public VersionBody<InternalCacheEntry> gc(EntryVersion minVersion) {
+         if (isOlderOrEquals(getValue().getVersion(), minVersion)) {
+            VersionBody<InternalCacheEntry> previous = getPrevious();
+            //GC previous entries, removing all the references to the previous version entry
+            setPrevious(null);
+            return previous;
+         } else {
+            return getPrevious();
+         }
       }
 
       @Override

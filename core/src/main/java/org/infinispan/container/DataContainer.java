@@ -154,4 +154,6 @@ public interface DataContainer extends Iterable<InternalCacheEntry> {
    void purgeExpired();
 
    boolean dumpTo(String filePath);
+
+   void gc(EntryVersion minimumVersion);
 }

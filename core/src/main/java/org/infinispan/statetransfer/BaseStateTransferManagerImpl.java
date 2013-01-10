@@ -24,6 +24,7 @@ import org.infinispan.cacheviews.CacheViewListener;
 import org.infinispan.cacheviews.CacheViewsManager;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.control.StateTransferControlCommand;
+import org.infinispan.commands.remote.ConfigurationStateCommand;
 import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.config.Configuration;
 import org.infinispan.container.DataContainer;
@@ -32,6 +33,7 @@ import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextContainer;
+import org.infinispan.distribution.DistributionManager;
 import org.infinispan.distribution.ch.ConsistentHash;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
@@ -42,8 +44,12 @@ import org.infinispan.loaders.CacheStore;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.reconfigurableprotocol.ProtocolTable;
 import org.infinispan.reconfigurableprotocol.manager.ReconfigurableReplicationManager;
+import org.infinispan.remoting.responses.Response;
+import org.infinispan.remoting.responses.SuccessfulResponse;
+import org.infinispan.remoting.rpc.ResponseMode;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.remoting.transport.Transport;
 import org.infinispan.transaction.LockingMode;
 import org.infinispan.transaction.RemoteTransaction;
 import org.infinispan.transaction.TransactionTable;
@@ -57,6 +63,7 @@ import org.infinispan.util.logging.LogFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -101,6 +108,7 @@ public abstract class BaseStateTransferManagerImpl implements StateTransferManag
    protected TotalOrderManager totalOrderManager;
    private ProtocolTable protocolTable;
    private ReconfigurableReplicationManager manager;
+   private DistributionManager distributionManager;
 
    public BaseStateTransferManagerImpl() {
    }
@@ -111,7 +119,7 @@ public abstract class BaseStateTransferManagerImpl implements StateTransferManag
                     CacheLoaderManager cacheLoaderManager, CacheNotifier cacheNotifier, StateTransferLock stateTransferLock,
                     CacheViewsManager cacheViewsManager, TransactionTable transactionTable, LockContainer<?> lockContainer,
                     VersionGenerator versionGenerator, TotalOrderManager totalOrderManager, ProtocolTable protocolTable,
-                    ReconfigurableReplicationManager manager) {
+                    ReconfigurableReplicationManager manager, DistributionManager distributionManager) {
       this.cacheLoaderManager = cacheLoaderManager;
       this.configuration = configuration;
       this.rpcManager = rpcManager;
@@ -128,6 +136,7 @@ public abstract class BaseStateTransferManagerImpl implements StateTransferManag
       this.totalOrderManager = totalOrderManager;
       this.protocolTable = protocolTable;
       this.manager = manager;
+      this.distributionManager = distributionManager;
    }
 
    // needs to be AFTER the DistributionManager and *after* the cache loader manager (if any) inits and preloads
@@ -157,11 +166,66 @@ public abstract class BaseStateTransferManagerImpl implements StateTransferManag
 
       if (trace) log.tracef("Starting state transfer manager on " + getAddress());
 
+      setConfigurationChanges();
+
       // set up the old CH, but it shouldn't be used until we get the prepare call
       cacheViewsManager.join(configuration.getName(), this);
    }
 
-   protected abstract ConsistentHash createConsistentHash(List<Address> members);
+   private void setConfigurationChanges() {
+      if (log.isDebugEnabled()) {
+         log.debug("Setting configuration tunned parameters");
+      }
+      ConfigurationState configurationState = getClusterConfigurationState();
+      if (configurationState == null) {
+         if (log.isDebugEnabled()) {
+            log.debug("No State found. Using original configuration parameters");
+         }
+         manager.initialProtocol(configuration.getTransactionProtocol());
+         distributionManager.setReplicationDegree(configuration.getNumOwners());
+      } else {
+         if (log.isDebugEnabled()) {
+            log.debugf("Configuration State found: %s", configurationState);
+         }
+         manager.initialProtocol(configurationState.getProtocolName(), configurationState.getEpoch());
+         distributionManager.setReplicationDegree(configurationState.getNumberOfOwners());
+      }
+   }
+
+   private ConfigurationState getClusterConfigurationState() {
+      Transport transport = rpcManager.getTransport();
+      ConfigurationStateCommand configurationStateCommand = new ConfigurationStateCommand(configuration.getName());
+      Map<Address, Response> responseMap;
+      try {
+         responseMap = transport.invokeRemotely(null, configurationStateCommand,
+                                                ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS,
+                                                configuration.getSyncReplTimeout(), true, null, false, false);
+         if (log.isDebugEnabled()) {
+            log.debugf("Configuration State responses are %s", responseMap);
+         }
+         for (Response response : responseMap.values()) {
+            if (response.isSuccessful() && response.isValid()) {
+               ConfigurationState cfgState = (ConfigurationState) ((SuccessfulResponse) response).getResponseValue();
+               if (cfgState == null) {
+                  continue;
+               }
+
+               return cfgState;
+            }
+         }
+      } catch (Exception e) {
+         if (log.isDebugEnabled()) {
+            log.debug("Exception while trying to get the Configuration State", e);
+         }
+      }
+
+      if (log.isDebugEnabled()) {
+         log.debug("No Configuration State found in cluster");
+      }
+      return null;
+   }
+
+   protected abstract ConsistentHash createConsistentHash(List<Address> members, int replicationDegree);
 
    // To avoid blocking other components' start process, wait last, if necessary, for join to complete.
    @Override
@@ -333,7 +397,7 @@ public abstract class BaseStateTransferManagerImpl implements StateTransferManag
    }
 
    @Override
-   public void prepareView(CacheView pendingView, CacheView committedView, List<CacheView> viewHistory) throws Exception {
+   public void prepareView(CacheView pendingView, CacheView committedView, List<CacheView> viewHistory, int replicationDegree) throws Exception {
       if (versionGenerator != null) {
          versionGenerator.updateViewHistory(viewHistory);
       }
@@ -346,9 +410,9 @@ public abstract class BaseStateTransferManagerImpl implements StateTransferManag
          oldView = committedView;
       }
       newView = pendingView;
-      chNew = createConsistentHash(pendingView.getMembers());
+      chNew = createConsistentHash(pendingView.getMembers(), replicationDegree);
 
-      stateTransferTask = createStateTransferTask(pendingView.getViewId(), pendingView.getMembers(), chOld == null);
+      stateTransferTask = createStateTransferTask(pendingView.getViewId(), pendingView.getMembers(), chOld == null, replicationDegree);
       stateTransferTask.performStateTransfer();
    }
 
@@ -419,7 +483,7 @@ public abstract class BaseStateTransferManagerImpl implements StateTransferManag
       joinCompletedLatch.countDown();
    }
 
-   protected abstract BaseStateTransferTask createStateTransferTask(int viewId, List<Address> members, boolean initialView);
+   protected abstract BaseStateTransferTask createStateTransferTask(int viewId, List<Address> members, boolean initialView, int replicationDegree);
 
    private static interface CommandBuilder {
       PutKeyValueCommand buildPut(InvocationContext ctx, CacheEntry e);

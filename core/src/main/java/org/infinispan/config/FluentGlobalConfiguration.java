@@ -390,8 +390,4 @@ abstract class AbstractConfigurationBeanWithGCR extends AbstractConfigurationBea
    public GlobalConfiguration build() {
       return globalConfig;
    }
-
-   public FluentGlobalConfiguration.ExecutorFactoryConfig<ExecutorFactory> totalOrderExecutor() {
-      return globalConfig.totalOrderExecutor;
-   }
 }

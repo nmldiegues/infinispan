@@ -38,7 +38,7 @@ import java.util.List;
 @Deprecated
 public class DummyInvalidationStateTransferManagerImpl extends BaseStateTransferManagerImpl {
    @Override
-   protected ConsistentHash createConsistentHash(List<Address> members) {
+   protected ConsistentHash createConsistentHash(List<Address> members, int replicationDegree) {
       return null;
    }
 
@@ -49,7 +49,7 @@ public class DummyInvalidationStateTransferManagerImpl extends BaseStateTransfer
 
    @Override
    protected BaseStateTransferTask createStateTransferTask(final int viewId, final List<Address> members,
-                                                           final boolean initialView) {
+                                                           final boolean initialView, int replicationDegree) {
       return new BaseStateTransferTask(this, rpcManager, stateTransferLock, cacheNotifier, configuration, dataContainer,
             members, viewId, null, null, initialView) {
          @Override

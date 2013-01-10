@@ -36,9 +36,10 @@ public class TotalOrderDistributedStateTransferTask extends DistributedStateTran
                                                  DistributionManager dm, StateTransferLock stateTransferLock,
                                                  CacheNotifier cacheNotifier, int newViewId, Collection<Address> members,
                                                  ConsistentHash chOld, ConsistentHash chNew, boolean initialView,
-                                                 TransactionTable transactionTable, TotalOrderManager totalOrderManager) {
+                                                 TransactionTable transactionTable, TotalOrderManager totalOrderManager,
+                                                 int numOwners) {
       super(rpcManager, configuration, dataContainer, stateTransferManager, dm, stateTransferLock, cacheNotifier,
-            newViewId, members, chOld, chNew, initialView, transactionTable);
+            newViewId, members, chOld, chNew, initialView, transactionTable, numOwners);
       this.totalOrderManager = totalOrderManager;
    }
 

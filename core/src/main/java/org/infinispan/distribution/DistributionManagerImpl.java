@@ -83,6 +83,7 @@ public class DistributionManagerImpl implements DistributionManager {
    private StateTransferManager stateTransferManager;
 
    private volatile ConsistentHash consistentHash;
+   private volatile int replicationDegree;
 
    /**
     * Default constructor
@@ -107,8 +108,14 @@ public class DistributionManagerImpl implements DistributionManager {
       consistentHash = ConsistentHashHelper.createConsistentHash(configuration, Collections.singleton(rpcManager.getAddress()));
    }
 
-   private int getReplCount() {
-      return configuration.getNumOwners();
+   @Override
+   public int getReplicationDegree() {
+      return replicationDegree;
+   }
+
+   @Override
+   public void setReplicationDegree(int replicationDegree) {
+      this.replicationDegree =replicationDegree;
    }
 
    protected Address getAddress() {
@@ -123,7 +130,7 @@ public class DistributionManagerImpl implements DistributionManager {
 
    @Override
    public DataLocality getLocality(Object key) {
-      boolean local = getConsistentHash().isKeyLocalToAddress(getAddress(), key, getReplCount());
+      boolean local = getConsistentHash().isKeyLocalToAddress(getAddress(), key, getReplicationDegree());
       if (isRehashInProgress()) {
          if (local) {
             return DataLocality.LOCAL_UNCERTAIN;
@@ -141,7 +148,7 @@ public class DistributionManagerImpl implements DistributionManager {
 
    @Override
    public List<Address> locate(Object key) {
-      return getConsistentHash().locate(key, getReplCount());
+      return getConsistentHash().locate(key, getReplicationDegree());
    }
 
    @Override
@@ -151,7 +158,7 @@ public class DistributionManagerImpl implements DistributionManager {
 
    @Override
    public Map<Object, List<Address>> locateAll(Collection<Object> keys) {
-      return locateAll(keys, getReplCount());
+      return locateAll(keys, getReplicationDegree());
    }
 
    @Override

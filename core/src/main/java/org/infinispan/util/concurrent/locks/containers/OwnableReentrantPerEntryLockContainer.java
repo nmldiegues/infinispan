@@ -92,6 +92,6 @@ public class OwnableReentrantPerEntryLockContainer extends AbstractPerEntryLockC
 
    @Override
    protected void unlockShare(OwnableReentrantLock toRelease, Object ctx) {
-      throw new UnsupportedOperationException();
+      //no-op
    }
 }

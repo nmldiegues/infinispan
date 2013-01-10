@@ -52,7 +52,6 @@ import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.transaction.xa.TransactionFactory;
 import org.infinispan.util.Util;
 import org.infinispan.util.concurrent.ConcurrentMapFactory;
-import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -205,10 +204,7 @@ public class TransactionTable {
                throw new CacheException(e);
             }
          }
-         //init the transaction vector clock. it is only used for Serializability
-         if (configuration.getIsolationLevel() == IsolationLevel.SERIALIZABLE) {
-            localTransaction.setTransactionVersion(commitLog.getCurrentVersion());
-         }
+         commitLog.initLocalTransaction(localTransaction);
          ((SyncLocalTransaction) localTransaction).setEnlisted(true);
       }
    }

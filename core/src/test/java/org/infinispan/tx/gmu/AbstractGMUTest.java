@@ -15,6 +15,7 @@ import org.infinispan.interceptors.base.BaseCustomInterceptor;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.test.MultipleCacheManagersTest;
+import org.infinispan.test.TestingUtil;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.TransactionTable;
 import org.infinispan.transaction.gmu.manager.SortedTransactionQueue;
@@ -182,6 +183,10 @@ public abstract class AbstractGMUTest extends MultipleCacheManagersTest {
       return new GMUMagicKey(caches(mapTo), caches(notMapTo), "KEY_" + KEY_ID.incrementAndGet());
    }
 
+   protected final Object newKey(int mapTo) {
+      return newKey(Collections.singleton(mapTo), Collections.<Integer>emptyList());
+   }
+
    protected final void assertKeyOwners(Object key, int mapTo, int notMapTo) {
       assertKeyOwners(key, Collections.singleton(mapTo), Collections.singleton(notMapTo));
    }
@@ -197,6 +202,10 @@ public abstract class AbstractGMUTest extends MultipleCacheManagersTest {
             assert !isOwner(cache(index), key) : key + " belong to " + addressOf(cache(index));
          }
       }
+   }
+
+   protected final <T> T getComponent(int cacheIndex, Class<T> tClass) {
+      return TestingUtil.extractComponent(cache(cacheIndex), tClass);
    }
 
    protected final void logKeysUsedInTest(String testName, Object... keys) {

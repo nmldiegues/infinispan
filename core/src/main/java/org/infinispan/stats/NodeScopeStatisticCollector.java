@@ -145,7 +145,7 @@ public class NodeScopeStatisticCollector {
          case RTT_ROLLBACK:
             return microAvgLocal(IspnStats.NUM_RTTS_ROLLBACK, IspnStats.RTT_ROLLBACK);
          case RTT_GET:
-            return microAvgLocal(IspnStats.NUM_RTTS_PREPARE, IspnStats.RTT_GET);
+            return microAvgLocal(IspnStats.NUM_RTTS_GET, IspnStats.RTT_GET);
          case ASYNC_COMMIT:
             return microAvgLocal(IspnStats.NUM_ASYNC_COMMIT, IspnStats.ASYNC_COMMIT);
          case ASYNC_COMPLETE_NOTIFY:
@@ -374,6 +374,14 @@ public class NodeScopeStatisticCollector {
             return localTransactionStatistics.getValue(NUM_SUCCESSFUL_PUTS_WR_TX);
          case NUM_REMOTE_PUT:
             return localTransactionStatistics.getValue(NUM_SUCCESSFUL_REMOTE_PUTS_WR_TX);
+          case LOCAL_GET_EXECUTION:
+            long local_get_time = localTransactionStatistics.getValue(ALL_GET_EXECUTION) -
+            localTransactionStatistics.getValue(RTT_GET);
+              return  (convertNanosToMicro(local_get_time) * 1.0) / (localTransactionStatistics.getValue(IspnStats.NUM_GET) * 1.0);
+         case TBC:
+            return convertNanosToMicro(avgMultipleLocalCounters(IspnStats.TBC_EXECUTION_TIME, IspnStats.NUM_GET, IspnStats.NUM_PUT));
+         case NTBC:
+            return microAvgLocal(IspnStats.NTBC_COUNT, IspnStats.NTBC_EXECUTION_TIME);
          default:
             throw new NoIspnStatException("Invalid statistic "+param);
       }

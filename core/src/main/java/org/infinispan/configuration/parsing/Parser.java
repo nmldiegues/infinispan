@@ -113,9 +113,9 @@ public class Parser {
     * read, then the named caches for each file will be applied as a named cache
     * with the default cache settings as a base going through each file.
     *
-    * @param filenames The file names, each might be the name of the file (too 
+    * @param filenames The file names, each might be the name of the file (too
     *        look it up in the class path) or an url to a file.
-    * @return ConfigurationBuilderHolder with all the values applied and 
+    * @return ConfigurationBuilderHolder with all the values applied and
     *         overridden according to ordering of files
     */
    public ConfigurationBuilderHolder parseFiles(List<String> filenames) {
@@ -139,7 +139,7 @@ public class Parser {
     *
     * @param streams The streams each containing data pertaining to an infinispan
     *        configuration xml file
-    * @return ConfigurationBuilderHolder with all the values applied and 
+    * @return ConfigurationBuilderHolder with all the values applied and
     *         overridden according to ordering of streams
     */
    public ConfigurationBuilderHolder parse(List<? extends InputStream> streams) {
@@ -314,10 +314,66 @@ public class Parser {
             case DATA_PLACEMENT:
                parseDataPlacement(reader, builder);
                break;
+            case GARBAGE_COLLECTOR:
+               parseGarbageCollector(reader, builder);
+               break;
+            case CONDITIONAL_EXECUTOR_SERVICE:
+               parseConditionalExecutorService(reader, builder);
+               break;
             default:
                throw ParseUtils.unexpectedElement(reader);
          }
       }
+   }
+
+   private void parseConditionalExecutorService(XMLStreamReader reader, ConfigurationBuilder builder) throws XMLStreamException {
+      for (int i = 0; i < reader.getAttributeCount(); i++) {
+         ParseUtils.requireNoNamespaceAttribute(reader, i);
+         String value = replaceSystemProperties(reader.getAttributeValue(i));
+         Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
+         switch (attribute) {
+            case CORE_POOL_SIZE:
+               builder.conditionalExecutorService().corePoolSize(Integer.parseInt(value));
+               break;
+            case MAX_POOL_SIZE:
+               builder.conditionalExecutorService().maxPoolSize(Integer.parseInt(value));
+               break;
+            case KEEP_ALIVE_TIME:
+               builder.conditionalExecutorService().keepAliveTime(Long.parseLong(value));
+               break;
+            default:
+               throw ParseUtils.unexpectedAttribute(reader, i);
+         }
+      }
+      ParseUtils.requireNoContent(reader);
+   }
+
+   private void parseGarbageCollector(XMLStreamReader reader, ConfigurationBuilder builder) throws XMLStreamException {
+      for (int i = 0; i < reader.getAttributeCount(); i++) {
+         ParseUtils.requireNoNamespaceAttribute(reader, i);
+         String value = replaceSystemProperties(reader.getAttributeValue(i));
+         Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
+         switch (attribute) {
+            case ENABLED:
+               builder.garbageCollector().enabled(Boolean.valueOf(value));
+               break;
+            case TRANSACTION_THRESHOLD:
+               builder.garbageCollector().transactionThreshold(Integer.parseInt(value));
+               break;
+            case VERSION_GC_MAX_IDLE:
+               builder.garbageCollector().versionGCMaxIdle(Integer.parseInt(value));
+               break;
+            case L1_GC_INTERVAL:
+               builder.garbageCollector().l1GCInterval(Integer.parseInt(value));
+               break;
+            case VIEW_GC_BACK_OFF:
+               builder.garbageCollector().viewGCBackOff(Integer.parseInt(value));
+               break;
+            default:
+               throw ParseUtils.unexpectedAttribute(reader, i);
+         }
+      }
+      ParseUtils.requireNoContent(reader);
    }
 
    private void parseDataPlacement(XMLStreamReader reader, ConfigurationBuilder builder) throws XMLStreamException {
@@ -372,7 +428,7 @@ public class Parser {
 
       if (dataPlacementProperties != null) {
          builder.dataPlacement().withProperties(dataPlacementProperties);
-      }      
+      }
    }
 
    private void parseVersioning(XMLStreamReader reader, ConfigurationBuilder builder) throws XMLStreamException {
@@ -1340,9 +1396,6 @@ public class Parser {
                transportParsed = true;
                break;
             }
-            case TOTAL_ORDER_EXECUTOR:
-               parseTotalOrderExecutor(reader, builder);
-               break;
             default: {
                throw ParseUtils.unexpectedElement(reader);
             }
@@ -1656,37 +1709,6 @@ public class Parser {
          switch (element) {
             case PROPERTIES: {
                builder.asyncTransportExecutor().withProperties(parseProperties(reader));
-               break;
-            }
-            default: {
-               throw ParseUtils.unexpectedElement(reader);
-            }
-         }
-      }
-   }
-
-   private void parseTotalOrderExecutor(XMLStreamReader reader, GlobalConfigurationBuilder builder)
-         throws XMLStreamException {
-      for (int i = 0; i < reader.getAttributeCount(); i++) {
-         ParseUtils.requireNoNamespaceAttribute(reader, i);
-         String value = replaceSystemProperties(reader.getAttributeValue(i));
-         Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
-         switch (attribute) {
-            case FACTORY: {
-               builder.totalOrderExecutor().factory(Util.<ExecutorFactory> getInstance(value, cl));
-               break;
-            }
-            default: {
-               throw ParseUtils.unexpectedAttribute(reader, i);
-            }
-         }
-      }
-
-      while (reader.hasNext() && (reader.nextTag() != XMLStreamConstants.END_ELEMENT)) {
-         Element element = Element.forName(reader.getLocalName());
-         switch (element) {
-            case PROPERTIES: {
-               builder.totalOrderExecutor().withProperties(parseProperties(reader));
                break;
             }
             default: {

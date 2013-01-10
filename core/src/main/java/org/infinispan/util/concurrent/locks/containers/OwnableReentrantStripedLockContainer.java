@@ -104,7 +104,7 @@ public class OwnableReentrantStripedLockContainer extends AbstractStripedLockCon
 
    @Override
    protected void unlockShare(OwnableReentrantLock toRelease, Object owner) {
-      //no-o
+      //no-op
    }
 
    @Override

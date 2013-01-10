@@ -1,17 +1,5 @@
 package org.infinispan.dataplacement;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
-
-import com.clearspring.analytics.util.Pair;
 import org.infinispan.Cache;
 import org.infinispan.cacheviews.CacheViewsManager;
 import org.infinispan.commands.CommandsFactory;
@@ -63,29 +51,22 @@ import java.util.concurrent.Executors;
 @Listener
 public class DataPlacementManager {
 
-   private static final Log log = LogFactory.getLog(DataPlacementManager.class);
-
-   private static final int INITIAL_COOL_DOWN_TIME = 30000; //30 seconds
+   public static final int INITIAL_COOL_DOWN_TIME = 30000; //30 seconds
    private static final boolean SAVE = false;
-
+   private static final Log log = LogFactory.getLog(DataPlacementManager.class);
+   private final RoundManager roundManager;
+   private final ExecutorService statsAsync = Executors.newSingleThreadExecutor();
    private RpcManager rpcManager;
    private CommandsFactory commandsFactory;
    private CacheViewsManager cacheViewsManager;
    private Hash hashFunction;
    private String cacheName;
    private int defaultNumberOfOwners;
-
    private Boolean expectPre = true;
-
    private AccessesManager accessesManager;
    private ObjectPlacementManager objectPlacementManager;
    private ObjectLookupManager objectLookupManager;
-
    private ObjectLookupFactory objectLookupFactory;
-
-   private final RoundManager roundManager;
-   private final ExecutorService statsAsync = Executors.newSingleThreadExecutor();
-
    private Stats stats;
 
    public DataPlacementManager() {
@@ -173,8 +154,8 @@ public class DataPlacementManager {
    }
 
    /**
-    * collects all the request list from other members with the object that they want. when all requests are received
-    * it decides to each member the object should go and it broadcast the Object Lookup
+    * collects all the request list from other members with the object that they want. when all requests are received it
+    * decides to each member the object should go and it broadcast the Object Lookup
     *
     * @param sender        the sender
     * @param objectRequest the request list
@@ -190,7 +171,7 @@ public class DataPlacementManager {
          return;
       }
 
-      if(objectPlacementManager.aggregateRequest(sender, objectRequest)){
+      if (objectPlacementManager.aggregateRequest(sender, objectRequest)) {
          stats.receivedAccesses();
          Map<Object, OwnersInfo> objectsToMove = objectPlacementManager.calculateObjectsToMove();
 
@@ -229,9 +210,9 @@ public class DataPlacementManager {
     * collects all the Object Lookup for each member. when all Object Lookup are collected, it sends an ack for the
     * coordinator
     *
-    * @param sender                 the sender
-    * @param objectLookup           the object lookup
-    * @param roundId                the round id
+    * @param sender       the sender
+    * @param objectLookup the object lookup
+    * @param roundId      the round id
     */
    public final void addObjectLookup(Address sender, ObjectLookup objectLookup, long roundId) {
       if (log.isDebugEnabled()) {
@@ -287,10 +268,153 @@ public class DataPlacementManager {
    /**
     * sets the cool down time
     *
-    * @param milliseconds  the new time in milliseconds
+    * @param milliseconds the new time in milliseconds
     */
    public final void internalSetCoolDownTime(int milliseconds) {
       roundManager.setCoolDownTime(milliseconds);
+   }
+
+   public final void handleNewReplicationDegree(int replicationDegree) throws Exception {
+      if (replicationDegree > 0) {
+         cacheViewsManager.handleReplicationDegree(cacheName, replicationDegree);
+         return;
+      }
+      throw new Exception("Replication Degree should be higher than 0");
+   }
+
+   @SuppressWarnings("unchecked")
+   @DataRehashed
+   public final void keyMovementTest(DataRehashedEvent event) {
+      if (log.isTraceEnabled()) {
+         log.trace("Data rehashed event trigger");
+      }
+      log.errorf("Data Rehash Event triggered");
+      if (event.getMembersAtEnd().size() == event.getMembersAtStart().size() && stats != null) {
+         if (log.isTraceEnabled()) {
+            log.tracef("Membership didn't change. may be key movement! Is pre? %s (%s)", event.isPre(), expectPre);
+         }
+         if (event.isPre() && expectPre) {
+            log.errorf("Start State Transfer");
+            stats.startStateTransfer();
+            expectPre = false;
+         } else if (!event.isPre() && !expectPre) {
+            log.errorf("End State Transfer");
+            stats.endStateTransfer();
+            statsAsync.submit(new CheckKeysMovedTask(event.getKeysMoved(), objectPlacementManager, stats,
+                                                     accessesManager.getDefaultConsistentHash(), rpcManager.getAddress()));
+            statsAsync.submit(new SaveStatsTask(stats));
+            expectPre = true;
+            roundManager.markRoundFinished();
+         }
+      }
+   }
+
+   @ManagedOperation(description = "Start the data placement algorithm in order to optimize the system performance")
+   public final void dataPlacementRequest() throws Exception {
+      if (!rpcManager.getTransport().isCoordinator()) {
+         if (log.isTraceEnabled()) {
+            log.trace("Data placement request. Sending request to coordinator");
+         }
+         DataPlacementCommand command = commandsFactory.buildDataPlacementCommand(DataPlacementCommand.Type.DATA_PLACEMENT_REQUEST,
+                                                                                  roundManager.getCurrentRoundId());
+         rpcManager.invokeRemotely(Collections.singleton(rpcManager.getTransport().getCoordinator()),
+                                   command, false);
+         return;
+      }
+
+      if (rpcManager.getTransport().getMembers().size() == 1) {
+         log.warn("Data placement request received but we are the only member. ignoring...");
+         return;
+      }
+
+      if (log.isTraceEnabled()) {
+         log.trace("Data placement request received.");
+      }
+
+      long newRoundId = roundManager.getNewRoundId();
+      DataPlacementCommand command = commandsFactory.buildDataPlacementCommand(DataPlacementCommand.Type.DATA_PLACEMENT_START,
+                                                                               newRoundId);
+      Collection<Address> members = rpcManager.getTransport().getMembers();
+      Address[] addressArray = members.toArray(new Address[members.size()]);
+      command.setMembers(addressArray);
+      rpcManager.broadcastRpcCommand(command, false, false);
+      startDataPlacement(newRoundId, addressArray);
+   }
+
+   @ManagedOperation()
+   public final void setReplicationDegree(int replicationDegree) throws Exception {
+
+      if (!rpcManager.getTransport().isCoordinator()) {
+         if (log.isTraceEnabled()) {
+            log.trace("Replication Degree request received. Sending request to coordinator");
+         }
+         DataPlacementCommand command = commandsFactory.buildDataPlacementCommand(DataPlacementCommand.Type.REPLICATION_DEGREE,
+                                                                                  -1);
+         command.setIntValue(replicationDegree);
+         rpcManager.invokeRemotely(Collections.singleton(rpcManager.getTransport().getCoordinator()),
+                                   command, false);
+         return;
+      }
+
+      if (log.isTraceEnabled()) {
+         log.trace("Replication Degree request receive");
+      }
+
+      roundManager.replicationDegreeRequest();
+      handleNewReplicationDegree(replicationDegree);
+   }
+
+   @ManagedAttribute(description = "The cache name", writable = false)
+   public final String getCacheName() {
+      return cacheName;
+   }
+
+   @ManagedAttribute(description = "The current cool down time between rounds", writable = false)
+   public final long getCoolDownTime() {
+      return roundManager.getCoolDownTime();
+   }
+
+   @ManagedOperation(description = "Updates the cool down time between two or more data placement requests")
+   public final void setCoolDownTime(int milliseconds) {
+      if (log.isTraceEnabled()) {
+         log.tracef("Setting new cool down period to %s milliseconds", milliseconds);
+      }
+      DataPlacementCommand command = commandsFactory.buildDataPlacementCommand(DataPlacementCommand.Type.SET_COOL_DOWN_TIME,
+                                                                               roundManager.getCurrentRoundId());
+      command.setIntValue(milliseconds);
+      rpcManager.broadcastRpcCommand(command, false, false);
+      internalSetCoolDownTime(milliseconds);
+   }
+
+   @ManagedAttribute(description = "The current round Id", writable = false)
+   public final long getCurrentRoundId() {
+      return roundManager.getCurrentRoundId();
+   }
+
+   @ManagedAttribute(description = "Check if a data placement round is in progress", writable = false)
+   public final boolean isRoundInProgress() {
+      return roundManager.isRoundInProgress();
+   }
+
+   @ManagedAttribute(description = "Check if the data placement is enabled", writable = false)
+   public final boolean isEnabled() {
+      return roundManager.isEnabled();
+   }
+
+   @ManagedAttribute(description = "The Object Lookup Factory class name", writable = false)
+   public final String getObjectLookupFactoryClassName() {
+      return objectLookupFactory.getClass().getCanonicalName();
+   }
+
+   @ManagedAttribute(description = "The max number of keys to request in each round", writable = false)
+   public final int getMaxNumberOfKeysToRequest() {
+      return accessesManager.getMaxNumberOfKeysToRequest();
+   }
+
+   @ManagedOperation(description = "Sets a new value (if higher than zero) for the max number of keys to request in " +
+         "each round")
+   public final void setMaxNumberOfKeysToRequest(int value) {
+      accessesManager.setMaxNumberOfKeysToRequest(value);
    }
 
    private void saveObjectsToMoveToFile(Map<Object, OwnersInfo> ownersInfoMap) {
@@ -335,117 +459,5 @@ public class DataPlacementManager {
             }
          }
       }
-   }
-
-   @SuppressWarnings("unchecked")
-   @DataRehashed
-   public final void keyMovementTest(DataRehashedEvent event) {
-      if (log.isTraceEnabled()) {
-         log.trace("Data rehashed event trigger");
-      }
-      log.errorf("Data Rehash Event triggered");
-      if (event.getMembersAtEnd().size() == event.getMembersAtStart().size()) {
-         if (log.isTraceEnabled()) {
-            log.tracef("Membership didn't change. may be key movement! Is pre? %s (%s)", event.isPre(), expectPre);
-         }
-         if (event.isPre() && expectPre) {
-            log.errorf("Start State Transfer");
-            stats.startStateTransfer();
-            expectPre = false;
-         } else if(!event.isPre() && !expectPre) {
-            log.errorf("End State Transfer");
-            stats.endStateTransfer();
-            statsAsync.submit(new CheckKeysMovedTask(event.getKeysMoved(), objectPlacementManager, stats,
-                                                     accessesManager.getDefaultConsistentHash(), rpcManager.getAddress()));
-            statsAsync.submit(new SaveStatsTask(stats));
-            expectPre = true;
-            roundManager.markRoundFinished();
-         }
-      }
-   }
-
-   @ManagedOperation(description = "Start the data placement algorithm in order to optimize the system performance")
-   public final void dataPlacementRequest() throws Exception {
-      if (!rpcManager.getTransport().isCoordinator()) {
-         if (log.isTraceEnabled()) {
-            log.trace("Data placement request. Sending request to coordinator");
-         }
-         DataPlacementCommand command = commandsFactory.buildDataPlacementCommand(DataPlacementCommand.Type.DATA_PLACEMENT_REQUEST,
-                                                                                  roundManager.getCurrentRoundId());
-         rpcManager.invokeRemotely(Collections.singleton(rpcManager.getTransport().getCoordinator()),
-                                   command, false);
-         return;
-      }
-
-      if (rpcManager.getTransport().getMembers().size() == 1) {
-         log.warn("Data placement request received but we are the only member. ignoring...");
-         return;
-      }
-
-      if (log.isTraceEnabled()) {
-         log.trace("Data placement request received.");
-      }
-
-      long newRoundId = roundManager.getNewRoundId();
-      DataPlacementCommand command = commandsFactory.buildDataPlacementCommand(DataPlacementCommand.Type.DATA_PLACEMENT_START,
-                                                                               newRoundId);
-      Collection<Address> members = rpcManager.getTransport().getMembers();
-      Address[] addressArray = members.toArray(new Address[members.size()]);
-      command.setMembers(addressArray);
-      rpcManager.broadcastRpcCommand(command, false, false);
-      startDataPlacement(newRoundId, addressArray);
-   }
-
-   @ManagedOperation(description = "Updates the cool down time between two or more data placement requests")
-   public final void setCoolDownTime(int milliseconds) {
-      if (log.isTraceEnabled()) {
-         log.tracef("Setting new cool down period to %s milliseconds", milliseconds);
-      }
-      DataPlacementCommand command = commandsFactory.buildDataPlacementCommand(DataPlacementCommand.Type.SET_COOL_DOWN_TIME,
-                                                                               roundManager.getCurrentRoundId());
-      command.setCoolDownTime(milliseconds);
-      rpcManager.broadcastRpcCommand(command, false, false);
-      internalSetCoolDownTime(milliseconds);
-   }
-
-   @ManagedOperation(description = "Sets a new value (if higher than zero) for the max number of keys to request in " +
-         "each round")
-   public final void setMaxNumberOfKeysToRequest(int value) {
-      accessesManager.setMaxNumberOfKeysToRequest(value);
-   }
-
-   @ManagedAttribute(description = "The cache name", writable = false)
-   public final String getCacheName() {
-      return cacheName;
-   }
-
-   @ManagedAttribute(description = "The current cool down time between rounds", writable = false)
-   public final long getCoolDownTime() {
-      return roundManager.getCoolDownTime();
-   }
-
-   @ManagedAttribute(description = "The current round Id", writable = false)
-   public final long getCurrentRoundId() {
-      return roundManager.getCurrentRoundId();
-   }
-
-   @ManagedAttribute(description = "Check if a data placement round is in progress", writable = false)
-   public final boolean isRoundInProgress() {
-      return roundManager.isRoundInProgress();
-   }
-
-   @ManagedAttribute(description = "Check if the data placement is enabled", writable = false)
-   public final boolean isEnabled() {
-      return roundManager.isEnabled();
-   }
-
-   @ManagedAttribute(description = "The Object Lookup Factory class name", writable = false)
-   public final String getObjectLookupFactoryClassName() {
-      return objectLookupFactory.getClass().getCanonicalName();
-   }
-
-   @ManagedAttribute(description = "The max number of keys to request in each round", writable = false)
-   public final int getMaxNumberOfKeysToRequest() {
-      return accessesManager.getMaxNumberOfKeysToRequest();
    }
 }

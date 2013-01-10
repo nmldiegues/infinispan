@@ -23,13 +23,12 @@
 
 package org.infinispan.configuration.global;
 
-import org.infinispan.executors.DefaultDynamicExecutorFactory;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
 
 import static java.util.Arrays.asList;
 
 public class GlobalConfigurationBuilder implements GlobalConfigurationChildBuilder {
-   
+
    private ClassLoader cl;
    private final TransportConfigurationBuilder transport;
    private final GlobalJmxStatisticsConfigurationBuilder globalJmxStatistics;
@@ -39,8 +38,7 @@ public class GlobalConfigurationBuilder implements GlobalConfigurationChildBuild
    private final ScheduledExecutorFactoryConfigurationBuilder evictionScheduledExecutor;
    private final ScheduledExecutorFactoryConfigurationBuilder replicationQueueScheduledExecutor;
    private final ShutdownConfigurationBuilder shutdown;
-   private final ExecutorFactoryConfigurationBuilder totalOrderExecutor;
-   
+
    public GlobalConfigurationBuilder() {
       this.cl = Thread.currentThread().getContextClassLoader();
       this.transport = new TransportConfigurationBuilder(this);
@@ -52,9 +50,8 @@ public class GlobalConfigurationBuilder implements GlobalConfigurationChildBuild
       this.replicationQueueScheduledExecutor = new ScheduledExecutorFactoryConfigurationBuilder(this);
       this.shutdown = new ShutdownConfigurationBuilder(this);
       //set a new executor by default, that allows to set the core number of threads and the keep alive time
-      this.totalOrderExecutor = new ExecutorFactoryConfigurationBuilder(this).factory(new DefaultDynamicExecutorFactory());
    }
-   
+
    /**
     * Helper method that gets you a default constructed GlobalConfiguration, preconfigured to use the default clustering
     * stack.
@@ -69,7 +66,7 @@ public class GlobalConfigurationBuilder implements GlobalConfigurationChildBuild
          .addProperty("threadNamePrefix", "asyncTransportThread");
       return this;
    }
-   
+
    /**
     * Helper method that gets you a default constructed GlobalConfiguration, preconfigured for use in LOCAL mode
     *
@@ -81,16 +78,16 @@ public class GlobalConfigurationBuilder implements GlobalConfigurationChildBuild
          .clearProperties();
       return this;
    }
-   
+
    protected ClassLoader getClassLoader() {
       return cl;
    }
-   
+
    public GlobalConfigurationBuilder classLoader(ClassLoader cl) {
       this.cl = cl;
       return this;
    }
-   
+
    @Override
    public TransportConfigurationBuilder transport() {
       return transport;
@@ -135,10 +132,6 @@ public class GlobalConfigurationBuilder implements GlobalConfigurationChildBuild
       return shutdown;
    }
 
-   public ExecutorFactoryConfigurationBuilder totalOrderExecutor() {
-      return totalOrderExecutor;
-   }
-
     @SuppressWarnings("unchecked")
     public void validate() {
         for (AbstractGlobalConfigurationBuilder<?> validatable :
@@ -152,22 +145,20 @@ public class GlobalConfigurationBuilder implements GlobalConfigurationChildBuild
    public GlobalConfiguration build() {
        validate();
       return new GlobalConfiguration(
-            asyncListenerExecutor.create(), 
-            asyncTransportExecutor.create(), 
-            evictionScheduledExecutor.create(), 
-            replicationQueueScheduledExecutor.create(), 
+            asyncListenerExecutor.create(),
+            asyncTransportExecutor.create(),
+            evictionScheduledExecutor.create(),
+            replicationQueueScheduledExecutor.create(),
             globalJmxStatistics.create(),
             transport.create(),
-            serialization.create(), 
+            serialization.create(),
             shutdown.create(),
-            cl,
-            totalOrderExecutor.create()
-            );
+            cl);
    }
-   
+
    public GlobalConfigurationBuilder read(GlobalConfiguration template) {
       this.cl = template.classLoader();
-      
+
       asyncListenerExecutor.read(template.asyncListenerExecutor());
       asyncTransportExecutor.read(template.asyncTransportExecutor());
       evictionScheduledExecutor.read(template.evictionScheduledExecutor());
@@ -176,8 +167,7 @@ public class GlobalConfigurationBuilder implements GlobalConfigurationChildBuild
       serialization.read(template.serialization());
       shutdown.read(template.shutdown());
       transport.read(template.transport());
-      totalOrderExecutor.read(template.totalOrderExecutor());
-      
+
       return this;
    }
 
@@ -204,7 +194,6 @@ public class GlobalConfigurationBuilder implements GlobalConfigurationChildBuild
             ", evictionScheduledExecutor=" + evictionScheduledExecutor +
             ", replicationQueueScheduledExecutor=" + replicationQueueScheduledExecutor +
             ", shutdown=" + shutdown +
-            ", totalOrderExecutor=" + totalOrderExecutor +
             '}';
    }
 
@@ -233,7 +222,7 @@ public class GlobalConfigurationBuilder implements GlobalConfigurationChildBuild
       if (transport != null ? !transport.equals(that.transport) : that.transport != null)
          return false;
 
-      return !(totalOrderExecutor != null ? !totalOrderExecutor.equals(that.totalOrderExecutor) : that.totalOrderExecutor != null);
+      return true;
    }
 
    @Override
@@ -247,7 +236,6 @@ public class GlobalConfigurationBuilder implements GlobalConfigurationChildBuild
       result = 31 * result + (evictionScheduledExecutor != null ? evictionScheduledExecutor.hashCode() : 0);
       result = 31 * result + (replicationQueueScheduledExecutor != null ? replicationQueueScheduledExecutor.hashCode() : 0);
       result = 31 * result + (shutdown != null ? shutdown.hashCode() : 0);
-      result = 31 * result + (totalOrderExecutor != null ? totalOrderExecutor.hashCode() : 0);
       return result;
    }
 

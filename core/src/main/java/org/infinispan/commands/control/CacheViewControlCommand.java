@@ -79,6 +79,7 @@ public class CacheViewControlCommand implements CacheRpcCommand {
    private List<CacheView> viewHistory;
    private MessageRequest messageRequest;
    private ResponseGenerator responseGenerator;
+   private int replicationDegree;
 
    // For CommandIdUniquenessTest only
    public CacheViewControlCommand() {
@@ -118,6 +119,10 @@ public class CacheViewControlCommand implements CacheRpcCommand {
       this.cacheViewsManager = cacheViewsManager;
    }
 
+   public void setReplicationDegree(int replicationDegree) {
+      this.replicationDegree = replicationDegree;
+   }
+
    @Override
    public Object perform(InvocationContext ctx) throws Throwable {
       final boolean trace = log.isTraceEnabled();
@@ -132,7 +137,7 @@ public class CacheViewControlCommand implements CacheRpcCommand {
                return null;
             case PREPARE_VIEW:
                cacheViewsManager.handlePrepareView(cacheName, new CacheView(newViewId, newMembers),
-                                                   new CacheView(oldViewId, oldMembers), viewHistory);
+                                                   new CacheView(oldViewId, oldMembers), viewHistory, replicationDegree);
                return null;
             case COMMIT_VIEW:
                cacheViewsManager.handleCommitView(cacheName, newViewId);
@@ -179,7 +184,8 @@ public class CacheViewControlCommand implements CacheRpcCommand {
 
    @Override
    public Object[] getParameters() {
-      return new Object[]{(byte) type.ordinal(), sender, newViewId, newMembers, oldViewId, oldMembers, viewHistory};
+      return new Object[]{(byte) type.ordinal(), sender, newViewId, newMembers, oldViewId, oldMembers, viewHistory,
+                          replicationDegree};
    }
 
    @Override
@@ -192,7 +198,8 @@ public class CacheViewControlCommand implements CacheRpcCommand {
       newMembers = (List<Address>) parameters[i++];
       oldViewId = (Integer) parameters[i++];
       oldMembers = (List<Address>) parameters[i++];
-      viewHistory = (List<CacheView>) parameters[i];
+      viewHistory = (List<CacheView>) parameters[i++];
+      replicationDegree = (Integer) parameters[i];
    }
 
    @Override

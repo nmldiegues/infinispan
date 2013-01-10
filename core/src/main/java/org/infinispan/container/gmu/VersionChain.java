@@ -128,6 +128,34 @@ public abstract class VersionChain<T> {
       }
    }
 
+   public final void gc(EntryVersion minVersion) {
+      VersionBody<T> iterator;
+      synchronized (this) {
+         iterator = first;
+      }
+      while (iterator != null) {
+         iterator = iterator.gc(minVersion);
+      }
+      if (log.isTraceEnabled()) {
+         StringBuilder stringBuilder = new StringBuilder(4096);
+         chainToString(stringBuilder);
+         log.tracef("Chain after GC: %s", stringBuilder);
+      }
+   }
+
+   public final int numberOfVersion() {
+      VersionBody<T> iterator;
+      int size = 0;
+      synchronized (this) {
+         iterator = first;
+      }
+      while (iterator != null) {
+         size++;
+         iterator = iterator.getPrevious();
+      }
+      return size;
+   }
+
    protected abstract VersionBody<T> newValue(T value);
 
    protected abstract void writeValue(BufferedWriter writer, T value) throws IOException;

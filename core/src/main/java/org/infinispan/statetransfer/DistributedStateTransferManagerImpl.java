@@ -35,7 +35,6 @@ import org.infinispan.statetransfer.totalorder.TotalOrderDistributedStateTransfe
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
-import java.util.Collection;
 import java.util.List;
 
 import static org.infinispan.context.Flag.CACHE_MODE_LOCAL;
@@ -75,15 +74,16 @@ public class DistributedStateTransferManagerImpl extends BaseStateTransferManage
 
 
    @Override
-   protected BaseStateTransferTask createStateTransferTask(int viewId, List<Address> members, boolean initialView) {
+   protected BaseStateTransferTask createStateTransferTask(int viewId, List<Address> members, boolean initialView, int replicationDegree) {
       if (isTotalOrder()) {
          return new TotalOrderDistributedStateTransferTask(rpcManager, configuration, dataContainer,
                                                            this, dm, stateTransferLock, cacheNotifier, viewId, members,
-                                                           chOld, chNew, initialView, transactionTable, totalOrderManager);
+                                                           chOld, chNew, initialView, transactionTable, totalOrderManager,
+                                                           replicationDegree);
       } else {
          return new DistributedStateTransferTask(rpcManager, configuration, dataContainer,
                                                  this, dm, stateTransferLock, cacheNotifier, viewId, members, chOld,
-                                                 chNew, initialView, transactionTable);
+                                                 chNew, initialView, transactionTable, replicationDegree);
       }
    }
 
@@ -94,7 +94,11 @@ public class DistributedStateTransferManagerImpl extends BaseStateTransferManage
 
 
    @Override
-   protected ConsistentHash createConsistentHash(List<Address> members) {
+   protected ConsistentHash createConsistentHash(List<Address> members, int replicationDegree) {
+      if (replicationDegree > 0) {
+         //change in replication degree... return CH old
+         return chOld;
+      }
       ConsistentHash defaultHash = ConsistentHashHelper.createConsistentHash(configuration, members);
       if (isDataPlacementConsistentHash()) {
          dataPlacementConsistentHash.setDefault(defaultHash);

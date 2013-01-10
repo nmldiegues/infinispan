@@ -91,4 +91,14 @@ public class SimpleClusteredVersionGenerator implements VersionGenerator {
    public void addCacheView(CacheView cacheView) {
       //no-op
    }
+
+   @Override
+   public void gcCacheView(int minViewId) {
+      //no-op
+   }
+
+   @Override
+   public int getViewHistorySize() {
+      return 0; //no history saved
+   }
 }

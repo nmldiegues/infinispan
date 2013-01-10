@@ -3,7 +3,6 @@ package org.infinispan.tx.gmu.l1;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.container.gmu.L1GMUContainer;
-import org.infinispan.test.TestingUtil;
 import org.infinispan.tx.gmu.AbstractGMUTest;
 
 /**
@@ -22,10 +21,6 @@ public abstract class AbstractGMUL1Test extends AbstractGMUTest {
    @Override
    protected final CacheMode cacheMode() {
       return CacheMode.DIST_SYNC;
-   }
-
-   protected final <T> T getComponent(int cacheIndex, Class<T> clazz) {
-      return TestingUtil.extractComponent(cache(cacheIndex), clazz);
    }
 
    protected final void assertInL1Cache(int cacheIndex, Object... keys) {

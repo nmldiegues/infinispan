@@ -35,8 +35,10 @@ import org.infinispan.commands.read.MapReduceCommand;
 import org.infinispan.commands.read.SizeCommand;
 import org.infinispan.commands.read.ValuesCommand;
 import org.infinispan.commands.remote.ClusteredGetCommand;
+import org.infinispan.commands.remote.ConfigurationStateCommand;
 import org.infinispan.commands.remote.DataPlacementCommand;
 import org.infinispan.commands.remote.GMUClusteredGetCommand;
+import org.infinispan.commands.remote.GarbageCollectorControlCommand;
 import org.infinispan.commands.remote.MultipleRpcCommand;
 import org.infinispan.commands.remote.ReconfigurableProtocolCommand;
 import org.infinispan.commands.remote.SingleRpcCommand;
@@ -65,6 +67,7 @@ import org.infinispan.dataplacement.DataPlacementManager;
 import org.infinispan.distexec.mapreduce.Mapper;
 import org.infinispan.distexec.mapreduce.Reducer;
 import org.infinispan.distribution.DistributionManager;
+import org.infinispan.executors.ConditionalExecutorService;
 import org.infinispan.factories.KnownComponentNames;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
@@ -78,6 +81,7 @@ import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.transaction.RemoteTransaction;
 import org.infinispan.transaction.TransactionTable;
 import org.infinispan.transaction.gmu.CommitLog;
+import org.infinispan.transaction.gmu.manager.GarbageCollectorManager;
 import org.infinispan.transaction.totalorder.TotalOrderManager;
 import org.infinispan.transaction.xa.DldGlobalTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
@@ -134,6 +138,8 @@ public class CommandsFactoryImpl implements CommandsFactory {
    private Map<Byte, ModuleCommandInitializer> moduleCommandInitializers;
    private CommitLog commitLog;
    private VersionGenerator versionGenerator;
+   private GarbageCollectorManager garbageCollectorManager;
+   private ConditionalExecutorService conditionalExecutorService;
 
    @Inject
    public void setupDependencies(DataContainer container, CacheNotifier notifier, Cache<Object, Object> cache,
@@ -142,7 +148,8 @@ public class CommandsFactoryImpl implements CommandsFactory {
                                  @ComponentName(KnownComponentNames.MODULE_COMMAND_INITIALIZERS) Map<Byte, ModuleCommandInitializer> moduleCommandInitializers,
                                  RecoveryManager recoveryManager, StateTransferManager stateTransferManager, LockManager lockManager,
                                  InternalEntryFactory entryFactory, TotalOrderManager totalOrderManager, DataPlacementManager dataPlacementManager,
-                                 CommitLog commitLog, VersionGenerator versionGenerator, ReconfigurableReplicationManager reconfigurableReplicationManager) {
+                                 CommitLog commitLog, VersionGenerator versionGenerator, ReconfigurableReplicationManager reconfigurableReplicationManager,
+                                 GarbageCollectorManager garbageCollectorManager, ConditionalExecutorService conditionalExecutorService) {
       this.dataContainer = container;
       this.notifier = notifier;
       this.cache = cache;
@@ -161,6 +168,8 @@ public class CommandsFactoryImpl implements CommandsFactory {
       this.commitLog = commitLog;
       this.versionGenerator = versionGenerator;
       this.reconfigurableReplicationManager = reconfigurableReplicationManager;
+      this.garbageCollectorManager = garbageCollectorManager;
+      this.conditionalExecutorService = conditionalExecutorService;
    }
 
    @Start(priority = 1)
@@ -376,7 +385,7 @@ public class CommandsFactoryImpl implements CommandsFactory {
             break;
          case GMUClusteredGetCommand.COMMAND_ID:
             GMUClusteredGetCommand gmuClusteredGetCommand = (GMUClusteredGetCommand) c;
-            gmuClusteredGetCommand.initializeGMUComponents(commitLog, configuration, versionGenerator);
+            gmuClusteredGetCommand.initializeGMUComponents(commitLog, conditionalExecutorService, versionGenerator);
          case ClusteredGetCommand.COMMAND_ID:
             ClusteredGetCommand clusteredGetCommand = (ClusteredGetCommand) c;
             clusteredGetCommand.initialize(icc, this, entryFactory, interceptorChain, distributionManager, txTable,
@@ -440,6 +449,13 @@ public class CommandsFactoryImpl implements CommandsFactory {
             ReconfigurableProtocolCommand rpc = (ReconfigurableProtocolCommand) c;
             rpc.init(reconfigurableReplicationManager);
             break;
+         case GarbageCollectorControlCommand.COMMAND_ID:
+            GarbageCollectorControlCommand gccc = (GarbageCollectorControlCommand) c;
+            gccc.init(garbageCollectorManager);
+            break;
+         case ConfigurationStateCommand.COMMAND_ID:
+            ConfigurationStateCommand csc = (ConfigurationStateCommand) c;
+            csc.initialize(distributionManager, reconfigurableReplicationManager);
          default:
             ModuleCommandInitializer mci = moduleCommandInitializers.get(c.getCommandId());
             if (mci != null) {
@@ -548,5 +564,16 @@ public class CommandsFactoryImpl implements CommandsFactory {
    @Override
    public ReconfigurableProtocolCommand buildReconfigurableProtocolCommand(ReconfigurableProtocolCommand.Type type, String protocolId) {
       return new ReconfigurableProtocolCommand(cacheName, type, protocolId);
+   }
+
+   @Override
+   public GarbageCollectorControlCommand buildGarbageCollectorControlCommand(GarbageCollectorControlCommand.Type type,
+                                                                             int minimumVisibleViewId) {
+      return new GarbageCollectorControlCommand(cacheName, type, minimumVisibleViewId);
+   }
+
+   @Override
+   public SetClassCommand buildSetClassCommand(String transactionalClass) {
+      return new SetClassCommand(transactionalClass);
    }
 }

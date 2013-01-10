@@ -29,7 +29,7 @@
    <parent>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-parent</artifactId>
-      <version>5.2.0-cloudtm-v0-SNAPSHOT</version>
+      <version>5.2.0-cloudtm-SNAPSHOT</version>
       <relativePath>../parent/pom.xml</relativePath>
    </parent>
 
@@ -45,11 +45,12 @@
    <!-- Added my maven repository. needed for stream lib -->
    <repositories>
       <repository>
-         <id>pruivo</id>
-         <name>Pedro Ruivo's Maven Repository</name>
-         <url>http://homepages.gsd.inesc-id.pt/~pruivo/maven-repo/</url>
+         <id>cloudtm</id>
+         <name>Cloud-TM's Maven Repository</name>
+         <url>http://cloudtm.ist.utl.pt:8083/nexus/content/groups/public/</url>
          <releases>
             <enabled>true</enabled>
+             <updatePolicy>never</updatePolicy>
          </releases>
          <snapshots>
             <enabled>true</enabled>
@@ -57,22 +58,6 @@
          </snapshots>
       </repository>
    </repositories>
-
-   <pluginRepositories>
-      <pluginRepository>
-         <id>pruivo-plugin</id>
-         <name>Pedro Ruivo's Plugins Maven Repository</name>
-         <url>http://homepages.gsd.inesc-id.pt/~pruivo/maven-repo/</url>
-         <releases>
-            <enabled>true</enabled>
-         </releases>
-         <snapshots>
-            <enabled>true</enabled>
-            <updatePolicy>daily</updatePolicy>
-         </snapshots>
-      </pluginRepository>
-   </pluginRepositories>
-
 
    <dependencies>
 
@@ -173,13 +158,13 @@
       <dependency>
          <groupId>com.clearspring.analytics</groupId>
          <artifactId>stream</artifactId>
-         <version>2.2.0-SNAPSHOT</version>
+         <version>2.2.0</version>
       </dependency>
 
-      <dependency>
-         <groupId>edu.utexas.ece.mpc</groupId>
-         <artifactId>bloomiers</artifactId>
-         <version>1.0-SNAPSHOT</version>
+       <dependency>
+           <groupId>com.github.egrim</groupId>
+           <artifactId>java-bloomier-filter</artifactId>
+         <version>1.0.Final</version>
       </dependency>
    </dependencies>
 

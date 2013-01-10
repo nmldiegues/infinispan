@@ -89,6 +89,8 @@ public abstract class VersionBody<T> {
 
    public abstract void reincarnate(VersionBody<T> other);
 
+   public abstract VersionBody<T> gc(EntryVersion minVersion);
+
    protected abstract boolean isExpired(long now);
 
 }
