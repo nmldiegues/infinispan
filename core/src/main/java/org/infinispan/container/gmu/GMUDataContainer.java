@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.infinispan.container.gmu.GMUEntryFactoryImpl.wrap;
 import static org.infinispan.transaction.gmu.GMUHelper.convert;
@@ -306,6 +307,25 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
 
    public static class DataContainerVersionChain extends VersionChain<InternalCacheEntry> {
 
+      // nmld: visible read vector clock, probably an EntryVersion?
+      // TODO: place 0-filled array with the correct size ?
+      private final AtomicReference<long[]> visibleReadVersion = new AtomicReference<long[]>();
+
+      // callers abide the rule of never modifying the array. unfortunately we cannot apply 
+      // the 'final' keyword to the elements of an array
+      protected long[] getVisibleRead() {
+         return visibleReadVersion.get();
+      }
+      
+      protected void setVisibleRead(long[] newVisibleRead) {
+         long[] previousVisibleReadVersion = visibleReadVersion.get();
+         if (previousVisibleReadVersion != null) { // handles the initial case in which noone read it? 
+            // if the new visible read is older, then we do not need to update
+            return;
+         }
+         visibleReadVersion.compareAndSet(previousVisibleReadVersion, newVisibleRead);
+      }
+      
       @Override
       protected VersionBody<InternalCacheEntry> newValue(InternalCacheEntry value) {
          return new DataContainerVersionBody(value);
@@ -321,8 +341,15 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
 
    public static class DataContainerVersionBody extends VersionBody<InternalCacheEntry> {
 
-      protected DataContainerVersionBody(InternalCacheEntry value) {
+      private final boolean creatorHasOutgoingDep;
+      
+      protected DataContainerVersionBody(InternalCacheEntry value, boolean creatorHasOutgoingDep) {
          super(value);
+         this.creatorHasOutgoingDep = creatorHasOutgoingDep;
+      }
+      
+      public boolean hasOutgoingDep() {
+         return this.creatorHasOutgoingDep;
       }
 
       @Override
