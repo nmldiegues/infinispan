@@ -805,6 +805,18 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
    }
 
    /**
+    * If true, the distributed transactional algorithm uses an enhanced validation that provides the same isolation 
+    * level but should create less aborts.
+    * 
+    * @param ssiValidation
+    * @deprecated
+    */
+   @Deprecated
+   public void setSSIValidation(boolean ssiValidation) {
+      this.transaction.setSSIValidation(ssiValidation);
+   }
+   
+   /**
     * Only has effect for DIST mode and when useEagerLocking is set to true. When this is enabled, then only one node is
     * locked in the cluster, disregarding numOwners config. On the opposite, if this is false, then on all cache.lock()
     * calls numOwners RPCs are being performed. The node that gets locked is the main data owner, i.e. the node where
@@ -1375,6 +1387,10 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
    public boolean isSyncRollbackPhase() {
       return transaction.syncRollbackPhase;
    }
+   
+   public boolean isSSIValidation() {
+      return transaction.ssiValidation;
+   }
 
    /**
     * Returns true if the 2nd phase of the 2PC (i.e. either commit or rollback) is sent asynchronously.
@@ -1881,6 +1897,10 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
       @Dynamic
       protected Boolean syncRollbackPhase = false;
 
+      @ConfigurationDocRef(bean = Configuration.class, targetElement = "setSSIValidation")
+      @Dynamic
+      protected Boolean ssiValidation = false;
+      
       @Dynamic
       @ConfigurationDocRef(bean = Configuration.class, targetElement = "setUseEagerLocking")
       protected Boolean useEagerLocking = false;
@@ -2073,6 +2093,16 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
          return this;
       }
 
+      @XmlAttribute
+      public Boolean isSSIValidation() {
+         return this.ssiValidation;
+      }
+      
+      @Deprecated
+      public void setSSIValidation(Boolean ssiValidation) {
+         testImmutability("ssiValidation");
+         this.ssiValidation = ssiValidation;
+      }
 
       @XmlAttribute
       public Boolean isUseEagerLocking() {
@@ -2210,6 +2240,8 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
             return false;
          if (syncRollbackPhase != null ? !syncRollbackPhase.equals(that.syncRollbackPhase) : that.syncRollbackPhase != null)
             return false;
+         if (ssiValidation != null ? !ssiValidation.equals(that.ssiValidation) : that.ssiValidation != null)
+            return false;
          if (transactionManagerLookup != null ? !transactionManagerLookup.equals(that.transactionManagerLookup) : that.transactionManagerLookup != null)
             return false;
          if (transactionManagerLookupClass != null ? !transactionManagerLookupClass.equals(that.transactionManagerLookupClass) : that.transactionManagerLookupClass != null)
@@ -2236,6 +2268,7 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
          result = 31 * result + (transactionManagerLookup != null ? transactionManagerLookup.hashCode() : 0);
          result = 31 * result + (syncCommitPhase != null ? syncCommitPhase.hashCode() : 0);
          result = 31 * result + (syncRollbackPhase != null ? syncRollbackPhase.hashCode() : 0);
+         result = 31 * result + (ssiValidation != null ? ssiValidation.hashCode() : 0);
          result = 31 * result + (useEagerLocking != null ? useEagerLocking.hashCode() : 0);
          result = 31 * result + (cacheStopTimeout != null ? cacheStopTimeout.hashCode() : 0);
          return result;

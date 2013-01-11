@@ -107,6 +107,7 @@ public enum Attribute {
    SHUTDOWN_TIMEOUT("shutdownTimeout"),
    SITE_ID("siteId"),
    SPIN_DURATION("spinDuration"),
+   SSI_VALIDATION("ssiValidation"),
    STORE_KEYS_AS_BINARY("storeKeysAsBinary"),
    STORE_VALUES_AS_BINARY("storeValuesAsBinary"),
    STRATEGY("strategy"),

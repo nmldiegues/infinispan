@@ -46,6 +46,7 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
    private long cacheStopTimeout = TimeUnit.SECONDS.toMillis(30);
    private boolean eagerLockingSingleNode = false;
    LockingMode lockingMode = LockingMode.OPTIMISTIC;
+   private boolean ssiValidation = false;
    private boolean syncCommitPhase = true;
    private boolean syncRollbackPhase = false;
    private TransactionManagerLookup transactionManagerLookup;
@@ -128,6 +129,16 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
     */
    public TransactionConfigurationBuilder lockingMode(LockingMode lockingMode) {
       this.lockingMode = lockingMode;
+      return this;
+   }
+   
+   /**
+    * If true, the distribution transactional algorithm will use an enhanced validation 
+    * procedure which creates less conflicts but still provides the same isolation level. 
+    * Moreover, it still gives the guarantee that read-only transactions never abort. 
+    */
+   public TransactionConfigurationBuilder ssiValidation(boolean b) {
+      this.ssiValidation = b;
       return this;
    }
 
@@ -311,7 +322,7 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
       else if (transactionMode == null)
          transactionMode = TransactionMode.NON_TRANSACTIONAL;
       return new TransactionConfiguration(autoCommit, cacheStopTimeout, eagerLockingSingleNode, lockingMode, syncCommitPhase,
-            syncRollbackPhase, transactionManagerLookup, transactionSynchronizationRegistryLookup, transactionMode,
+            syncRollbackPhase, ssiValidation, transactionManagerLookup, transactionSynchronizationRegistryLookup, transactionMode,
             useEagerLocking, useSynchronization, use1PcForAutoCommitTransactions, recovery.create(), transactionProtocol);
    }
 

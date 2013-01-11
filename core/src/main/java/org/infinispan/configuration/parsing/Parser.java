@@ -471,6 +471,9 @@ public class Parser {
             case LOCKING_MODE:
                builder.transaction().lockingMode(LockingMode.valueOf(value));
                break;
+            case SSI_VALIDATION:
+               builder.transaction().ssiValidation(Boolean.parseBoolean(value));
+               break;
             case SYNC_COMMIT_PHASE:
                builder.transaction().syncCommitPhase(Boolean.parseBoolean(value));
                break;

@@ -39,6 +39,7 @@ public class TransactionConfiguration {
    private final LockingMode lockingMode;
    private boolean syncCommitPhase;
    private boolean syncRollbackPhase;
+   private boolean ssiValidation;
    private final TransactionManagerLookup transactionManagerLookup;
    private final TransactionSynchronizationRegistryLookup transactionSynchronizationRegistryLookup;
    private final TransactionMode transactionMode;
@@ -49,7 +50,7 @@ public class TransactionConfiguration {
    private final TransactionProtocol transactionProtocol; //2PC or Total order protocol
 
    TransactionConfiguration(boolean autoCommit, long cacheStopTimeout, boolean eagerLockingSingleNode, LockingMode lockingMode,
-         boolean syncCommitPhase, boolean syncRollbackPhase, TransactionManagerLookup transactionManagerLookup,
+         boolean syncCommitPhase, boolean syncRollbackPhase, boolean ssiValidation, TransactionManagerLookup transactionManagerLookup,
          TransactionSynchronizationRegistryLookup transactionSynchronizationRegistryLookup, TransactionMode transactionMode,
          boolean useEagerLocking, boolean useSynchronization, boolean use1PcForAutoCommitTransactions,
          RecoveryConfiguration recovery, TransactionProtocol transactionProtocol) {
@@ -59,6 +60,7 @@ public class TransactionConfiguration {
       this.lockingMode = lockingMode;
       this.syncCommitPhase = syncCommitPhase;
       this.syncRollbackPhase = syncRollbackPhase;
+      this.ssiValidation = ssiValidation;
       this.transactionManagerLookup = transactionManagerLookup;
       this.transactionSynchronizationRegistryLookup = transactionSynchronizationRegistryLookup;
       this.transactionMode = transactionMode;
@@ -169,6 +171,15 @@ public class TransactionConfiguration {
       return this;
    }
 
+   public boolean ssiValidation() {
+      return ssiValidation;
+   }
+   
+   public TransactionConfiguration ssiValidation(boolean b) {
+      this.ssiValidation = b;
+      return this;
+   }
+   
    /**
     * Configure Transaction manager lookup directly using an instance of TransactionManagerLookup.
     * Calling this method marks the cache as transactional.
@@ -250,6 +261,7 @@ public class TransactionConfiguration {
             ", lockingMode=" + lockingMode +
             ", syncCommitPhase=" + syncCommitPhase +
             ", syncRollbackPhase=" + syncRollbackPhase +
+            ", ssiValidation=" + ssiValidation + 
             ", transactionManagerLookup=" + transactionManagerLookup +
             ", transactionSynchronizationRegistryLookup=" + transactionSynchronizationRegistryLookup +
             ", transactionMode=" + transactionMode +
@@ -272,6 +284,7 @@ public class TransactionConfiguration {
       if (eagerLockingSingleNode != that.eagerLockingSingleNode) return false;
       if (syncCommitPhase != that.syncCommitPhase) return false;
       if (syncRollbackPhase != that.syncRollbackPhase) return false;
+      if (ssiValidation != that.ssiValidation) return false;
       if (use1PcForAutoCommitTransactions != that.use1PcForAutoCommitTransactions)
          return false;
       if (useEagerLocking != that.useEagerLocking) return false;
@@ -299,6 +312,7 @@ public class TransactionConfiguration {
       result = 31 * result + (lockingMode != null ? lockingMode.hashCode() : 0);
       result = 31 * result + (syncCommitPhase ? 1 : 0);
       result = 31 * result + (syncRollbackPhase ? 1 : 0);
+      result = 31 * result + (ssiValidation ? 1 : 0);
       result = 31 * result + (transactionManagerLookup != null ? transactionManagerLookup.hashCode() : 0);
       result = 31 * result + (transactionSynchronizationRegistryLookup != null ? transactionSynchronizationRegistryLookup.hashCode() : 0);
       result = 31 * result + (transactionMode != null ? transactionMode.hashCode() : 0);
