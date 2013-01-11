@@ -52,6 +52,16 @@ public interface DataContainer extends Iterable<InternalCacheEntry> {
     * @return entry, if it exists and has not expired, or null if not
     */
    InternalCacheEntry get(Object k, EntryVersion version);
+   
+   /**
+    * Similar as {@link #get(Object, org.infinispan.container.versioning.EntryVersion)},
+    * but with a possible different implementation for transactions known to be writers.
+    *
+    * @param k key under which entry is stored
+    * @param version the snapshot version to read. if it is null, the most recent version is returned
+    * @return entry, if it exists and has not expired, or null if not
+    */
+   InternalCacheEntry getAsWriteTx(Object k, EntryVersion version);
 
    /**
     * Retrieves a cache entry in the same way as {@link #get(Object, org.infinispan.container.versioning.EntryVersion)}}
@@ -65,9 +75,10 @@ public interface DataContainer extends Iterable<InternalCacheEntry> {
     *
     * @param k key under which entry is stored
     * @param version the snapshot version to read. if it is null, the most recent version is returned
+    * @param writeTx flag if the current transaction is known to not be read-only
     * @return entry, if it exists, or null if not
     */
-   InternalCacheEntry peek(Object k, EntryVersion version);
+   InternalCacheEntry peek(Object k, EntryVersion version, boolean writeTx);
 
    /**
     * Puts an entry in the cache along with a lifespan and a maxIdle time

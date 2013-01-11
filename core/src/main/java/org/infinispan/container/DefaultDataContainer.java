@@ -67,13 +67,13 @@ public class DefaultDataContainer extends AbstractDataContainer<InternalCacheEnt
    }
 
    @Override
-   public InternalCacheEntry peek(Object key, EntryVersion version) {
+   public InternalCacheEntry peek(Object key, EntryVersion version, boolean isWriteTx) {
       return entries.get(key);
    }
 
    @Override
    public InternalCacheEntry get(Object k, EntryVersion version) {
-      InternalCacheEntry e = peek(k, version);
+      InternalCacheEntry e = peek(k, version, false);
       if (e != null && e.canExpire()) {
          long currentTimeMillis = System.currentTimeMillis();
          if (e.isExpired(currentTimeMillis)) {
@@ -84,6 +84,11 @@ public class DefaultDataContainer extends AbstractDataContainer<InternalCacheEnt
          }
       }
       return e;
+   }
+   
+   @Override
+   public InternalCacheEntry getAsWriteTx(Object k, EntryVersion version) {
+      return get(k, version);
    }
 
    @Override
@@ -107,7 +112,7 @@ public class DefaultDataContainer extends AbstractDataContainer<InternalCacheEnt
 
    @Override
    public boolean containsKey(Object k, EntryVersion version) {
-      InternalCacheEntry ice = peek(k, null);
+      InternalCacheEntry ice = peek(k, null, false);
       if (ice != null && ice.canExpire() && ice.isExpired(System.currentTimeMillis())) {
          entries.remove(k);
          ice = null;
@@ -218,4 +223,5 @@ public class DefaultDataContainer extends AbstractDataContainer<InternalCacheEnt
          throw new UnsupportedOperationException();
       }
    }
+
 }

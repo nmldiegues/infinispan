@@ -132,6 +132,13 @@ public interface Cache<K, V> extends BasicCache<K, V>, Listenable {
     * @throws IllegalStateException if {@link #getStatus()} would not return {@link ComponentStatus#RUNNING}.
     */
    void putForExternalRead(K key, V value);
+   
+   /**
+    * Locally registers that the current transaction is not going to be read-only.
+    * 
+    * @throws IllegalStateException if there is no current transaction, or if it already performed any transactional action.
+    */
+   void markAsWriteTransaction();
 
    /**
     * Evicts an entry from the memory of the cache.  Note that the entry is <i>not</i> removed from any configured cache

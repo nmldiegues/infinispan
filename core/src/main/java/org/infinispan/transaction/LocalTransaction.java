@@ -56,6 +56,8 @@ public abstract class LocalTransaction extends AbstractCacheTransaction {
    private final boolean implicitTransaction;
    protected Set<Object> readKeys = null;
    private Set<Address> remoteLockedNodes;
+   private boolean isWriteTx = false;
+
    /**
     * mark as volatile as this might be set from the tx thread code on view change
     */
@@ -239,6 +241,14 @@ public abstract class LocalTransaction extends AbstractCacheTransaction {
          log.debugf("[%s] get read keys %s", tx.prettyPrint(), readKeys);
       }
       return readKeys;
+   }
+
+   public boolean isWriteTx() {
+      return isWriteTx;
+   }
+
+   public void setWriteTx(boolean isWriteTx) {
+      this.isWriteTx = isWriteTx;
    }
 
 }

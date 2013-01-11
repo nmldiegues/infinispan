@@ -23,6 +23,7 @@ import static org.infinispan.container.versioning.InequalVersionComparisonResult
  */
 public class GMUCacheEntryVersion extends GMUVersion {
 
+   private final long creationVersion = 0; // TODO nmld: may differ from version
    private final long version;
    private final int subVersion;
 
@@ -71,11 +72,16 @@ public class GMUCacheEntryVersion extends GMUVersion {
          return result;
       } else if (other instanceof GMUReadVersion) {
          GMUReadVersion readVersion = (GMUReadVersion) other;
+         // TODO: nmld understand the following
          if (readVersion.contains(version, subVersion)) {
             //this is an invalid version. set it higher
             return AFTER;
          }
-         return compare(version, readVersion.getThisNodeVersionValue());
+         if (readVersion.isReadFromWriteTx()) {
+            return compare(creationVersion, readVersion.getThisNodeVersionValue());
+         } else {
+            return compare(version, readVersion.getThisNodeVersionValue());
+         }
       } else if (other instanceof GMUReplicatedVersion) {
          GMUReplicatedVersion replicatedVersion = (GMUReplicatedVersion) other;
          InequalVersionComparisonResult result = compare(version, replicatedVersion.getThisNodeVersionValue());

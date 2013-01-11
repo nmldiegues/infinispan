@@ -307,6 +307,22 @@ public class TransactionTable {
       }
       return current;
    }
+   
+   /**
+    * Used to explicitly mark a transaction as not read-only.
+    * 
+    * @throws IllegalStateException if there is already a transaction
+    */
+   public LocalTransaction createLocalWriteTransaction(TxInvocationContext ctx) {
+      Transaction tx = ctx.getTransaction();
+      LocalTransaction localTx = localTransactions.get(tx); 
+      if (localTx != null) {
+         throw new IllegalStateException("Marked a transaction as a Writer transaction, but there was already one: " + localTx);
+      }
+      localTx = getOrCreateLocalTransaction(tx, ctx);
+      localTx.setWriteTx(true);
+      return localTx;
+   }
 
    /**
     * Removes the {@link org.infinispan.transaction.xa.TransactionXaAdapter} corresponding to the given tx. Returns true

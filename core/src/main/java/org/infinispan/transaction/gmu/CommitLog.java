@@ -144,12 +144,12 @@ public class CommitLog {
       return versionGenerator.mergeAndMax(possibleVersion.toArray(new GMUVersion[possibleVersion.size()]));
    }
 
-   public final GMUReadVersion getReadVersion(EntryVersion other) {
+   public final GMUReadVersion getReadVersion(EntryVersion other, boolean isWriteTx) {
       if (other == null) {
          return null;
       }
       GMUVersion gmuVersion = toGMUVersion(other);
-      GMUReadVersion gmuReadVersion = versionGenerator.convertVersionToRead(gmuVersion);
+      GMUReadVersion gmuReadVersion = versionGenerator.convertVersionToRead(gmuVersion, isWriteTx);
       VersionEntry iterator;
       synchronized (this) {
          iterator = currentVersion;

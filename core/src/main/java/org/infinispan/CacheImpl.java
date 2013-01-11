@@ -372,6 +372,16 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
    }
 
    @Override
+   public final void markAsWriteTransaction() {
+      markAsWriteTransaction(null, null);
+   }
+   
+   final void markAsWriteTransaction(EnumSet<Flag> explicitFlags, ClassLoader explicitClassLoader) {
+      InvocationContext ctx = getInvocationContextWithImplicitTransaction(explicitFlags, explicitClassLoader, 1);
+      txTable.createLocalWriteTransaction((TxInvocationContext)ctx);
+   }
+   
+   @Override
    public final void evict(K key) {
       evict(key, null, null);
    }

@@ -21,7 +21,7 @@ public interface GMUVersionGenerator extends VersionGenerator {
 
    GMUCacheEntryVersion convertVersionToWrite(EntryVersion version, int subVersion);
 
-   GMUReadVersion convertVersionToRead(EntryVersion version);
+   GMUReadVersion convertVersionToRead(EntryVersion version, boolean isWriteTx);
 
    GMUVersion calculateMaxVersionToRead(EntryVersion transactionVersion, Collection<Address> alreadyReadFrom);
 

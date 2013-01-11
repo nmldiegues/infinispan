@@ -104,12 +104,12 @@ public class ReplGMUVersionGenerator implements GMUVersionGenerator {
    }
 
    @Override
-   public final GMUReadVersion convertVersionToRead(EntryVersion version) {
+   public final GMUReadVersion convertVersionToRead(EntryVersion version, boolean isWriteTx) {
       if (version == null) {
          return null;
       }
       GMUVersion gmuVersion = toGMUVersion(version);
-      return new GMUReadVersion(cacheName, currentViewId, this, gmuVersion.getThisNodeVersionValue());
+      return new GMUReadVersion(cacheName, currentViewId, this, gmuVersion.getThisNodeVersionValue(), isWriteTx);
    }
 
    @Override

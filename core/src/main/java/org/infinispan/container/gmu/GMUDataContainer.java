@@ -66,7 +66,30 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.get(%s,%s)", k, version);
       }
-      InternalCacheEntry entry = peek(k, version);
+      InternalCacheEntry entry = peek(k, version, false);
+      long now = System.currentTimeMillis();
+      if (entry.canExpire() && entry.isExpired(now)) {
+         if (log.isTraceEnabled()) {
+            log.tracef("DataContainer.get(%s,%s) => EXPIRED", k, version);
+         }
+
+         return new InternalGMUNullCacheEntry(toInternalGMUCacheEntry(entry));
+      }
+      entry.touch(now);
+
+      if (log.isTraceEnabled()) {
+         log.tracef("DataContainer.get(%s,%s) => %s", k, version, entry);
+      }
+
+      return entry;
+   }
+   
+   @Override
+   public InternalCacheEntry getAsWriteTx(Object k, EntryVersion version) {
+      if (log.isTraceEnabled()) {
+         log.tracef("DataContainer.get(%s,%s)", k, version);
+      }
+      InternalCacheEntry entry = peek(k, version, true);
       long now = System.currentTimeMillis();
       if (entry.canExpire() && entry.isExpired(now)) {
          if (log.isTraceEnabled()) {
@@ -85,7 +108,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
    }
 
    @Override
-   public InternalCacheEntry peek(Object k, EntryVersion version) {
+   public InternalCacheEntry peek(Object k, EntryVersion version, boolean writeTx) {
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.peek(%s,%s)", k, version);
       }
@@ -97,7 +120,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          }
          return wrap(k, null, true, version, null, null);
       }
-      VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version));
+      VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, writeTx));
 
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.peek(%s,%s) => %s", k, version, entry);
@@ -145,7 +168,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
 
       VersionChain chain = entries.get(k);
-      boolean contains = chain != null && chain.contains(getReadVersion(version));
+      boolean contains = chain != null && chain.contains(getReadVersion(version, false));
 
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.containsKey(%s,%s) => %s", k, version, contains);
@@ -185,7 +208,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
       int size = 0;
       for (VersionChain chain : entries.values()) {
-         if (chain.contains(getReadVersion(version))) {
+         if (chain.contains(getReadVersion(version, false))) {
             size++;
          }
       }
@@ -297,8 +320,8 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       return convert(entryVersion, GMUCacheEntryVersion.class);
    }
 
-   private GMUReadVersion getReadVersion(EntryVersion entryVersion) {
-      GMUReadVersion gmuReadVersion = commitLog.getReadVersion(entryVersion);
+   private GMUReadVersion getReadVersion(EntryVersion entryVersion, boolean isWriteTx) {
+      GMUReadVersion gmuReadVersion = commitLog.getReadVersion(entryVersion, isWriteTx);
       if (log.isDebugEnabled()) {
          log.debugf("getReadVersion(%s) ==> %s", entryVersion, gmuReadVersion);
       }
@@ -328,7 +351,8 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       
       @Override
       protected VersionBody<InternalCacheEntry> newValue(InternalCacheEntry value) {
-         return new DataContainerVersionBody(value);
+         // TODO nmld: this has to be changed
+         return new DataContainerVersionBody(value, false);
       }
 
       @Override

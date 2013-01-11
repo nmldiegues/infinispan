@@ -68,11 +68,17 @@ public class QueryableDataContainer implements DataContainer {
 		loggedOperations.add("get(" + k + ")" );
 		return delegate.get(k, null);
 	}
+	
+	@Override
+	public InternalCacheEntry getAsWriteTx(Object k, EntryVersion version) {
+	   loggedOperations.add("getAsWriteTx(" + k + ")" );
+	   return delegate.getAsWriteTx(k, null);
+	}
 
 	@Override
-	public InternalCacheEntry peek(Object k, EntryVersion version) {
+	public InternalCacheEntry peek(Object k, EntryVersion version, boolean writeTx) {
 		loggedOperations.add("peek(" + k + ")" );
-		return delegate.peek(k, null);
+		return delegate.peek(k, null, writeTx);
 	}
 
 	@Override

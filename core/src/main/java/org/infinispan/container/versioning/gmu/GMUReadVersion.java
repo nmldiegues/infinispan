@@ -19,11 +19,13 @@ public class GMUReadVersion extends GMUVersion {
 
    private final long version;
    private final Set<Pair> notVisibleSubVersions;
+   private final boolean isReadFromWriteTx;
 
-   public GMUReadVersion(String cacheName, int viewId, GMUVersionGenerator versionGenerator, long version) {
+   public GMUReadVersion(String cacheName, int viewId, GMUVersionGenerator versionGenerator, long version, boolean isWriteTx) {
       super(cacheName, viewId, versionGenerator);
       this.version = version;
       this.notVisibleSubVersions = new TreeSet<Pair>();
+      this.isReadFromWriteTx = isWriteTx;
    }
 
    @Override
@@ -69,6 +71,10 @@ public class GMUReadVersion extends GMUVersion {
             "version=" + version +
             ", notVisibleSubVersions=" + notVisibleSubVersions +
             ", " + super.toString();
+   }
+
+   public boolean isReadFromWriteTx() {
+      return isReadFromWriteTx;
    }
 
    private class Pair implements Comparable<Pair> {
