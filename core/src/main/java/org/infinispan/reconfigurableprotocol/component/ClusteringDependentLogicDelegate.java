@@ -6,6 +6,7 @@ import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.EntryVersionsMap;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.remoting.transport.Address;
@@ -63,4 +64,16 @@ public class ClusteringDependentLogicDelegate extends AbstractProtocolDependentC
    public Collection<Address> getWriteOwners(CacheTransaction cacheTransaction) {
       return get().getWriteOwners(cacheTransaction);
    }
+
+   @Override
+   public void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
+         GMUVersion currentVersion) {
+      get().performSSIReadSetValidation(context, prepareCommand, currentVersion);
+   }
+
+   @Override
+   public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+      get().performWriteSetValidation(context, prepareCommand);
+   }
+
 }

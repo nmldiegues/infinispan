@@ -31,6 +31,7 @@ import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.EntryVersionsMap;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.context.Flag;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.distribution.DistributionManager;
@@ -68,6 +69,11 @@ public interface ClusteringDependentLogic {
    Log log = LogFactory.getLog(ClusteringDependentLogic.class);
 
    boolean localNodeIsOwner(Object key);
+
+   void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
+         GMUVersion currentVersion);
+
+   void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand);
 
    boolean localNodeIsPrimaryOwner(Object key);
 
@@ -164,6 +170,18 @@ public interface ClusteringDependentLogic {
             GMUHelper.performReadSetValidation(prepareCommand, dataContainer, this);
          }
       }
+
+      @Override
+      public void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
+            GMUVersion currentVersion) {
+         throw new UnsupportedOperationException("This should not be called in this context");
+      }
+
+      @Override
+      public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+         throw new UnsupportedOperationException("This should not be called in this context");
+      }
+
    }
 
    public static class DistributionLogic implements ClusteringDependentLogic {
@@ -252,6 +270,16 @@ public interface ClusteringDependentLogic {
       @Override
       public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
          GMUHelper.performReadSetValidation(prepareCommand, dataContainer, this);
+      }
+      
+      @Override
+      public void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, GMUVersion currentVersion) {
+         GMUHelper.performSSIReadSetValidation(context, prepareCommand, dataContainer, this, currentVersion);
+      }
+      
+      @Override
+      public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+         GMUHelper.performWriteSetValidation(context, prepareCommand, dataContainer, this);
       }
 
       @Override

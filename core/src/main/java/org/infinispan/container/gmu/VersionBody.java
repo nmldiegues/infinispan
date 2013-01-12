@@ -13,7 +13,7 @@ import static org.infinispan.container.versioning.InequalVersionComparisonResult
  */
 public abstract class VersionBody<T> {
    private final T value;
-   private VersionBody<T> previous;
+   protected VersionBody<T> previous;
 
    protected VersionBody(T value) {
       this.value = value;

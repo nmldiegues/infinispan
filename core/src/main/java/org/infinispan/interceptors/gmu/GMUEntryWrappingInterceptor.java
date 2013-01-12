@@ -42,11 +42,13 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
 
    private static final Log log = LogFactory.getLog(GMUEntryWrappingInterceptor.class);
    protected GMUVersionGenerator versionGenerator;
-   private TransactionCommitManager transactionCommitManager;
+   protected TransactionCommitManager transactionCommitManager;
+   protected CommitLog commitLog;
 
    @Inject
    public void inject(TransactionCommitManager transactionCommitManager, DataContainer dataContainer,
                       CommitLog commitLog, VersionGenerator versionGenerator) {
+      this.commitLog = commitLog;
       this.transactionCommitManager = transactionCommitManager;
       this.versionGenerator = toGMUVersionGenerator(versionGenerator);
    }

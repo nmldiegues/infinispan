@@ -78,6 +78,10 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
 
    private EntryVersion transactionVersion;
 
+   private boolean hasOutgoingEdge = false;
+   private boolean hasIncomingEdge = false;
+   private long adjustedVersion = Long.MAX_VALUE;  // only makes sense if hasOutgoingEdge is true
+   
    public AbstractCacheTransaction(GlobalTransaction tx, int viewId) {
       this.tx = tx;
       this.viewId = viewId;
@@ -277,6 +281,11 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
       }
       return transactionVersion;
    }
+   
+   @Override
+   public FlagsWrapper getFlagsAndVersion() {
+      return new FlagsWrapper(hasIncomingEdge, hasOutgoingEdge, adjustedVersion, transactionVersion);
+   }
 
    @Override
    public boolean hasAlreadyReadOnThisNode() {
@@ -300,5 +309,69 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
 
    protected final Set<Object> createSet(int size) {
       return new ConcurrentHashSet<Object>(size);
+   }
+
+   @Override
+   public boolean isHasOutgoingEdge() {
+      return hasOutgoingEdge;
+   }
+
+   @Override
+   public void setHasOutgoingEdge(boolean hasOutgoingEdge) {
+      this.hasOutgoingEdge = hasOutgoingEdge;
+   }
+
+   @Override
+   public boolean isHasIncomingEdge() {
+      return hasIncomingEdge;
+   }
+   
+   @Override
+   public void setHasIncomingEdge(boolean hasIncomingEdge) {
+      this.hasIncomingEdge = hasIncomingEdge;
+   }
+
+   @Override
+   public long getAdjustedVersion() {
+      return adjustedVersion;
+   }
+
+   @Override
+   public void setAdjustedVersion(long adjustedVersion) {
+      this.adjustedVersion = adjustedVersion;
+   }
+   
+   public class FlagsWrapper {
+      
+      private final boolean hasIncomingEdge;
+      private final boolean hasOutgoingEdge;
+      private final long adjustedVersion;
+      private final EntryVersion preparedVersion;
+      
+      public FlagsWrapper(boolean hasIncomingEdge, boolean hasOutgoingEdge, long adjustedVersion,
+            EntryVersion preparedVersion) {
+         super();
+         this.hasIncomingEdge = hasIncomingEdge;
+         this.hasOutgoingEdge = hasOutgoingEdge;
+         this.adjustedVersion = adjustedVersion;
+         this.preparedVersion = preparedVersion;
+      }
+
+      public boolean isHasIncomingEdge() {
+         return hasIncomingEdge;
+      }
+
+      public boolean isHasOutgoingEdge() {
+         return hasOutgoingEdge;
+      }
+
+      public long getAdjustedVersion() {
+         return adjustedVersion;
+      }
+
+      public EntryVersion getPreparedVersion() {
+         return preparedVersion;
+      }
+      
    }
 }

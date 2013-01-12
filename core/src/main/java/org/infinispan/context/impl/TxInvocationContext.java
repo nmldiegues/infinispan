@@ -26,6 +26,7 @@ import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.transaction.AbstractCacheTransaction.FlagsWrapper;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 
@@ -125,4 +126,6 @@ public interface TxInvocationContext extends InvocationContext {
     * @return  the key read by this transaction
     */
    Collection<Object> getReadSet();
+
+   FlagsWrapper getPrepareResult();
 }

@@ -33,6 +33,7 @@ import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.transaction.AbstractCacheTransaction.FlagsWrapper;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 
@@ -131,5 +132,10 @@ public class TransactionalInvocationContextFlagsOverride extends InvocationConte
    @Override
    public Collection<Object> getReadSet() {
       return delegate.getReadSet();
+   }
+
+   @Override
+   public FlagsWrapper getPrepareResult() {
+      return delegate.getPrepareResult();
    }
 }

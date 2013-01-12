@@ -7,7 +7,9 @@ import org.infinispan.container.entries.gmu.InternalGMUNullCacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMURemovedCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.gmu.GMUCacheEntryVersion;
+import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.container.versioning.gmu.GMUReadVersion;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.eviction.EvictionThreadPolicy;
 import org.infinispan.factories.annotations.Inject;
@@ -160,7 +162,24 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          log.tracef("Updated chain is %s", stringBuilder);
       }
    }
+   
+   public boolean wasReadSince(Object key, GMUDistributedVersion snapshot) {
+      DataContainerVersionChain chain = entries.get(key);
+      if (chain == null) {
+         return false;
+      }
+      return chain.wasReadSince(snapshot);
+   }
 
+   public void markVisibleRead(Object key, GMUVersion version) {
+      DataContainerVersionChain chain = entries.get(key);
+      if (chain == null) {
+         entries.putIfAbsent(key, new DataContainerVersionChain());
+         chain = entries.get(key);
+      }
+      chain.setVisibleRead(((GMUDistributedVersion)version).getVersions());
+   }
+   
    @Override
    public boolean containsKey(Object k, EntryVersion version) {
       if (log.isTraceEnabled()) {
@@ -327,6 +346,10 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
       return gmuReadVersion;
    }
+   
+   public DataContainerVersionBody getFirstBody(Object key) {
+      return entries.get(key).getFirst();
+   }
 
    public static class DataContainerVersionChain extends VersionChain<InternalCacheEntry> {
 
@@ -334,27 +357,34 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       // TODO: place 0-filled array with the correct size ?
       private final AtomicReference<long[]> visibleReadVersion = new AtomicReference<long[]>();
 
-      // callers abide the rule of never modifying the array. unfortunately we cannot apply 
-      // the 'final' keyword to the elements of an array
-      protected long[] getVisibleRead() {
-         return visibleReadVersion.get();
+      protected boolean wasReadSince(GMUDistributedVersion version) {
+         // TODO nmld: compute the magic. Should it be only one value instead of a vector?
+         return visibleReadVersion.get()[0] >= version.getVersionValue(0); 
       }
       
       protected void setVisibleRead(long[] newVisibleRead) {
          long[] previousVisibleReadVersion = visibleReadVersion.get();
-         if (previousVisibleReadVersion != null) { // handles the initial case in which noone read it? 
+         if (previousVisibleReadVersion != null) { // handles the initial case in which noone read it?
+            // TODO nmld: actually implement this
             // if the new visible read is older, then we do not need to update
+            if (newVisibleRead[0] > previousVisibleReadVersion[0]) {
+               visibleReadVersion.compareAndSet(previousVisibleReadVersion, newVisibleRead);      
+            }
             return;
          }
          visibleReadVersion.compareAndSet(previousVisibleReadVersion, newVisibleRead);
       }
       
+      protected DataContainerVersionBody getFirst() {
+         return (DataContainerVersionBody)this.first;
+      }
+      
       @Override
       protected VersionBody<InternalCacheEntry> newValue(InternalCacheEntry value) {
          // TODO nmld: this has to be changed
-         return new DataContainerVersionBody(value, false);
+         return new DataContainerVersionBody(value, false, 0L);
       }
-
+      
       @Override
       protected void writeValue(BufferedWriter writer, InternalCacheEntry value) throws IOException {
          writer.write(String.valueOf(value.getValue()));
@@ -366,16 +396,22 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
    public static class DataContainerVersionBody extends VersionBody<InternalCacheEntry> {
 
       private final boolean creatorHasOutgoingDep;
+      private final long creatorActualVersion;
       
-      protected DataContainerVersionBody(InternalCacheEntry value, boolean creatorHasOutgoingDep) {
+      protected DataContainerVersionBody(InternalCacheEntry value, boolean creatorHasOutgoingDep, long creatorActualVersion) {
          super(value);
          this.creatorHasOutgoingDep = creatorHasOutgoingDep;
+         this.creatorActualVersion = creatorActualVersion;
       }
       
       public boolean hasOutgoingDep() {
          return this.creatorHasOutgoingDep;
       }
 
+      public DataContainerVersionBody getPrevious() {
+         return (DataContainerVersionBody) this.previous;
+      }
+      
       @Override
       public EntryVersion getVersion() {
          return getValue().getVersion();
@@ -422,6 +458,10 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       protected boolean isExpired(long now) {
          InternalCacheEntry entry = getValue();
          return entry != null && entry.canExpire() && entry.isExpired(now);
+      }
+
+      public long getCreatorActualVersion() {
+         return creatorActualVersion;
       }
    }
 

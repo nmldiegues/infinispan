@@ -28,6 +28,7 @@ import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.EntryVersionsMap;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.transaction.AbstractCacheTransaction.FlagsWrapper;
 
 import java.util.Collection;
 import java.util.List;
@@ -107,9 +108,23 @@ public interface CacheTransaction {
 
    void setTransactionVersion(EntryVersion version);
 
+   FlagsWrapper getFlagsAndVersion();
+   
    EntryVersion getTransactionVersion();
 
    boolean hasAlreadyReadOnThisNode();
 
    void setAlreadyReadOnThisNode(boolean value);
+   
+   boolean isHasOutgoingEdge();
+
+   void setHasOutgoingEdge(boolean hasOutgoingEdge);
+
+   boolean isHasIncomingEdge();
+
+   void setHasIncomingEdge(boolean hasIncomingEdge);
+
+   long getAdjustedVersion();
+
+   void setAdjustedVersion(long adjustedVersion);
 }

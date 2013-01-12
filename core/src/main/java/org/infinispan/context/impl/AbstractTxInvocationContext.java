@@ -28,6 +28,7 @@ import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.AbstractCacheTransaction;
+import org.infinispan.transaction.AbstractCacheTransaction.FlagsWrapper;
 
 import java.util.Collection;
 import java.util.Set;
@@ -141,6 +142,11 @@ public abstract class AbstractTxInvocationContext extends AbstractInvocationCont
       return getCacheTransaction().getTransactionVersion();
    }
 
+   @Override
+   public FlagsWrapper getPrepareResult() {
+      return getCacheTransaction().getFlagsAndVersion();
+   }
+   
    @Override
    public boolean hasAlreadyReadOnThisNode() {
       return getCacheTransaction().hasAlreadyReadOnThisNode();

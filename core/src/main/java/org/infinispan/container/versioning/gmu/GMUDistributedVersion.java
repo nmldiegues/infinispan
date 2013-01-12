@@ -39,6 +39,10 @@ public class GMUDistributedVersion extends GMUVersion {
       this.versions = versions;
    }
 
+   public long[] getVersions() {
+      return this.versions;
+   }
+   
    @Override
    public long getVersionValue(Address address) {
       return getVersionValue(clusterSnapshot.indexOf(address));
