@@ -27,6 +27,7 @@ import org.infinispan.atomic.Delta;
 import org.infinispan.atomic.DeltaAware;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.util.Util;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -200,6 +201,11 @@ public class DeltaAwareCacheEntry implements CacheEntry, StateChangingEntry {
       reset();
    }
 
+   @Override
+   public void commitSSI(DataContainer container, TxInvocationContext ctx) {
+      throw new UnsupportedOperationException();
+   }
+   
    private void reset() {
       oldValue = null;
       deltas.clear();

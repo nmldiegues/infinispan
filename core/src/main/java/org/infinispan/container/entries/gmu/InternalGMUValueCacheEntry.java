@@ -4,6 +4,7 @@ import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.InternalCacheValue;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.marshall.AbstractExternalizer;
 import org.infinispan.marshall.Ids;
 import org.infinispan.util.Util;
@@ -164,6 +165,11 @@ public class InternalGMUValueCacheEntry implements InternalGMUCacheEntry {
    @Override
    public void commit(DataContainer container, EntryVersion newVersion) {
       internalCacheEntry.commit(container, newVersion);
+   }
+   
+   @Override
+   public void commitSSI(DataContainer container, TxInvocationContext ctx) {
+      internalCacheEntry.commitSSI(container, ctx);
    }
 
    @Override

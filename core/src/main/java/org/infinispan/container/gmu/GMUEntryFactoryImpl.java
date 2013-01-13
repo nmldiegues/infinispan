@@ -14,6 +14,7 @@ import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.SingleKeyNonTxInvocationContext;
+import org.infinispan.context.impl.LocalTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.transaction.gmu.CommitLog;
@@ -95,7 +96,14 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
             commitLog.getAvailableVersionLessThan(versionToRead);
 
       EntryVersion mostRecentCommitLogVersion = commitLog.getCurrentVersion();
-      InternalGMUCacheEntry entry = toInternalGMUCacheEntry(container.get(key, maxVersionToRead));
+      
+      LocalTxInvocationContext localCtx = (LocalTxInvocationContext) context;
+      InternalGMUCacheEntry entry = null;
+      if (localCtx.getLocalTransaction().isWriteTx()) {
+         entry = toInternalGMUCacheEntry(container.getAsWriteTx(key, maxVersionToRead));
+      } else {
+         entry = toInternalGMUCacheEntry(container.get(key, maxVersionToRead));
+      }
 
       if (remoteRead) {
          if (entry.getMaximumValidVersion() == null) {

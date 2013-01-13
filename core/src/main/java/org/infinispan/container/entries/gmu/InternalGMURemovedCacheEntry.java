@@ -4,6 +4,7 @@ import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.InternalCacheValue;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.context.impl.TxInvocationContext;
 
 /**
  * // TODO: Document this
@@ -100,6 +101,9 @@ public class InternalGMURemovedCacheEntry implements InternalGMUCacheEntry {
    @Override
    public void commit(DataContainer container, EntryVersion newVersion) {}
 
+   @Override
+   public void commitSSI(DataContainer container, TxInvocationContext ctx) {}
+   
    @Override
    public void rollback() {}
 

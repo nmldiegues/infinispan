@@ -12,6 +12,7 @@ import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.interceptors.gmu.GMUDistributionInterceptor;
 import org.infinispan.interceptors.gmu.GMUEntryWrappingInterceptor;
 import org.infinispan.interceptors.gmu.GMUReplicationInterceptor;
+import org.infinispan.interceptors.gmu.SSIDistributionInterceptor;
 import org.infinispan.interceptors.gmu.SSIEntryWrappingInterceptor;
 import org.infinispan.interceptors.locking.NonTransactionalLockingInterceptor;
 import org.infinispan.interceptors.locking.OptimisticLockingInterceptor;
@@ -500,8 +501,13 @@ public abstract class ReconfigurableProtocol {
             break;
          case DIST_SYNC:
             if(serializability) {
-               defaultIC.put(InterceptorType.CLUSTER,
-                             createInterceptor(new GMUDistributionInterceptor(), GMUDistributionInterceptor.class));
+               if (configuration.transaction().ssiValidation()) {
+                  defaultIC.put(InterceptorType.CLUSTER,
+                                createInterceptor(new SSIDistributionInterceptor(), SSIDistributionInterceptor.class));
+               } else {
+                  defaultIC.put(InterceptorType.CLUSTER,
+                                createInterceptor(new GMUDistributionInterceptor(), GMUDistributionInterceptor.class));
+               }
                break;
             } else if (needsVersionAwareComponents()) {
                defaultIC.put(InterceptorType.CLUSTER,

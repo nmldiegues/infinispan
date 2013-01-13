@@ -80,7 +80,7 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
 
    private boolean hasOutgoingEdge = false;
    private boolean hasIncomingEdge = false;
-   private long adjustedVersion = Long.MAX_VALUE;  // only makes sense if hasOutgoingEdge is true
+   private long[] creationVersion = null;  // only makes sense if hasOutgoingEdge is true
    
    public AbstractCacheTransaction(GlobalTransaction tx, int viewId) {
       this.tx = tx;
@@ -284,7 +284,7 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    
    @Override
    public FlagsWrapper getFlagsAndVersion() {
-      return new FlagsWrapper(hasIncomingEdge, hasOutgoingEdge, adjustedVersion, transactionVersion);
+      return new FlagsWrapper(hasIncomingEdge, hasOutgoingEdge, creationVersion, transactionVersion);
    }
 
    @Override
@@ -332,28 +332,28 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    }
 
    @Override
-   public long getAdjustedVersion() {
-      return adjustedVersion;
+   public long[] getCreationVersion() {
+      return creationVersion;
    }
 
    @Override
-   public void setAdjustedVersion(long adjustedVersion) {
-      this.adjustedVersion = adjustedVersion;
+   public void setCreationVersion(long[] creationVersion) {
+      this.creationVersion = creationVersion;
    }
    
    public class FlagsWrapper {
       
       private final boolean hasIncomingEdge;
       private final boolean hasOutgoingEdge;
-      private final long adjustedVersion;
+      private final long[] creationVersion;
       private final EntryVersion preparedVersion;
       
-      public FlagsWrapper(boolean hasIncomingEdge, boolean hasOutgoingEdge, long adjustedVersion,
+      public FlagsWrapper(boolean hasIncomingEdge, boolean hasOutgoingEdge, long[] creationVersion,
             EntryVersion preparedVersion) {
          super();
          this.hasIncomingEdge = hasIncomingEdge;
          this.hasOutgoingEdge = hasOutgoingEdge;
-         this.adjustedVersion = adjustedVersion;
+         this.creationVersion = creationVersion;
          this.preparedVersion = preparedVersion;
       }
 
@@ -365,8 +365,8 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
          return hasOutgoingEdge;
       }
 
-      public long getAdjustedVersion() {
-         return adjustedVersion;
+      public long[] getCreationVersion() {
+         return creationVersion;
       }
 
       public EntryVersion getPreparedVersion() {

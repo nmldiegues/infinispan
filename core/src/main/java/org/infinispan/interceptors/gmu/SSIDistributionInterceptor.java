@@ -1,6 +1,6 @@
 package org.infinispan.interceptors.gmu;
 
-import static org.infinispan.transaction.gmu.GMUHelper.joinAndSetTransactionVersion;
+import static org.infinispan.transaction.gmu.GMUHelper.joinAndSetTransactionVersionAndFlags;
 
 import java.util.Collection;
 import java.util.Map;
@@ -23,7 +23,7 @@ public class SSIDistributionInterceptor extends GMUDistributionInterceptor {
       log.debugf("prepare command for transaction %s is sent. responses are: %s",
                  command.getGlobalTransaction().prettyPrint(), responses.toString());
 
-      joinAndSetTransactionVersion(responses.values(), ctx, versionGenerator);
+      joinAndSetTransactionVersionAndFlags(responses.values(), ctx, versionGenerator);
    }
    
 }

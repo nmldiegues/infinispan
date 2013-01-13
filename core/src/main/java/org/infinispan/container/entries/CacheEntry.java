@@ -25,6 +25,7 @@ package org.infinispan.container.entries;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.versioned.Versioned;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.context.impl.TxInvocationContext;
 
 import java.util.Map;
 
@@ -128,6 +129,8 @@ public interface CacheEntry extends Map.Entry<Object, Object>, Versioned {
     * @param container data container to commit to
     */
    void commit(DataContainer container, EntryVersion newVersion);
+   
+   void commitSSI(DataContainer container, TxInvocationContext ctx);
 
    /**
     * Rolls back changes

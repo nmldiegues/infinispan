@@ -19,7 +19,7 @@ public interface GMUVersionGenerator extends VersionGenerator {
 
    GMUVersion calculateCommitVersion(EntryVersion prepareVersion, Collection<Address> affectedOwners);
 
-   GMUCacheEntryVersion convertVersionToWrite(EntryVersion version, int subVersion);
+   GMUCacheEntryVersion convertVersionToWrite(EntryVersion version, int subVersion, long[] creation);
 
    GMUReadVersion convertVersionToRead(EntryVersion version, boolean isWriteTx);
 

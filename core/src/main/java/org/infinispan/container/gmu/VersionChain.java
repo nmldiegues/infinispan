@@ -1,5 +1,6 @@
 package org.infinispan.container.gmu;
 
+import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.util.Util;
 import org.infinispan.util.logging.Log;
@@ -56,8 +57,8 @@ public abstract class VersionChain<T> {
       return new VersionEntry<T>(null, nextVersion, false);
    }
 
-   public final VersionBody<T> add(T value) {
-      VersionBody<T> toAdd = newValue(value);
+   public final VersionBody<T> add(T value, boolean outFlag, long[] creatorVersion) {
+      VersionBody<T> toAdd = newValue(value, outFlag, creatorVersion);
       VersionBody<T> iterator = firstAdd(toAdd);
       while (iterator != null) {
          iterator = iterator.add(toAdd);
@@ -85,7 +86,8 @@ public abstract class VersionChain<T> {
    }
 
    public final VersionEntry<T> remove(T removeObject) {
-      VersionBody<T> previous = add(removeObject);
+      // TODO nmld make sure this is not problematic
+      VersionBody<T> previous = add(removeObject, false, null);
       T entry = previous == null ? null : previous.getValue();
       //TODO check if is it the most recent
       return new VersionEntry<T>(entry, null, previous != null);
@@ -156,7 +158,7 @@ public abstract class VersionChain<T> {
       return size;
    }
 
-   protected abstract VersionBody<T> newValue(T value);
+   protected abstract VersionBody<T> newValue(T value, boolean outFlag, long[] creatorVersion);
 
    protected abstract void writeValue(BufferedWriter writer, T value) throws IOException;
 

@@ -24,7 +24,9 @@ package org.infinispan.container.entries;
 
 import org.infinispan.atomic.AtomicHashMap;
 import org.infinispan.container.DataContainer;
+import org.infinispan.container.gmu.GMUDataContainer;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.util.Util;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -196,6 +198,26 @@ public class ReadCommittedEntry implements MVCCEntry {
             container.remove(key, newVersion);
          } else if (value != null) {
             container.put(key, value, newVersion, lifespan, maxIdle);
+         }
+         reset();
+      }
+   }
+   
+   @Override
+   public void commitSSI(DataContainer container, TxInvocationContext ctx) {
+      EntryVersion newVersion = ctx.getTransactionVersion();
+      if (isChanged()) {
+         
+         if (value instanceof AtomicHashMap) {
+            AtomicHashMap<?, ?> ahm = (AtomicHashMap<?, ?>) value;
+            ahm.commit();
+            if (isRemoved() && !isEvicted()) ahm.markRemoved(true);
+         }
+
+         if (isRemoved()) {
+            container.remove(key, newVersion);
+         } else if (value != null) {
+            ((GMUDataContainer)container).put(key, value, newVersion, lifespan, maxIdle);
          }
          reset();
       }

@@ -26,6 +26,7 @@ import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -85,10 +86,12 @@ public class GMUHelper {
          return;
       }
       
-      long depVersion = Long.MAX_VALUE;
       CacheTransaction cacheTx = context.getCacheTransaction();
       GMUDataContainer container = (GMUDataContainer) dataContainer;
       EntryVersion prepareVersion = prepareCommand.getPrepareVersion();
+      long[] depVersion = new long[toGMUVersion(prepareVersion).getViewSize()];
+      Arrays.fill(depVersion, Long.MAX_VALUE);
+      
       for (Object key : prepareCommand.getReadSet()) {
          if (keyLogic.localNodeIsOwner(key)) {
 
@@ -101,9 +104,7 @@ public class GMUHelper {
                }
                
                cacheTx.setHasOutgoingEdge(true);
-               if (body.getCreatorActualVersion() < depVersion) {
-                  depVersion = body.getCreatorActualVersion();
-               }
+               mergeMinVectorClocks(depVersion, body.getCreatorActualVersion());
                body = body.getPrevious();
             }
          } else {
@@ -112,7 +113,15 @@ public class GMUHelper {
             }
          }
       }
-      cacheTx.setAdjustedVersion(depVersion);
+      cacheTx.setCreationVersion(depVersion);
+   }
+   
+   public static void mergeMinVectorClocks(long[] orig, long[] update) {
+      for (int i = 0; i < orig.length; i++) {
+         if (update[i] < orig[i]) {
+            orig[i] = update[i];
+         }
+      }
    }
 
 
@@ -211,6 +220,8 @@ public class GMUHelper {
          if (log.isDebugEnabled()) {
             log.debugf("Versions received are empty!");
          }
+         CacheTransaction cacheTx = ctx.getCacheTransaction();
+         cacheTx.setCreationVersion(((GMUDistributedVersion) cacheTx.getTransactionVersion()).getVersions());
          return;
       }
       List<EntryVersion> allPreparedVersions = new LinkedList<EntryVersion>();
@@ -220,7 +231,7 @@ public class GMUHelper {
 
       boolean outFlag = flagsWrapper.isHasOutgoingEdge();
       boolean inFlag = flagsWrapper.isHasIncomingEdge();
-      long outDep = flagsWrapper.getAdjustedVersion();
+      long[] outDep = flagsWrapper.getCreationVersion();
       
       //process all responses
       for (Response r : responses) {
@@ -235,10 +246,7 @@ public class GMUHelper {
             if (flagsWrapper.isHasOutgoingEdge()) {
                outFlag = true;
             }
-            long dep = flagsWrapper.getAdjustedVersion();
-            if (dep < outDep) {
-               outDep = dep;
-            }
+            mergeMinVectorClocks(outDep, flagsWrapper.getCreationVersion());
          } else if(r instanceof ExceptionResponse) {
             throw new ValidationException(((ExceptionResponse) r).getException());
          } else if(!r.isSuccessful()) {
@@ -250,7 +258,6 @@ public class GMUHelper {
          throw new ValidationException("Both edges exist", null);
       }
       
-      // TODO nmld It seems like I want to take the deps into consideration in the respective index
       EntryVersion[] preparedVersionsArray = new EntryVersion[allPreparedVersions.size()];
       EntryVersion commitVersion = versionGenerator.mergeAndMax(allPreparedVersions.toArray(preparedVersionsArray));
 
@@ -259,7 +266,28 @@ public class GMUHelper {
                commitVersion);
       }
 
-      ctx.setTransactionVersion(commitVersion);
+      GMUDistributedVersion distVersion = (GMUDistributedVersion) commitVersion;
+      
+      CacheTransaction cacheTx = ctx.getCacheTransaction();
+      cacheTx.setHasOutgoingEdge(outFlag);
+      cacheTx.setCreationVersion(distVersion.getVersions());
+      if (wasNotComputed(outDep)) {
+         ctx.setTransactionVersion(distVersion);
+      } else {
+         ctx.setTransactionVersion(new GMUDistributedVersion(distVersion, versionGenerator, outDep));
+      }
+   }
+   
+   private static boolean wasNotComputed(long[] versions) {
+      boolean shouldReturnTrue = versions[0] == Long.MAX_VALUE;
+      for (int i = 1; i < versions.length; i++) {
+         if (versions[i] == Long.MAX_VALUE && !shouldReturnTrue) {
+            throw new RuntimeException("Inconsistency in versions");
+         } else if (versions[i] != Long.MAX_VALUE && shouldReturnTrue) {
+            throw new RuntimeException("Inconsistency in versions");
+         }
+      }
+      return shouldReturnTrue;
    }
    
 }

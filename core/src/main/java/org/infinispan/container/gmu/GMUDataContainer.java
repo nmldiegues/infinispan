@@ -10,10 +10,12 @@ import org.infinispan.container.versioning.gmu.GMUCacheEntryVersion;
 import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.container.versioning.gmu.GMUReadVersion;
 import org.infinispan.container.versioning.gmu.GMUVersion;
+import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.eviction.EvictionThreadPolicy;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.transaction.gmu.CommitLog;
+import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.util.Util;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -155,7 +157,39 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          log.tracef("DataContainer.put(%s,%s,%s,%s,%s), correct version is %s", k, v, version, lifespan, maxIdle, cacheEntryVersion);
       }
 
-      chain.add(entryFactory.create(k, v, cacheEntryVersion, lifespan, maxIdle));
+      chain.add(entryFactory.create(k, v, cacheEntryVersion, lifespan, maxIdle), false, null);
+      if (log.isTraceEnabled()) {
+         StringBuilder stringBuilder = new StringBuilder();
+         chain.chainToString(stringBuilder);
+         log.tracef("Updated chain is %s", stringBuilder);
+      }
+   }
+   
+   public void putSSI(Object k, Object v, TxInvocationContext ctx, long lifespan, long maxIdle) {
+      EntryVersion version = ctx.getTransactionVersion();
+      CacheTransaction cacheTx = ctx.getCacheTransaction();
+      if (version == null) {
+         throw new IllegalArgumentException("Key cannot have null versions!");
+      }
+      if (log.isTraceEnabled()) {
+         log.tracef("DataContainer.put(%s,%s,%s,%s,%s)", k, v, version, lifespan, maxIdle);
+      }
+      GMUCacheEntryVersion cacheEntryVersion = assertGMUCacheEntryVersion(version);
+      DataContainerVersionChain chain = entries.get(k);
+
+      if (chain == null) {
+         if (log.isTraceEnabled()) {
+            log.tracef("DataContainer.put(%s,%s,%s,%s,%s), create new VersionChain", k, v, version, lifespan, maxIdle);
+         }
+         chain = new DataContainerVersionChain();
+         entries.put(k, chain);
+      }
+
+      if (log.isTraceEnabled()) {
+         log.tracef("DataContainer.put(%s,%s,%s,%s,%s), correct version is %s", k, v, version, lifespan, maxIdle, cacheEntryVersion);
+      }
+
+      chain.add(entryFactory.create(k, v, cacheEntryVersion, lifespan, maxIdle), cacheTx.isHasOutgoingEdge(), cacheTx.getCreationVersion());
       if (log.isTraceEnabled()) {
          StringBuilder stringBuilder = new StringBuilder();
          chain.chainToString(stringBuilder);
@@ -380,9 +414,9 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
       
       @Override
-      protected VersionBody<InternalCacheEntry> newValue(InternalCacheEntry value) {
+      protected VersionBody<InternalCacheEntry> newValue(InternalCacheEntry value, boolean outFlag, long[] creatorVersion) {
          // TODO nmld: this has to be changed
-         return new DataContainerVersionBody(value, false, 0L);
+         return new DataContainerVersionBody(value, outFlag, creatorVersion);
       }
       
       @Override
@@ -396,9 +430,9 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
    public static class DataContainerVersionBody extends VersionBody<InternalCacheEntry> {
 
       private final boolean creatorHasOutgoingDep;
-      private final long creatorActualVersion;
+      private final long[] creatorActualVersion;
       
-      protected DataContainerVersionBody(InternalCacheEntry value, boolean creatorHasOutgoingDep, long creatorActualVersion) {
+      protected DataContainerVersionBody(InternalCacheEntry value, boolean creatorHasOutgoingDep, long[] creatorActualVersion) {
          super(value);
          this.creatorHasOutgoingDep = creatorHasOutgoingDep;
          this.creatorActualVersion = creatorActualVersion;
@@ -460,7 +494,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          return entry != null && entry.canExpire() && entry.isExpired(now);
       }
 
-      public long getCreatorActualVersion() {
+      public long[] getCreatorActualVersion() {
          return creatorActualVersion;
       }
    }

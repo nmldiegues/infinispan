@@ -26,6 +26,7 @@ import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.InternalCacheValue;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.marshall.AbstractExternalizer;
 import org.infinispan.marshall.Ids;
 import org.infinispan.marshall.MarshallUtil;
@@ -473,6 +474,11 @@ public class Immutables {
 
       @Override
       public void commit(DataContainer container, EntryVersion newVersion) {
+         throw new UnsupportedOperationException();
+      }
+      
+      @Override
+      public void commitSSI(DataContainer container, TxInvocationContext ctx) {
          throw new UnsupportedOperationException();
       }
 

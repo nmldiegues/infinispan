@@ -51,6 +51,10 @@ public abstract class GMUVersion implements IncrementableEntryVersion {
    public final long getThisNodeVersionValue() {
       return getVersionValue(nodeIndex);
    }
+   
+   public int getViewSize() {
+      return this.clusterSnapshot.size();
+   }
 
    public static String versionsToString(long[] versions, ClusterSnapshot clusterSnapshot) {
       if (versions == null || versions.length == 0) {

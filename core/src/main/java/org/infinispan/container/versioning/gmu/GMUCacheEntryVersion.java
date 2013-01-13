@@ -23,22 +23,25 @@ import static org.infinispan.container.versioning.InequalVersionComparisonResult
  */
 public class GMUCacheEntryVersion extends GMUVersion {
 
-   private final long creationVersion = 0; // TODO nmld: may differ from version
    private final long version;
    private final int subVersion;
+   // nmld: may differ from version
+   private final long[] creationVersion;
 
    public GMUCacheEntryVersion(String cacheName, int viewId, GMUVersionGenerator versionGenerator, long version,
-                               int subVersion) {
+                               int subVersion, long[] creationVersion) {
       super(cacheName, viewId, versionGenerator);
       this.version = version;
       this.subVersion = subVersion;
+      this.creationVersion = creationVersion;
    }
 
    private GMUCacheEntryVersion(String cacheName, int viewId, ClusterSnapshot clusterSnapshot, Address localAddress,
-                                long version, int subVersion) {
+                                long version, int subVersion, long[] creationVersion) {
       super(cacheName, viewId, clusterSnapshot, localAddress);
       this.version = version;
       this.subVersion = subVersion;
+      this.creationVersion = creationVersion;
    }
 
    @Override
@@ -78,7 +81,7 @@ public class GMUCacheEntryVersion extends GMUVersion {
             return AFTER;
          }
          if (readVersion.isReadFromWriteTx()) {
-            return compare(creationVersion, readVersion.getThisNodeVersionValue());
+            return compare(creationVersion[nodeIndex], readVersion.getThisNodeVersionValue());
          } else {
             return compare(version, readVersion.getThisNodeVersionValue());
          }
@@ -141,8 +144,9 @@ public class GMUCacheEntryVersion extends GMUVersion {
          }
          long version = input.readLong();
          int subVersion = input.readInt();
+         long[] creation = (long[]) input.readObject();
          return new GMUCacheEntryVersion(cacheName, viewId, clusterSnapshot, gmuVersionGenerator.getAddress(), version,
-                                         subVersion);
+                                         subVersion, creation);
       }
 
       @Override

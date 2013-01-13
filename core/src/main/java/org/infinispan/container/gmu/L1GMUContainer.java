@@ -115,7 +115,7 @@ public class L1GMUContainer {
          versionChain = old == null ? versionChain : old;
       }
 
-      versionChain.add(new L1Entry(value));
+      versionChain.add(new L1Entry(value), false, null);
    }
 
    public final void handleNewEntries() {
@@ -291,10 +291,10 @@ public class L1GMUContainer {
    private class L1VersionChain extends VersionChain<L1Entry> {
 
       @Override
-      protected VersionBody<L1Entry> newValue(L1Entry value) {
+      protected VersionBody<L1Entry> newValue(L1Entry value, boolean outFlag, long[] creatorVersion) {
          return new L1VersionBody(value);
       }
-
+      
       @Override
       protected void writeValue(BufferedWriter writer, L1Entry value) throws IOException {
          writer.write(String.valueOf(value.getValue().getValue()));
@@ -305,6 +305,7 @@ public class L1GMUContainer {
          writer.write("]");
 
       }
+
    }
 
    private class L1Entry {

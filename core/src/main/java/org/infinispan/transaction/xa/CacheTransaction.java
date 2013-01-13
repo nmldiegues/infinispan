@@ -124,7 +124,7 @@ public interface CacheTransaction {
 
    void setHasIncomingEdge(boolean hasIncomingEdge);
 
-   long getAdjustedVersion();
+   long[] getCreationVersion();
 
-   void setAdjustedVersion(long adjustedVersion);
+   void setCreationVersion(long[] adjustedVersion);
 }

@@ -24,6 +24,11 @@ public class GMUDistributedVersion extends GMUVersion {
 
    private final long[] versions;
 
+   public GMUDistributedVersion(GMUDistributedVersion baseline, GMUVersionGenerator generator, long[] versions) {
+      super(baseline.cacheName, baseline.viewId, generator);
+      this.versions = versions;
+   }
+   
    public GMUDistributedVersion(String cacheName, int viewId, GMUVersionGenerator versionGenerator, long[] versions) {
       super(cacheName, viewId, versionGenerator);
       if (versions.length != clusterSnapshot.size()) {

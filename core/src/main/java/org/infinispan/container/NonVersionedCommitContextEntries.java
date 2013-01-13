@@ -24,9 +24,9 @@ import java.util.Set;
 public class NonVersionedCommitContextEntries implements CommitContextEntries {
 
    private final Log log = LogFactory.getLog(NonVersionedCommitContextEntries.class);
-   private Configuration configuration;
-   private DistributionManager distributionManager;
-   private DataContainer dataContainer;
+   protected Configuration configuration;
+   protected DistributionManager distributionManager;
+   protected DataContainer dataContainer;
 
    @Inject
    public void inject(Configuration configuration, DistributionManager distributionManager, DataContainer dataContainer) {
@@ -70,7 +70,7 @@ public class NonVersionedCommitContextEntries implements CommitContextEntries {
       commitEntry(entry, null, skipOwnershipCheck);
    }
 
-   protected final void commitEntry(CacheEntry entry, EntryVersion newVersion, boolean skipOwnershipCheck) {
+   protected void commitEntry(CacheEntry entry, EntryVersion newVersion, boolean skipOwnershipCheck) {
       if (configuration.clustering().cacheMode().isDistributed()) {
          commitDistributedEntry(entry, newVersion, skipOwnershipCheck);
       } else {

@@ -24,6 +24,7 @@ package org.infinispan.container.entries;
 
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.context.impl.TxInvocationContext;
 
 /**
  * An abstract internal cache entry that is typically stored in the data container
@@ -45,6 +46,11 @@ public abstract class AbstractInternalCacheEntry implements InternalCacheEntry {
    @Override
    public final void commit(DataContainer container, EntryVersion newVersion) {
       // no-op
+   }
+   
+   @Override
+   public void commitSSI(DataContainer container, TxInvocationContext ctx) {
+      throw new UnsupportedOperationException();
    }
 
    @Override
