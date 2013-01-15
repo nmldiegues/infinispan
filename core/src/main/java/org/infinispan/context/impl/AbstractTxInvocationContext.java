@@ -22,16 +22,16 @@
  */
 package org.infinispan.context.impl;
 
+import java.util.Collection;
+import java.util.Set;
+
 import javax.transaction.Transaction;
 
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.AbstractCacheTransaction;
-import org.infinispan.transaction.AbstractCacheTransaction.FlagsWrapper;
-
-import java.util.Collection;
-import java.util.Set;
+import org.infinispan.transaction.FlagsWrapper;
 
 /**
  * Support class for {@link org.infinispan.context.impl.TxInvocationContext}.

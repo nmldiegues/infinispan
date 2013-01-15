@@ -17,6 +17,7 @@ import org.infinispan.context.SingleKeyNonTxInvocationContext;
 import org.infinispan.context.impl.LocalTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.factories.annotations.Inject;
+import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.gmu.CommitLog;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -97,9 +98,9 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
 
       EntryVersion mostRecentCommitLogVersion = commitLog.getCurrentVersion();
       
-      LocalTxInvocationContext localCtx = (LocalTxInvocationContext) context;
       InternalGMUCacheEntry entry = null;
-      if (localCtx.getLocalTransaction().isWriteTx()) {
+      LocalTransaction localTx = context.getLocalTransaction();
+      if (localTx != null && localTx.isWriteTx()) {
          entry = toInternalGMUCacheEntry(container.getAsWriteTx(key, maxVersionToRead));
       } else {
          entry = toInternalGMUCacheEntry(container.get(key, maxVersionToRead));

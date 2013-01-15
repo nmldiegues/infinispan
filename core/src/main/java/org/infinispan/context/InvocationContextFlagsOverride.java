@@ -28,6 +28,7 @@ import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.transaction.LocalTransaction;
 
 import java.util.Collection;
 import java.util.EnumSet;
@@ -234,5 +235,10 @@ public class InvocationContextFlagsOverride implements InvocationContext {
    @Override
    public String getProtocolId() {
       return delegate.getProtocolId();
+   }
+   
+   @Override
+   public LocalTransaction getLocalTransaction() {
+      return delegate.getLocalTransaction();
    }
 }

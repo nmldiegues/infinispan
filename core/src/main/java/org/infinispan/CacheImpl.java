@@ -373,7 +373,9 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
 
    @Override
    public final void markAsWriteTransaction() {
-      markAsWriteTransaction(null, null);
+      if (config.isSSIValidation()) {
+         markAsWriteTransaction(null, null);
+      }
    }
    
    final void markAsWriteTransaction(EnumSet<Flag> explicitFlags, ClassLoader explicitClassLoader) {

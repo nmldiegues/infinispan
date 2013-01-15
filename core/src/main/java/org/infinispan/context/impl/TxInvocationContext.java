@@ -22,18 +22,19 @@
  */
 package org.infinispan.context.impl;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+
+import javax.transaction.Transaction;
+
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.remoting.transport.Address;
-import org.infinispan.transaction.AbstractCacheTransaction.FlagsWrapper;
+import org.infinispan.transaction.FlagsWrapper;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
-
-import javax.transaction.Transaction;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
 
 /**
  * Interface defining additional functionality for invocation contexts that propagate within a transaction's scope.

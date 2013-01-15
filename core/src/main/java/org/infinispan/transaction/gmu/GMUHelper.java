@@ -1,5 +1,10 @@
 package org.infinispan.transaction.gmu;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
+
 import org.infinispan.CacheException;
 import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.commands.write.WriteCommand;
@@ -20,16 +25,11 @@ import org.infinispan.remoting.responses.ExceptionResponse;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.responses.SuccessfulResponse;
 import org.infinispan.remoting.transport.Address;
-import org.infinispan.transaction.AbstractCacheTransaction.FlagsWrapper;
+import org.infinispan.transaction.FlagsWrapper;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
 
 /**
  * // TODO: Document this
@@ -117,10 +117,14 @@ public class GMUHelper {
    }
    
    public static void mergeMinVectorClocks(long[] orig, long[] update) {
+      try {
       for (int i = 0; i < orig.length; i++) {
          if (update[i] < orig[i]) {
             orig[i] = update[i];
          }
+      }
+      } catch (NullPointerException e) {
+         log.error("NPE!!!");
       }
    }
 

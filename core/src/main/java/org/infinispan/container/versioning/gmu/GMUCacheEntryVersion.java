@@ -131,6 +131,7 @@ public class GMUCacheEntryVersion extends GMUVersion {
          output.writeInt(object.viewId);
          output.writeLong(object.version);
          output.writeInt(object.subVersion);
+         output.writeObject(object.creationVersion);
       }
 
       @Override

@@ -154,6 +154,7 @@ public class LocalTxInvocationContext extends AbstractTxInvocationContext {
       return tx == null ? localTransaction.getTransaction() : tx;
    }
    
+   @Override
    public LocalTransaction getLocalTransaction() {
       return this.localTransaction;
    }

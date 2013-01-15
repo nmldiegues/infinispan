@@ -37,6 +37,7 @@ import org.infinispan.util.concurrent.ConcurrentMapFactory;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -341,37 +342,5 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
       this.creationVersion = creationVersion;
    }
    
-   public class FlagsWrapper {
-      
-      private final boolean hasIncomingEdge;
-      private final boolean hasOutgoingEdge;
-      private final long[] creationVersion;
-      private final EntryVersion preparedVersion;
-      
-      public FlagsWrapper(boolean hasIncomingEdge, boolean hasOutgoingEdge, long[] creationVersion,
-            EntryVersion preparedVersion) {
-         super();
-         this.hasIncomingEdge = hasIncomingEdge;
-         this.hasOutgoingEdge = hasOutgoingEdge;
-         this.creationVersion = creationVersion;
-         this.preparedVersion = preparedVersion;
-      }
 
-      public boolean isHasIncomingEdge() {
-         return hasIncomingEdge;
-      }
-
-      public boolean isHasOutgoingEdge() {
-         return hasOutgoingEdge;
-      }
-
-      public long[] getCreationVersion() {
-         return creationVersion;
-      }
-
-      public EntryVersion getPreparedVersion() {
-         return preparedVersion;
-      }
-      
-   }
 }

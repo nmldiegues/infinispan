@@ -33,7 +33,7 @@ import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.remoting.transport.Address;
-import org.infinispan.transaction.AbstractCacheTransaction.FlagsWrapper;
+import org.infinispan.transaction.FlagsWrapper;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 

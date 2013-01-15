@@ -26,6 +26,7 @@ import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.transaction.LocalTransaction;
 
 import java.util.Map;
 import java.util.Set;
@@ -177,4 +178,6 @@ public interface InvocationContext extends EntryLookup, FlagContainer, Cloneable
     * @return  the protocol ID to be used by the command
     */
    String getProtocolId();
+   
+   LocalTransaction getLocalTransaction();
 }

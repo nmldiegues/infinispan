@@ -33,6 +33,7 @@ import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.transaction.LocalTransaction;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -258,5 +259,10 @@ public abstract class AbstractInvocationContext implements InvocationContext {
    @Override
    public String getProtocolId() {
       return protocolId;
+   }
+   
+   @Override
+   public LocalTransaction getLocalTransaction() {
+      return null;
    }
 }

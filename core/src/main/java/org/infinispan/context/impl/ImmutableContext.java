@@ -27,6 +27,7 @@ import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.transaction.LocalTransaction;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -216,6 +217,11 @@ public final class ImmutableContext implements InvocationContext {
 
    @Override
    public String getProtocolId() {
+      throw newUnsupportedMethod();
+   }
+   
+   @Override
+   public LocalTransaction getLocalTransaction() {
       throw newUnsupportedMethod();
    }
 }
