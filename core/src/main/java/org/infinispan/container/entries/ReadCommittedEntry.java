@@ -217,7 +217,7 @@ public class ReadCommittedEntry implements MVCCEntry {
          if (isRemoved()) {
             container.remove(key, newVersion);
          } else if (value != null) {
-            ((GMUDataContainer)container).put(key, value, newVersion, lifespan, maxIdle);
+            ((GMUDataContainer)container).putSSI(key, value, ctx, lifespan, maxIdle);
          }
          reset();
       }
