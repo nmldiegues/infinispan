@@ -1,7 +1,10 @@
 package org.infinispan.container.gmu;
 
 import org.infinispan.container.entries.InternalCacheEntry;
+import org.infinispan.container.entries.versioned.VersionedImmortalCacheEntry;
+import org.infinispan.container.gmu.GMUDataContainer.DataContainerVersionBody;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.gmu.GMUCacheEntryVersion;
 import org.infinispan.util.Util;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -169,6 +172,7 @@ public abstract class VersionChain<T> {
          first = body;
          return null;
       } else if (first.isEqual(body)) {
+         System.out.println("Transaction committing with: " + ((GMUCacheEntryVersion) ((VersionedImmortalCacheEntry)body.getValue()).getVersion()).getThisNodeVersionValue() + " commit time: " + ((GMUCacheEntryVersion) ((VersionedImmortalCacheEntry)body.getValue()).getVersion()).getCreationVersion()[0]);
          first.reincarnate(body);
          return null;
       }

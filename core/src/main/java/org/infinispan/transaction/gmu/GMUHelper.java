@@ -96,6 +96,7 @@ public class GMUHelper {
          if (keyLogic.localNodeIsOwner(key)) {
 
             container.markVisibleRead(key, latestVersion);
+            System.out.println(Thread.currentThread().getId() + "] marked visible read: " + key + " " + latestVersion.getThisNodeVersionValue());
 
             DataContainerVersionBody body = container.getFirstBody(key);
             while (body != null && !body.isOlderOrEquals(prepareVersion)) {
@@ -234,6 +235,7 @@ public class GMUHelper {
          if (wasNotComputed(computedDeps)) {
             cacheTx.setComputedDepsVersion(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions());
          }
+         System.out.println(Thread.currentThread().getId() + "] commit time: " + ((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()[0] + " computed deps: " + cacheTx.getComputedDepsVersion()[0]);
          return;
       }
       List<EntryVersion> allPreparedVersions = new LinkedList<EntryVersion>();

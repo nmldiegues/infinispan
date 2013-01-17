@@ -202,6 +202,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       if (chain == null) {
          return false;
       }
+      System.out.println(Thread.currentThread().getId() + "] validating write: " + key + " starting snapshot " + snapshot.getThisNodeVersionValue() + " visible read " + chain.visibleReadVersion.get()[0]);
       return chain.wasReadSince(snapshot);
    }
 
@@ -389,7 +390,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
 
       // nmld: visible read vector clock, probably an EntryVersion?
       // TODO: place 0-filled array with the correct size ?
-      private final AtomicReference<long[]> visibleReadVersion = new AtomicReference<long[]>();
+      protected final AtomicReference<long[]> visibleReadVersion = new AtomicReference<long[]>();
 
       protected boolean wasReadSince(GMUDistributedVersion version) {
          // TODO nmld: compute the magic. Should it be only one value instead of a vector?
