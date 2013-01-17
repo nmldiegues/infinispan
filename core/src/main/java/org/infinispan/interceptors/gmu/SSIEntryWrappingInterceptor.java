@@ -9,6 +9,7 @@ import org.infinispan.commands.write.ClearCommand;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -88,6 +89,20 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
          } else {
             transactionCommitManager.prepareReadOnlyTransaction(ctx.getCacheTransaction());
          }
+      }
+      
+      if (command.getModificationsCount() < 10) {
+      String output = Thread.currentThread().getId() + "] WS:";
+      for (WriteCommand writeCommand : command.getModifications()) {
+         for (Object key : writeCommand.getAffectedKeys()) {
+            output += " " + key;
+         }
+      }
+      output += "\tRS:";
+      for (Object key : command.getReadSet()) {
+         output += " " + key;
+      }
+      System.out.println(output);
       }
 
       if (log.isDebugEnabled()) {

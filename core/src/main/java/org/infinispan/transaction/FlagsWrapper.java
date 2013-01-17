@@ -9,16 +9,16 @@ public class FlagsWrapper implements Serializable {
    private static final long serialVersionUID = 678235870477120716L;
    private final boolean hasIncomingEdge;
    private final boolean hasOutgoingEdge;
-   private final long[] creationVersion;
-   private final EntryVersion preparedVersion;
+   private final EntryVersion creationVersion;
+   private final long[] computedDepsVersion;
    
-   public FlagsWrapper(boolean hasIncomingEdge, boolean hasOutgoingEdge, long[] creationVersion,
-         EntryVersion preparedVersion) {
+   public FlagsWrapper(boolean hasIncomingEdge, boolean hasOutgoingEdge, EntryVersion creationVersion,
+         long[] computedDepsVersion) {
       super();
       this.hasIncomingEdge = hasIncomingEdge;
       this.hasOutgoingEdge = hasOutgoingEdge;
       this.creationVersion = creationVersion;
-      this.preparedVersion = preparedVersion;
+      this.computedDepsVersion = computedDepsVersion;
    }
 
    public boolean isHasIncomingEdge() {
@@ -29,12 +29,12 @@ public class FlagsWrapper implements Serializable {
       return hasOutgoingEdge;
    }
 
-   public long[] getCreationVersion() {
+   public EntryVersion getCreationVersion() {
       return creationVersion;
    }
 
-   public EntryVersion getPreparedVersion() {
-      return preparedVersion;
+   public long[] getComputedDepsVersion() {
+      return computedDepsVersion;
    }
    
 }

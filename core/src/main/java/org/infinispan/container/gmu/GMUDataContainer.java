@@ -189,7 +189,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          log.tracef("DataContainer.put(%s,%s,%s,%s,%s), correct version is %s", k, v, version, lifespan, maxIdle, cacheEntryVersion);
       }
 
-      chain.add(entryFactory.create(k, v, cacheEntryVersion, lifespan, maxIdle), cacheTx.isHasOutgoingEdge(), cacheTx.getCreationVersion());
+      chain.add(entryFactory.create(k, v, cacheEntryVersion, lifespan, maxIdle), cacheTx.isHasOutgoingEdge(), cacheEntryVersion.getCreationVersion());
       if (log.isTraceEnabled()) {
          StringBuilder stringBuilder = new StringBuilder();
          chain.chainToString(stringBuilder);
@@ -415,7 +415,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       
       @Override
       protected VersionBody<InternalCacheEntry> newValue(InternalCacheEntry value, boolean outFlag, long[] creatorVersion) {
-         // TODO nmld: this has to be changed
+         GMUCacheEntryVersion v = (GMUCacheEntryVersion) value.getVersion();
          return new DataContainerVersionBody(value, outFlag, creatorVersion);
       }
       
@@ -473,7 +473,8 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
 
       @Override
       public void reincarnate(VersionBody<InternalCacheEntry> other) {
-         throw new IllegalStateException("This cannot happen");
+//         throw new IllegalStateException("This cannot happen");
+         // nmld: in SSI it can happen, and we do nothing
       }
 
       @Override

@@ -155,4 +155,8 @@ public class GMUCacheEntryVersion extends GMUVersion {
          return Ids.GMU_CACHE_VERSION;
       }
    }
+
+   public long[] getCreationVersion() {
+      return creationVersion;
+   }
 }

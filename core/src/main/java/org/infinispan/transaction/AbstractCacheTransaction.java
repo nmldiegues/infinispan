@@ -77,11 +77,11 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
 
    private EntryVersionsMap updatedEntryVersions;
 
-   private EntryVersion transactionVersion;
+   private EntryVersion transactionVersion;  // maintains the "old" normal version, or the "new" commit version
 
    private boolean hasOutgoingEdge = false;
    private boolean hasIncomingEdge = false;
-   private long[] creationVersion = null;  // only makes sense if hasOutgoingEdge is true
+   private long[] computedDepsVersion = null;  // only makes sense if hasOutgoingEdge is true
    
    public AbstractCacheTransaction(GlobalTransaction tx, int viewId) {
       this.tx = tx;
@@ -285,7 +285,7 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    
    @Override
    public FlagsWrapper getFlagsAndVersion() {
-      return new FlagsWrapper(hasIncomingEdge, hasOutgoingEdge, creationVersion, transactionVersion);
+      return new FlagsWrapper(hasIncomingEdge, hasOutgoingEdge, transactionVersion, computedDepsVersion);
    }
 
    @Override
@@ -333,13 +333,13 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    }
 
    @Override
-   public long[] getCreationVersion() {
-      return creationVersion;
+   public long[] getComputedDepsVersion() {
+      return computedDepsVersion;
    }
 
    @Override
-   public void setCreationVersion(long[] creationVersion) {
-      this.creationVersion = creationVersion;
+   public void setComputedDepsVersion(long[] computedDepsVersion) {
+      this.computedDepsVersion = computedDepsVersion;
    }
    
 

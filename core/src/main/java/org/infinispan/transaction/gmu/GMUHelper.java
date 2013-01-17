@@ -113,7 +113,7 @@ public class GMUHelper {
             }
          }
       }
-      cacheTx.setCreationVersion(depVersion);
+      cacheTx.setComputedDepsVersion(depVersion);
    }
    
    public static void mergeMinVectorClocks(long[] orig, long[] update) {
@@ -224,18 +224,26 @@ public class GMUHelper {
          if (log.isDebugEnabled()) {
             log.debugf("Versions received are empty!");
          }
+         
          CacheTransaction cacheTx = ctx.getCacheTransaction();
-         cacheTx.setCreationVersion(((GMUDistributedVersion) cacheTx.getTransactionVersion()).getVersions());
+         if (cacheTx.isHasIncomingEdge() && cacheTx.isHasOutgoingEdge()) {
+            throw new ValidationException("Both edges exist", null);
+         }
+         
+         long[] computedDeps = cacheTx.getComputedDepsVersion();
+         if (wasNotComputed(computedDeps)) {
+            cacheTx.setComputedDepsVersion(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions());
+         }
          return;
       }
       List<EntryVersion> allPreparedVersions = new LinkedList<EntryVersion>();
       FlagsWrapper flagsWrapper = ctx.getPrepareResult();
-      allPreparedVersions.add(flagsWrapper.getPreparedVersion());
+      allPreparedVersions.add(flagsWrapper.getCreationVersion());
       GlobalTransaction gtx = ctx.getGlobalTransaction();
 
       boolean outFlag = flagsWrapper.isHasOutgoingEdge();
       boolean inFlag = flagsWrapper.isHasIncomingEdge();
-      long[] outDep = flagsWrapper.getCreationVersion();
+      long[] outDep = flagsWrapper.getComputedDepsVersion();
       
       //process all responses
       for (Response r : responses) {
@@ -243,14 +251,14 @@ public class GMUHelper {
             throw new IllegalStateException("Non-null response with new version is expected");
          } else if (r instanceof SuccessfulResponse) {
             flagsWrapper = convert(((SuccessfulResponse) r).getResponseValue(), FlagsWrapper.class);
-            allPreparedVersions.add(flagsWrapper.getPreparedVersion());
+            allPreparedVersions.add(flagsWrapper.getCreationVersion());
             if (flagsWrapper.isHasIncomingEdge()) {
                inFlag = true;
             }
             if (flagsWrapper.isHasOutgoingEdge()) {
                outFlag = true;
             }
-            mergeMinVectorClocks(outDep, flagsWrapper.getCreationVersion());
+            mergeMinVectorClocks(outDep, flagsWrapper.getComputedDepsVersion());
          } else if(r instanceof ExceptionResponse) {
             throw new ValidationException(((ExceptionResponse) r).getException());
          } else if(!r.isSuccessful()) {
@@ -274,11 +282,11 @@ public class GMUHelper {
       
       CacheTransaction cacheTx = ctx.getCacheTransaction();
       cacheTx.setHasOutgoingEdge(outFlag);
-      cacheTx.setCreationVersion(distVersion.getVersions());
+      cacheTx.setTransactionVersion(distVersion);
       if (wasNotComputed(outDep)) {
-         ctx.setTransactionVersion(distVersion);
+         cacheTx.setComputedDepsVersion(distVersion.getVersions());
       } else {
-         ctx.setTransactionVersion(new GMUDistributedVersion(distVersion, versionGenerator, outDep));
+         cacheTx.setComputedDepsVersion(outDep);
       }
    }
    
