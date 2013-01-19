@@ -6,6 +6,7 @@ import static org.infinispan.transaction.gmu.GMUHelper.convert;
 import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.write.ClearCommand;
+import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
@@ -91,19 +92,22 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
          }
       }
       
-      if (command.getModificationsCount() < 10) {
-      String output = Thread.currentThread().getId() + "] WS:";
-      for (WriteCommand writeCommand : command.getModifications()) {
-         for (Object key : writeCommand.getAffectedKeys()) {
-            output += " " + key;
-         }
-      }
-      output += "\tRS:";
-      for (Object key : command.getReadSet()) {
-         output += " " + key;
-      }
-      System.out.println(output);
-      }
+//      if (command.getModificationsCount() < 10) {
+//      String output = Thread.currentThread().getId() + "] WS:";
+//      for (WriteCommand writeCommand : command.getModifications()) {
+//         for (Object key : writeCommand.getAffectedKeys()) {
+//            output += " " + key;
+//            if (writeCommand instanceof PutKeyValueCommand) {
+//               output += "/" + ((PutKeyValueCommand)writeCommand).getValue();
+//            }
+//         }
+//      }
+//      output += "\tRS:";
+//      for (Object key : command.getReadSet()) {
+//         output += " " + key;
+//      }
+//      System.out.println(output);
+//      }
 
       if (log.isDebugEnabled()) {
          log.debugf("Transaction %s can commit on this node. Prepare Version is %s",
