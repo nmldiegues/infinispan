@@ -94,7 +94,7 @@ public class GMUCacheEntryVersion extends GMUVersion {
          return result;
       }  else if (other instanceof GMUDistributedVersion) {
          GMUDistributedVersion distributedVersion = (GMUDistributedVersion) other;
-         InequalVersionComparisonResult result = compare(version, distributedVersion.getThisNodeVersionValue());
+         InequalVersionComparisonResult result = compare(creationVersion[nodeIndex], distributedVersion.getThisNodeVersionValue());
          if (result == EQUAL) {
             return compare(viewId, distributedVersion.getViewId());
          }
