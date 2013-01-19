@@ -101,12 +101,13 @@ public class GMUHelper {
             DataContainerVersionBody body = container.getFirstBody(key);
             while (body != null && !body.isOlderOrEquals(prepareVersion)) {
                if (body.hasOutgoingDep()) {
-                  throw new ValidationException("Validation failed for key [" + key + "]", key);
+                  throw new ValidationException("Missed concurrent write, and its owner already has outgoing [" + key + "] with time " + body.getCreatorActualVersion()[0], key);
                }
                
                cacheTx.setHasOutgoingEdge(true);
                mergeMinVectorClocks(depVersion, body.getCreatorActualVersion());
                body = body.getPrevious();
+               System.out.println(Thread.currentThread().getId() + "] missed concurrent write: " + key + " " + body.getCreatorActualVersion()[0]);
             }
          } else {
             if (log.isDebugEnabled()) {
@@ -139,6 +140,7 @@ public class GMUHelper {
          for (Object key : writeCommand.getAffectedKeys()) {
             if (distributionLogic.localNodeIsOwner(key)) {
                if (container.wasReadSince(key, snapshotUsed)) {
+                  System.out.println(Thread.currentThread().getId() + "] write to " + key + " invalidated read");
                   context.getCacheTransaction().setHasIncomingEdge(true);
                   break;
                }
@@ -228,6 +230,7 @@ public class GMUHelper {
          
          CacheTransaction cacheTx = ctx.getCacheTransaction();
          if (cacheTx.isHasIncomingEdge() && cacheTx.isHasOutgoingEdge()) {
+            System.out.println(Thread.currentThread().getId() + "] both edges exist");
             throw new ValidationException("Both edges exist", null);
          }
          

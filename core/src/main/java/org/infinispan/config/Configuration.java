@@ -2099,9 +2099,10 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
       }
       
       @Deprecated
-      public void setSSIValidation(Boolean ssiValidation) {
+      public TransactionConfig setSSIValidation(Boolean ssiValidation) {
          testImmutability("ssiValidation");
          this.ssiValidation = ssiValidation;
+         return this;
       }
 
       @XmlAttribute

@@ -209,6 +209,9 @@ public class FluentConfiguration extends AbstractFluentConfigurationBean {
        */
       TransactionConfig syncRollbackPhase(Boolean syncRollbackPhase);
 
+      @Deprecated
+      TransactionConfig setSSIValidation(Boolean ssiValidation);
+      
       /**
        * Only has effect for DIST mode and when useEagerLocking is set to true. When this is
        * enabled, then only one node is locked in the cluster, disregarding numOwners config. On the
@@ -1048,6 +1051,10 @@ abstract class AbstractFluentConfigurationBean extends AbstractNamedCacheConfigu
       return transaction().syncRollbackPhase(syncRollbackPhase);
    }
 
+   public FluentConfiguration.TransactionConfig setSSIValidation(Boolean ssiValidation) {
+      return transaction().setSSIValidation(ssiValidation);
+   }
+   
    public FluentConfiguration.TransactionConfig useEagerLocking(Boolean useEagerLocking) {
       return transaction().useEagerLocking(useEagerLocking);
    }

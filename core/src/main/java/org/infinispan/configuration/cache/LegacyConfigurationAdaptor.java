@@ -265,6 +265,7 @@ public class LegacyConfigurationAdaptor {
             .transactionManagerLookup(config.transaction().transactionManagerLookup())
             .transactionMode(config.transaction().transactionMode())
             .transactionSynchronizationRegistryLookup(config.transaction().transactionSynchronizationRegistryLookup())
+            .setSSIValidation(config.transaction().ssiValidation())
             .useEagerLocking(config.transaction().useEagerLocking())
             .useSynchronization(config.transaction().useSynchronization())
             .use1PcForAutoCommitTransactions(config.transaction().use1PcForAutoCommitTransactions())
