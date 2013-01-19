@@ -101,7 +101,7 @@ public class GMUHelper {
             DataContainerVersionBody body = container.getFirstBody(key);
             while (body != null && !body.isOlderOrEquals(prepareVersion)) {
                if (body.hasOutgoingDep()) {
-                  throw new ValidationException("Missed concurrent write, and its owner already has outgoing [" + key + "] with time " + body.getCreatorActualVersion()[0], key);
+                  throw new ValidationException("Missed concurrent write, and its owner already has outgoing [" + key + "] with time " + Arrays.toString(body.getCreatorActualVersion()), key);
                }
                
                cacheTx.setHasOutgoingEdge(true);
@@ -119,14 +119,10 @@ public class GMUHelper {
    }
    
    public static void mergeMinVectorClocks(long[] orig, long[] update) {
-      try {
       for (int i = 0; i < orig.length; i++) {
          if (update[i] < orig[i]) {
             orig[i] = update[i];
          }
-      }
-      } catch (NullPointerException e) {
-         log.error("NPE!!!");
       }
    }
 

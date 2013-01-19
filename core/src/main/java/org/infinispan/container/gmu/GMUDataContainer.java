@@ -22,6 +22,7 @@ import org.infinispan.util.logging.LogFactory;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -399,15 +400,31 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
 
       protected boolean wasReadSince(GMUDistributedVersion version) {
          // TODO nmld: compute the magic. Should it be only one value instead of a vector?
-         return visibleReadVersion.get()[0] >= version.getVersionValue(0); 
+         // or should we look just at one id or the whole vector?
+         long[] snapshot = version.getVersions();
+         long[] vr = visibleReadVersion.get();
+         for (int i = 0; i < snapshot.length; i++) {
+            if (vr[i] < snapshot[i])  {
+               return false;
+            }
+         }
+         return true; 
       }
       
       protected void setVisibleRead(long[] newVisibleRead) {
          long[] previousVisibleReadVersion = visibleReadVersion.get();
          if (previousVisibleReadVersion != null) { // handles the initial case in which noone read it?
-            // TODO nmld: actually implement this
             // if the new visible read is older, then we do not need to update
-            if (newVisibleRead[0] > previousVisibleReadVersion[0]) {
+            boolean update = false;
+            newVisibleRead = Arrays.copyOf(newVisibleRead, newVisibleRead.length);
+            for (int i = 0; i < newVisibleRead.length; i++) {
+               if (newVisibleRead[i] < previousVisibleReadVersion[i]) {
+                  newVisibleRead[i] = previousVisibleReadVersion[i];
+               } else if (newVisibleRead[i] > previousVisibleReadVersion[i]) {
+                  update = true;
+               }
+            }
+            if (update) {
                visibleReadVersion.compareAndSet(previousVisibleReadVersion, newVisibleRead);      
             }
             return;
