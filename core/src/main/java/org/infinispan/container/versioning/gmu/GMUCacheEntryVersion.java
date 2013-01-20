@@ -11,6 +11,7 @@ import org.infinispan.util.Util;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
+import java.util.Arrays;
 import java.util.Set;
 
 import static org.infinispan.container.versioning.InequalVersionComparisonResult.*;
@@ -32,6 +33,9 @@ public class GMUCacheEntryVersion extends GMUVersion {
                                int subVersion, long[] creationVersion) {
       super(cacheName, viewId, versionGenerator);
       this.version = version;
+      if (this.version == Long.MAX_VALUE) {
+         System.out.println("Here " + version + " " + Arrays.toString(creationVersion));
+      }
       this.subVersion = subVersion;
       this.creationVersion = creationVersion;
    }
@@ -40,6 +44,9 @@ public class GMUCacheEntryVersion extends GMUVersion {
                                 long version, int subVersion, long[] creationVersion) {
       super(cacheName, viewId, clusterSnapshot, localAddress);
       this.version = version;
+      if (this.version == Long.MAX_VALUE) {
+         System.out.println("Here private " + version + " " + Arrays.toString(creationVersion));
+      }
       this.subVersion = subVersion;
       this.creationVersion = creationVersion;
    }

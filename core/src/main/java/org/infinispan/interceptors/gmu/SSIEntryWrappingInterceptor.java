@@ -3,17 +3,18 @@ package org.infinispan.interceptors.gmu;
 import static org.infinispan.transaction.gmu.GMUHelper.calculateCommitVersion;
 import static org.infinispan.transaction.gmu.GMUHelper.convert;
 
+import org.infinispan.commands.tx.CommitCommand;
+import org.infinispan.commands.tx.GMUCommitCommand;
 import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.write.ClearCommand;
-import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
-import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+import org.jgroups.blocks.RequestHandler;
 
 /**
  * @author Nuno Diegues
@@ -58,6 +59,32 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
       }
 
       return retVal;
+   }
+   
+   @Override
+   public Object visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
+      GMUCommitCommand gmuCommitCommand = convert(command, GMUCommitCommand.class);
+
+      if (ctx.isOriginLocal()) {
+         gmuCommitCommand.setCommitVersion(ctx.getTransactionVersion());
+         gmuCommitCommand.setComputedDepsVersion(ctx.getCacheTransaction().getComputedDepsVersion());
+      } else {
+         ctx.setTransactionVersion(gmuCommitCommand.getCommitVersion());
+         ctx.getCacheTransaction().setComputedDepsVersion(gmuCommitCommand.getComputedDepsVersion());
+      }
+
+      transactionCommitManager.commitTransaction(ctx.getCacheTransaction(), gmuCommitCommand.getCommitVersion());
+
+      Object retVal = null;
+      try {
+         retVal = invokeNextInterceptor(ctx, command);
+      } catch (Throwable throwable) {
+         //let ignore the exception. we cannot have some nodes applying the write set and another not another one
+         //receives the rollback and don't applies the write set
+      } finally {
+         transactionCommitManager.awaitUntilCommitted(ctx.getCacheTransaction(), ctx.isOriginLocal() ? null : gmuCommitCommand);
+      }
+      return ctx.isOriginLocal() ? retVal : RequestHandler.DO_NOT_REPLY;
    }
    
    @Override

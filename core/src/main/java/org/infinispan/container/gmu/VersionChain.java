@@ -11,6 +11,7 @@ import org.infinispan.util.logging.LogFactory;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * // TODO: Document this
@@ -172,7 +173,6 @@ public abstract class VersionChain<T> {
          first = body;
          return null;
       } else if (first.isEqual(body)) {
-         System.out.println("Transaction committing with: " + ((GMUCacheEntryVersion) ((VersionedImmortalCacheEntry)body.getValue()).getVersion()).getThisNodeVersionValue() + " commit time: " + ((GMUCacheEntryVersion) ((VersionedImmortalCacheEntry)body.getValue()).getVersion()).getCreationVersion()[0]);
          first.reincarnate(body);
          return null;
       }
