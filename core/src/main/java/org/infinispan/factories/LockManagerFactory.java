@@ -22,8 +22,8 @@
  */
 package org.infinispan.factories;
 
+import org.infinispan.container.gmu.GMUDataContainer;
 import org.infinispan.factories.annotations.DefaultFactoryFor;
-import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.concurrent.locks.DeadlockDetectingLockManager;
 import org.infinispan.util.concurrent.locks.LockManager;
 import org.infinispan.util.concurrent.locks.LockManagerImpl;
@@ -36,12 +36,17 @@ import org.infinispan.util.concurrent.locks.LockManagerImpl;
  */
 @DefaultFactoryFor(classes = LockManager.class)
 public class LockManagerFactory extends AbstractNamedCacheComponentFactory implements AutoInstantiableFactory {
+   
+   public static GMUDataContainer dataContainer; 
+   
    @Override
    public <T> T construct(Class<T> componentType) {
       if (configuration.isEnableDeadlockDetection()) {
          return (T) new DeadlockDetectingLockManager();
       } else {
-         return (T) new LockManagerImpl();
+         LockManager lockManager = new LockManagerImpl();
+         dataContainer.setLockManager(lockManager);
+         return (T) lockManager;
       }
    }
 }

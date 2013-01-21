@@ -27,16 +27,16 @@ public class GMUDistributedVersion extends GMUVersion {
    public GMUDistributedVersion(GMUDistributedVersion baseline, GMUVersionGenerator generator, long[] versions) {
       super(baseline.cacheName, baseline.viewId, generator);
       this.versions = versions;
-      priv(versions);
+//      priv(versions);
    }
 
-   protected void priv(long[] versions) {
-      for (int i = 0; i < versions.length; i++) {
-         if (versions[i] == -1) {
+//   protected void priv(long[] versions) {
+//      for (int i = 0; i < versions.length; i++) {
+//         if (versions[i] == -1) {
 //            System.out.println("there");
-         }
-      }
-   }
+//         }
+//      }
+//   }
    
    public GMUDistributedVersion(String cacheName, int viewId, GMUVersionGenerator versionGenerator, long[] versions) {
       super(cacheName, viewId, versionGenerator);
@@ -45,14 +45,14 @@ public class GMUDistributedVersion extends GMUVersion {
                                                   clusterSnapshot.size());
       }
       this.versions = Arrays.copyOf(versions, clusterSnapshot.size());
-      priv(versions);
+//      priv(versions);
    }
 
    private GMUDistributedVersion(String cacheName, int viewId, ClusterSnapshot clusterSnapshot, Address localAddress,
                                  long[] versions) {
       super(cacheName, viewId, clusterSnapshot, localAddress);
       this.versions = versions;
-      priv(versions);
+//      priv(versions);
    }
 
    public long[] getVersions() {

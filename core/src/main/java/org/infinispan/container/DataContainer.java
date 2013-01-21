@@ -62,7 +62,7 @@ public interface DataContainer extends Iterable<InternalCacheEntry> {
     * @return entry, if it exists and has not expired, or null if not
     */
    InternalCacheEntry getAsWriteTx(Object k, EntryVersion version);
-
+   
    /**
     * Retrieves a cache entry in the same way as {@link #get(Object, org.infinispan.container.versioning.EntryVersion)}}
     * except that it does not update or reorder any of the internal constructs.

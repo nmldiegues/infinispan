@@ -13,10 +13,12 @@ import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.eviction.EvictionThreadPolicy;
+import org.infinispan.factories.LockManagerFactory;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.transaction.gmu.CommitLog;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.util.Util;
+import org.infinispan.util.concurrent.locks.LockManager;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -43,13 +45,16 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
 
    private static final Log log = LogFactory.getLog(GMUDataContainer.class);
    private CommitLog commitLog;
+   private LockManager lockManager;
 
    protected GMUDataContainer(int concurrencyLevel) {
       super(concurrencyLevel);
+      LockManagerFactory.dataContainer = this;
    }
 
    protected GMUDataContainer(int concurrencyLevel, int maxEntries, EvictionStrategy strategy, EvictionThreadPolicy policy) {
       super(concurrencyLevel, maxEntries, strategy, policy);
+      LockManagerFactory.dataContainer = this;
    }
 
    public static DataContainer boundedDataContainer(int concurrencyLevel, int maxEntries,
@@ -61,6 +66,10 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       return new GMUDataContainer(concurrencyLevel);
    }
 
+   public void setLockManager(LockManager lockManager) {
+      this.lockManager = lockManager;
+   }
+   
    @Inject
    public void setCommitLog(CommitLog commitLog) {
       this.commitLog = commitLog;
@@ -89,17 +98,39 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       return entry;
    }
    
+   public InternalCacheEntry getAsRO(Object k, EntryVersion version, EntryVersion currentVersion) {
+      if (log.isTraceEnabled()) {
+         log.tracef("DataContainer.get(%s,%s)", k, version);
+      }
+      InternalCacheEntry entry = peek(k, version, false);
+      long now = System.currentTimeMillis();
+      if (entry.canExpire() && entry.isExpired(now)) {
+         if (log.isTraceEnabled()) {
+            log.tracef("DataContainer.get(%s,%s) => EXPIRED", k, version);
+         }
+
+         return new InternalGMUNullCacheEntry(toInternalGMUCacheEntry(entry));
+      }
+      entry.touch(now);
+
+      if (log.isTraceEnabled()) {
+         log.tracef("DataContainer.get(%s,%s) => %s", k, version, entry);
+      }
+
+      return entry;
+   }
+   
    @Override
    public InternalCacheEntry getAsWriteTx(Object k, EntryVersion version) {
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.get(%s,%s)", k, version);
       }
       InternalCacheEntry entry = peek(k, version, true);
-      EntryVersion v = entry.getVersion();
-      if (v instanceof GMUCacheEntryVersion) {
-         GMUCacheEntryVersion gmuV = (GMUCacheEntryVersion) v;
-         System.out.println(Thread.currentThread().getId() + "] read " + k + " with version " + gmuV.getThisNodeVersionValue() + " creation " + gmuV.getCreationVersion()[0] + " and value " + entry.getValue());
-      }
+//      EntryVersion v = entry.getVersion();
+//      if (v instanceof GMUCacheEntryVersion) {
+//         GMUCacheEntryVersion gmuV = (GMUCacheEntryVersion) v;
+//         System.out.println(Thread.currentThread().getId() + "] read " + k + " with version " + gmuV.getThisNodeVersionValue() + " creation " + gmuV.getCreationVersion()[0] + " and value " + entry.getValue());
+//      }
       long now = System.currentTimeMillis();
       if (entry.canExpire() && entry.isExpired(now)) {
          if (log.isTraceEnabled()) {
@@ -117,6 +148,32 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       return entry;
    }
 
+   public InternalCacheEntry peek(Object k, EntryVersion version, EntryVersion currentVersion, boolean writeTx) {
+      if (log.isTraceEnabled()) {
+         log.tracef("DataContainer.peek(%s,%s)", k, version);
+      }
+
+      DataContainerVersionChain chain = entries.get(k);
+      if (chain == null) {
+         if (log.isTraceEnabled()) {
+            log.tracef("DataContainer.peek(%s,%s) => NOT_FOUND", k, version);
+         }
+         return wrap(k, null, true, version, null, null);
+      }
+
+      chain.setVisibleRead(((GMUDistributedVersion)currentVersion).getVersions());
+      while (lockManager.isLocked(k)) { }
+      
+      VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, writeTx));
+
+      if (log.isTraceEnabled()) {
+         log.tracef("DataContainer.peek(%s,%s) => %s", k, version, entry);
+      }
+      EntryVersion creationVersion = entry.getEntry() == null ? null : entry.getEntry().getVersion();
+
+      return wrap(k, entry.getEntry(), entry.isMostRecent(), version, creationVersion, entry.getNextVersion());
+   }
+   
    @Override
    public InternalCacheEntry peek(Object k, EntryVersion version, boolean writeTx) {
       if (log.isTraceEnabled()) {
@@ -130,6 +187,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          }
          return wrap(k, null, true, version, null, null);
       }
+
       VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, writeTx));
 
       if (log.isTraceEnabled()) {
@@ -208,7 +266,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       if (chain == null) {
          return false;
       }
-      System.out.println(Thread.currentThread().getId() + "] validating write: " + key + " starting snapshot " + Arrays.toString(snapshot.getVersions()) + " visible read " + Arrays.toString(chain.visibleReadVersion.get()));
+//      System.out.println(Thread.currentThread().getId() + "] validating write: " + key + " starting snapshot " + Arrays.toString(snapshot.getVersions()) + " visible read " + Arrays.toString(chain.visibleReadVersion.get()));
       return chain.wasReadSince(snapshot);
    }
 

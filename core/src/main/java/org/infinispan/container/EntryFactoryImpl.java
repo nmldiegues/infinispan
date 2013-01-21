@@ -60,7 +60,7 @@ public class EntryFactoryImpl implements EntryFactory {
    protected boolean useRepeatableRead;
    protected DataContainer container;
    protected boolean localModeWriteSkewCheck;
-   private Configuration configuration;
+   protected Configuration configuration;
    private CacheNotifier notifier;
 
    @Inject

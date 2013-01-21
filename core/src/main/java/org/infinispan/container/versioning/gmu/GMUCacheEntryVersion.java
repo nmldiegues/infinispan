@@ -33,9 +33,9 @@ public class GMUCacheEntryVersion extends GMUVersion {
                                int subVersion, long[] creationVersion) {
       super(cacheName, viewId, versionGenerator);
       this.version = version;
-      if (this.version == Long.MAX_VALUE) {
-         System.out.println("Here " + version + " " + Arrays.toString(creationVersion));
-      }
+//      if (this.version == Long.MAX_VALUE) {
+//         System.out.println("Here " + version + " " + Arrays.toString(creationVersion));
+//      }
       this.subVersion = subVersion;
       this.creationVersion = creationVersion;
    }
@@ -44,9 +44,9 @@ public class GMUCacheEntryVersion extends GMUVersion {
                                 long version, int subVersion, long[] creationVersion) {
       super(cacheName, viewId, clusterSnapshot, localAddress);
       this.version = version;
-      if (this.version == Long.MAX_VALUE) {
-         System.out.println("Here private " + version + " " + Arrays.toString(creationVersion));
-      }
+//      if (this.version == Long.MAX_VALUE) {
+//         System.out.println("Here private " + version + " " + Arrays.toString(creationVersion));
+//      }
       this.subVersion = subVersion;
       this.creationVersion = creationVersion;
    }

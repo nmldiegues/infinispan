@@ -103,7 +103,11 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
       if (localTx != null && localTx.isWriteTx()) {
          entry = toInternalGMUCacheEntry(container.getAsWriteTx(key, maxVersionToRead));
       } else {
-         entry = toInternalGMUCacheEntry(container.get(key, maxVersionToRead));
+         if (configuration.isSSIValidation()) {
+            entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, mostRecentCommitLogVersion));
+         } else {
+            entry = toInternalGMUCacheEntry(container.get(key, maxVersionToRead));
+         }
       }
 
       if (remoteRead) {
