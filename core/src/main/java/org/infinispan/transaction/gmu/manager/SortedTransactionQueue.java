@@ -430,19 +430,19 @@ public class SortedTransactionQueue {
       @Override
       public synchronized void awaitUntilCommitted(GMUCommitCommand commitCommand) throws InterruptedException {
          if (log.isTraceEnabled()) {
-            log.tracef("await until this [%s] is committed.");
+            log.tracef("await until this [%s] is committed.", this);
          }
          if (committed && commitCommand != null) {
             commitCommand.sendReply(null, false);
             if (log.isTraceEnabled()) {
-               log.tracef("Done! This [%s] is committed.");
+               log.tracef("Done! This [%s] is committed.", this);
             }
             return;
          }
          if (commitCommand != null) {
             this.commitCommand = commitCommand;
             if (log.isTraceEnabled()) {
-               log.tracef("Don't wait. It is remote. Reply will be sent when this [%s] is committed.");
+               log.tracef("Don't wait. It is remote. Reply will be sent when this [%s] is committed.", this);
             }
             return;
          }
@@ -450,7 +450,7 @@ public class SortedTransactionQueue {
             wait();
          }
          if (log.isTraceEnabled()) {
-            log.tracef("Done! This [%s] is committed.");
+            log.tracef("Done! This [%s] is committed.", this);
          }
       }
 
