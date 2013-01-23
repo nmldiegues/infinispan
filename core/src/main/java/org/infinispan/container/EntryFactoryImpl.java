@@ -25,6 +25,7 @@ package org.infinispan.container;
 
 import org.infinispan.atomic.Delta;
 import org.infinispan.atomic.DeltaAware;
+import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.config.Configuration;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.DeltaAwareCacheEntry;
@@ -77,10 +78,11 @@ public class EntryFactoryImpl implements EntryFactory {
    }
 
    @Override
-   public final CacheEntry wrapEntryForReading(InvocationContext ctx, Object key) throws InterruptedException {
+   public final CacheEntry wrapEntryForReading(InvocationContext ctx, GetKeyValueCommand command) throws InterruptedException {
+      Object key = command.getKey();
       CacheEntry cacheEntry = getFromContext(ctx, key);
       if (cacheEntry == null) {
-         cacheEntry = getFromContainer(key, ctx);
+         cacheEntry = getFromContainer(key, ctx, command);
 
          // do not bother wrapping though if this is not in a tx.  repeatable read etc are all meaningless unless there is a tx.
          if (useRepeatableRead) {
@@ -130,7 +132,7 @@ public class EntryFactoryImpl implements EntryFactory {
             mvccEntry = wrapMvccEntryForRemove(ctx, key, cacheEntry);
          }
       } else {
-         InternalCacheEntry ice = getFromContainer(key, ctx);
+         InternalCacheEntry ice = getFromContainer(key, ctx, null);
          if (ice != null) {
             mvccEntry = wrapInternalCacheEntryForPut(ctx, key, ice);
          }
@@ -153,7 +155,7 @@ public class EntryFactoryImpl implements EntryFactory {
          mvccEntry = wrapMvccEntryForPut(ctx, key, cacheEntry);
          mvccEntry.undelete(undeleteIfNeeded);
       } else {
-         InternalCacheEntry ice = (icEntry == null ? getFromContainer(key, ctx) : icEntry);
+         InternalCacheEntry ice = (icEntry == null ? getFromContainer(key, ctx, null) : icEntry);
          mvccEntry = ice != null ?
              wrapInternalCacheEntryForPut(ctx, key, ice) :
              newMvccEntryForPut(ctx, key);
@@ -169,7 +171,7 @@ public class EntryFactoryImpl implements EntryFactory {
       if (cacheEntry != null) {
          deltaAwareEntry = wrapEntryForDelta(ctx, deltaKey, cacheEntry);
       } else {
-         InternalCacheEntry ice = getFromContainer(deltaKey, ctx);
+         InternalCacheEntry ice = getFromContainer(deltaKey, ctx, null);
          if (ice != null){
             deltaAwareEntry = newDeltaAwareCacheEntry(ctx, deltaKey, (DeltaAware)ice.getValue());
          }
@@ -203,7 +205,7 @@ public class EntryFactoryImpl implements EntryFactory {
       return cacheEntry;
    }
 
-   protected InternalCacheEntry getFromContainer(Object key, InvocationContext context) {
+   protected InternalCacheEntry getFromContainer(Object key, InvocationContext context, GetKeyValueCommand command) {
       final InternalCacheEntry ice = container.get(key, null);
       if (trace) log.tracef("Retrieved from container %s", ice);
       return ice;
@@ -247,7 +249,7 @@ public class EntryFactoryImpl implements EntryFactory {
       if (cacheEntry != null) {
          mvccEntry = wrapMvccEntryForPut(ctx, key, cacheEntry);
       } else {
-         InternalCacheEntry ice = getFromContainer(key, ctx);
+         InternalCacheEntry ice = getFromContainer(key, ctx, null);
          if (ice != null) {
             mvccEntry = wrapInternalCacheEntryForPut(ctx, ice.getKey(), ice);
          }

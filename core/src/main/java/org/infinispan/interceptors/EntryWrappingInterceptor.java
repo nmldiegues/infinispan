@@ -92,7 +92,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
    @Override
    public Object visitGetKeyValueCommand(InvocationContext ctx, GetKeyValueCommand command) throws Throwable {
       try {
-         entryFactory.wrapEntryForReading(ctx, command.getKey());
+         entryFactory.wrapEntryForReading(ctx, command);
          return invokeNextInterceptor(ctx, command);
       } finally {
          //needed because entries might be added in L1

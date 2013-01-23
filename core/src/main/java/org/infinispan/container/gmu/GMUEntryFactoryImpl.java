@@ -1,5 +1,6 @@
 package org.infinispan.container.gmu;
 
+import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.container.EntryFactoryImpl;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.MVCCEntry;
@@ -12,6 +13,7 @@ import org.infinispan.container.entries.gmu.InternalGMUValueCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
+import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.SingleKeyNonTxInvocationContext;
 import org.infinispan.context.impl.LocalTxInvocationContext;
@@ -37,11 +39,11 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
    private GMUVersionGenerator gmuVersionGenerator;
 
    public static InternalGMUCacheEntry wrap(Object key, InternalCacheEntry entry, boolean mostRecent,
-                                            EntryVersion maxTxVersion, EntryVersion creationVersion,
-                                            EntryVersion maxValidVersion) {
+         EntryVersion maxTxVersion, EntryVersion creationVersion,
+         EntryVersion maxValidVersion) {
       if (entry == null || entry.isNull()) {
          return new InternalGMUNullCacheEntry(key, (entry == null ? null : entry.getVersion()), maxTxVersion, mostRecent,
-                                              creationVersion, maxValidVersion);
+               creationVersion, maxValidVersion);
       }
       return new InternalGMUValueCacheEntry(entry, maxTxVersion, mostRecent, creationVersion, maxValidVersion);
    }
@@ -66,7 +68,7 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
    }
 
    @Override
-   protected InternalCacheEntry getFromContainer(Object key, InvocationContext context) {
+   protected InternalCacheEntry getFromContainer(Object key, InvocationContext context, GetKeyValueCommand command) {
       boolean singleRead = context instanceof SingleKeyNonTxInvocationContext;
       boolean remotePrepare = !context.isOriginLocal() && context.isInTxScope();
       boolean remoteRead = !context.isOriginLocal() && !context.isInTxScope();
@@ -94,20 +96,34 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
       }
 
       EntryVersion maxVersionToRead = hasAlreadyReadFromThisNode ? versionToRead :
-            commitLog.getAvailableVersionLessThan(versionToRead);
+         commitLog.getAvailableVersionLessThan(versionToRead);
 
       EntryVersion mostRecentCommitLogVersion = commitLog.getCurrentVersion();
-      
+
       InternalGMUCacheEntry entry = null;
       LocalTransaction localTx = context.getLocalTransaction();
+      
       if (localTx != null && localTx.isWriteTx()) {
+         // we have local transaction and it is a writer. we are definitely using SSI
          entry = toInternalGMUCacheEntry(container.getAsWriteTx(key, maxVersionToRead));
-      } else {
-         if (configuration.isSSIValidation()) {
-            entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, mostRecentCommitLogVersion));
-         } else {
-            entry = toInternalGMUCacheEntry(container.get(key, maxVersionToRead));
-         }
+         
+      } else if (localTx != null && !localTx.isWriteTx() && configuration.isSSIValidation()) {
+         // we have local transaction, it's read only and we are using SSI
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, mostRecentCommitLogVersion));
+         
+      }
+      else if (command != null && command.hasFlag(Flag.WRITE_TX)) {
+         // remote command with writer transaction, definitely SSI
+         entry = toInternalGMUCacheEntry(container.getAsWriteTx(key, maxVersionToRead));
+         
+      } else if (command != null && !command.hasFlag(Flag.WRITE_TX) && configuration.isSSIValidation()) {
+         // remote command with read-only and SSI
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, mostRecentCommitLogVersion));
+         
+      }
+      else {
+         // any other case, read normally
+         entry = toInternalGMUCacheEntry(container.get(key, maxVersionToRead));
       }
 
       if (remoteRead) {

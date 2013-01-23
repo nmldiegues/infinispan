@@ -179,8 +179,10 @@ public enum Flag {
     * read should still reflect a consistent snapshot, but it can never cause a transaction to abort.
     * This application assumes responsability of guaranteeing consistency if using this.
     */
-   READ_WITHOUT_REGISTERING;
+   READ_WITHOUT_REGISTERING,
+   WRITE_TX;
 
+   
    /**
     * Creates a copy of a Flag Set removing instances of FAIL_SILENTLY.
     * The copy might be the same instance if no change is required,

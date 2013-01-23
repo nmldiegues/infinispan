@@ -102,7 +102,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.get(%s,%s)", k, version);
       }
-      InternalCacheEntry entry = peek(k, version, false);
+      InternalCacheEntry entry = peekAsRO(k, version, currentVersion);
       long now = System.currentTimeMillis();
       if (entry.canExpire() && entry.isExpired(now)) {
          if (log.isTraceEnabled()) {
@@ -148,7 +148,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       return entry;
    }
 
-   public InternalCacheEntry peek(Object k, EntryVersion version, EntryVersion currentVersion, boolean writeTx) {
+   public InternalCacheEntry peekAsRO(Object k, EntryVersion version, EntryVersion currentVersion) {
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.peek(%s,%s)", k, version);
       }
@@ -164,7 +164,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       chain.setVisibleRead(((GMUDistributedVersion)currentVersion).getVersions());
       while (lockManager.isLocked(k)) { }
       
-      VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, writeTx));
+      VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, false));
 
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.peek(%s,%s) => %s", k, version, entry);

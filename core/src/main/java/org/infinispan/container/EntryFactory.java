@@ -23,6 +23,7 @@
 package org.infinispan.container;
 
 import org.infinispan.atomic.Delta;
+import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.MVCCEntry;
@@ -50,7 +51,7 @@ public interface EntryFactory {
     * @param key key to look up and wrap
     * @throws InterruptedException when things go wrong, usually trying to acquire a lock
     */
-   CacheEntry wrapEntryForReading(InvocationContext ctx, Object key) throws InterruptedException;
+   CacheEntry wrapEntryForReading(InvocationContext ctx, GetKeyValueCommand command) throws InterruptedException;
 
    /**
     * Used for wrapping individual keys when clearing the cache. The wrapped entry is added to the

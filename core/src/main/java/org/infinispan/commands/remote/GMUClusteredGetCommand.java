@@ -70,7 +70,7 @@ public class GMUClusteredGetCommand extends ClusteredGetCommand implements Condi
    private GMUVersion minGMUVersion;
    //calculated in the target node
    private boolean alreadyReadOnThisNode;
-
+   
    public GMUClusteredGetCommand(String cacheName) {
       super(cacheName);
    }
@@ -182,4 +182,5 @@ public class GMUClusteredGetCommand extends ClusteredGetCommand implements Condi
          alreadyReadOnThisNode = false;
       }
    }
+
 }

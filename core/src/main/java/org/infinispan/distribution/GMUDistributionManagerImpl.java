@@ -30,6 +30,7 @@ import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.container.versioning.gmu.ClusterSnapshot;
 import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
+import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.SingleKeyNonTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
@@ -41,6 +42,7 @@ import org.infinispan.remoting.responses.SuccessfulResponse;
 import org.infinispan.remoting.rpc.ResponseFilter;
 import org.infinispan.remoting.rpc.ResponseMode;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.gmu.CommitLog;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
@@ -49,8 +51,10 @@ import org.infinispan.util.logging.LogFactory;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.infinispan.transaction.gmu.GMUHelper.*;
 
@@ -118,9 +122,22 @@ public class GMUDistributionManagerImpl extends DistributionManagerImpl {
          }
       }
 
+      boolean isWriteTx = false;
+      LocalTransaction tx = txInvocationContext.getLocalTransaction();
+      if (tx != null) {
+         isWriteTx = tx.isWriteTx();
+      }
       ClusteredGetCommand get = cf.buildGMUClusteredGetCommand(key, txInvocationContext.getFlags(), acquireRemoteLock,
                                                                gtx, transactionVersion, alreadyReadFromMask);
-
+      if (isWriteTx) {
+         Set<Flag> flags = get.getFlags();
+         if (flags == null) {
+            flags = new HashSet<Flag>();
+         }
+         flags.add(Flag.WRITE_TX);
+         get.setFlags(flags);
+      }
+      
       if(log.isDebugEnabled()) {
          log.debugf("Perform a remote get for transaction %s. %s",
                     txInvocationContext.getGlobalTransaction().prettyPrint(), get);
