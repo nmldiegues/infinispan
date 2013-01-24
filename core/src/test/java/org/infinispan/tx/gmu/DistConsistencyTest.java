@@ -2,10 +2,10 @@ package org.infinispan.tx.gmu;
 
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.transaction.gmu.manager.SortedTransactionQueue.TransactionEntry;
 import org.testng.annotations.Test;
 
 import static junit.framework.Assert.assertEquals;
-import static org.infinispan.transaction.gmu.manager.SortedTransactionQueue.TransactionEntry;
 
 /**
  * // TODO: Document this
@@ -137,6 +137,66 @@ public class DistConsistencyTest extends ConsistencyTest {
       cache(1).getAdvancedCache().removeInterceptor(ObtainTransactionEntry.class);
    }
 
+   public void testWaitingForLocalCommitExploreSSI() throws Exception {
+      if (cacheManagers.size() > 2) {
+         //Note: this test is not determinist with more than 2 caches
+         return;
+      }
+      assertAtLeastCaches(2);
+      rewireMagicKeyAwareConsistentHash();
+
+      final DelayCommit delayCommit = addDelayCommit(0, 5000);
+      final ObtainTransactionEntry obtainTransactionEntry = new ObtainTransactionEntry(cache(1));
+
+      final Object cache0Key = newKey(0, 1);
+      final Object cache1Key = newKey(1, 0);
+
+      logKeysUsedInTest("testWaitingForLocalCommit", cache0Key, cache1Key);
+
+      assertKeyOwners(cache0Key, 0, 1);
+      assertKeyOwners(cache1Key, 1, 0);
+      assertCacheValuesNull(cache0Key, cache1Key);
+
+      tm(0).begin();
+      txPut(0, cache0Key, VALUE_1, null);
+      txPut(0, cache1Key, VALUE_1, null);
+      tm(0).commit();
+
+      Thread otherThread = new Thread("TestWaitingForLocalCommit-Thread") {
+         @Override
+         public void run() {
+            try {
+               tm(1).begin();
+               txPut(1, cache0Key, VALUE_2, VALUE_1);
+               txPut(1, cache1Key, VALUE_2, VALUE_1);
+               obtainTransactionEntry.expectedThisThread();
+               delayCommit.blockTransaction(globalTransaction(1));
+               tm(1).commit();
+            } catch (Exception e) {
+               e.printStackTrace();
+            }
+         }
+      };
+      obtainTransactionEntry.reset();
+      otherThread.start();
+      TransactionEntry transactionEntry = obtainTransactionEntry.getTransactionEntry();
+      transactionEntry.awaitUntilCommitted(null);
+
+      tm(0).begin();
+      assertEquals(VALUE_2, cache(0).get(cache1Key));
+      assertEquals(VALUE_2, cache(0).get(cache0Key));
+
+      delayCommit.unblock();
+      otherThread.join();
+      
+      tm(0).commit();
+
+      printDataContainer();
+      assertNoTransactions();
+      cache(0).getAdvancedCache().removeInterceptor(DelayCommit.class);
+      cache(1).getAdvancedCache().removeInterceptor(ObtainTransactionEntry.class);
+   }
+   
    @Override
    protected void decorate(ConfigurationBuilder builder) {
       builder.clustering().hash().numOwners(1);
