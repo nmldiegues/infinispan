@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Map;
 
 import org.infinispan.commands.tx.PrepareCommand;
+import org.infinispan.context.impl.LocalTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.transport.Address;
@@ -24,6 +25,11 @@ public class SSIDistributionInterceptor extends GMUDistributionInterceptor {
                  command.getGlobalTransaction().prettyPrint(), responses.toString());
 
       joinAndSetTransactionVersionAndFlags(responses.values(), ctx, versionGenerator);
+   }
+   
+   @Override
+   protected boolean shouldInvokePrepare(TxInvocationContext ctx) {
+      return ctx.isOriginLocal() && (ctx.hasModifications() || !((LocalTxInvocationContext) ctx).getRemoteLocksAcquired().isEmpty());
    }
    
 }

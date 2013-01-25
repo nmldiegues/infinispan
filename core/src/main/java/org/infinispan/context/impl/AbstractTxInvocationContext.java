@@ -32,6 +32,7 @@ import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.AbstractCacheTransaction;
 import org.infinispan.transaction.FlagsWrapper;
+import org.infinispan.transaction.LocalTransaction;
 
 /**
  * Support class for {@link org.infinispan.context.impl.TxInvocationContext}.
@@ -48,6 +49,10 @@ public abstract class AbstractTxInvocationContext extends AbstractInvocationCont
 
    @Override
    public boolean hasModifications() {
+      LocalTransaction lt = getLocalTransaction();
+      if (lt != null && lt.isWriteTx()) {
+         return true;
+      }
       return getModifications() != null && !getModifications().isEmpty();
    }
 

@@ -45,12 +45,11 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
 
       Object retVal = invokeNextInterceptor(ctx, command);
 
-      if (ctx.isOriginLocal() && command.getModifications().length > 0) {
+      if (ctx.isOriginLocal()) {
          EntryVersion commitVersion = calculateCommitVersion(ctx.getTransactionVersion(), versionGenerator,
                                                              cll.getWriteOwners(ctx.getCacheTransaction()));
          ctx.setTransactionVersion(commitVersion);
       } else {
-         // The following is different from the super class
          retVal = ctx.getPrepareResult();
       }
 
@@ -90,7 +89,6 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
    @Override
    protected void performValidation(TxInvocationContext ctx, GMUPrepareCommand command) throws InterruptedException {
       boolean hasToUpdateLocalKeys = false;
-      boolean isReadOnly = command.getModifications().length == 0;
 
       for (Object key : command.getAffectedKeys()) {
          if (cll.localNodeIsOwner(key)) {
@@ -110,32 +108,13 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
 
       cll.performWriteSetValidation(ctx, command);
       
-      if (!isReadOnly) {
-         cll.performSSIReadSetValidation(ctx, command, commitLog.getCurrentVersion());
-         if (hasToUpdateLocalKeys) {
-            transactionCommitManager.prepareTransaction(ctx.getCacheTransaction());
-         } else {
-            transactionCommitManager.prepareReadOnlyTransaction(ctx.getCacheTransaction());
-         }
+      cll.performSSIReadSetValidation(ctx, command, commitLog.getCurrentVersion());
+      if (hasToUpdateLocalKeys) {
+         transactionCommitManager.prepareTransaction(ctx.getCacheTransaction());
+      } else {
+         transactionCommitManager.prepareReadOnlyTransaction(ctx.getCacheTransaction());
       }
       
-//      if (command.getModificationsCount() < 10) {
-//      String output = Thread.currentThread().getId() + "] WS:";
-//      for (WriteCommand writeCommand : command.getModifications()) {
-//         for (Object key : writeCommand.getAffectedKeys()) {
-//            output += " " + key;
-//            if (writeCommand instanceof PutKeyValueCommand) {
-//               output += "/" + ((PutKeyValueCommand)writeCommand).getValue();
-//            }
-//         }
-//      }
-//      output += "\tRS:";
-//      for (Object key : command.getReadSet()) {
-//         output += " " + key;
-//      }
-//      System.out.println(output);
-//      }
-
       if (log.isDebugEnabled()) {
          log.debugf("Transaction %s can commit on this node. Prepare Version is %s",
                     command.getGlobalTransaction().prettyPrint(), ctx.getTransactionVersion());

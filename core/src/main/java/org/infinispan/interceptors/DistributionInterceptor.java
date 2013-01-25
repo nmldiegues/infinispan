@@ -424,7 +424,7 @@ public class DistributionInterceptor extends BaseRpcInterceptor {
 
       boolean sync = isSynchronous(ctx);
 
-      if (shouldInvokeRemoteTxCommand(ctx)) {
+      if (shouldInvokePrepare(ctx)) {
          int newCacheViewId = -1;
          stateTransferLock.waitForStateTransferToEnd(ctx, command, newCacheViewId);
 
@@ -442,6 +442,10 @@ public class DistributionInterceptor extends BaseRpcInterceptor {
          flushL1Caches(ctx);
       }
       return retVal;
+   }
+   
+   protected boolean shouldInvokePrepare(TxInvocationContext ctx) {
+      return ctx.isOriginLocal() && (ctx.hasModifications()  || !((LocalTxInvocationContext) ctx).getRemoteLocksAcquired().isEmpty());
    }
 
    protected void prepareOnAffectedNodes(TxInvocationContext ctx, PrepareCommand command, Collection<Address> recipients, boolean sync) {
