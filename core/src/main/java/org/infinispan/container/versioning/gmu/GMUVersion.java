@@ -44,6 +44,10 @@ public abstract class GMUVersion implements IncrementableEntryVersion {
       return viewId;
    }
 
+   public final int getNodeIndex() {
+      return this.nodeIndex;
+   }
+   
    public abstract long getVersionValue(Address address);
 
    public abstract long getVersionValue(int addressIndex);

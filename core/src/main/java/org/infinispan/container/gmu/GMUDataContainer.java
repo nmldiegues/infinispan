@@ -254,6 +254,8 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
 
       chain.add(entryFactory.create(k, v, cacheEntryVersion, lifespan, maxIdle), cacheTx.isHasOutgoingEdge(), cacheEntryVersion.getCreationVersion());
+      chain.addCommit(cacheEntryVersion.getCreationVersion(), cacheTx.isHasOutgoingEdge());
+      
       if (log.isTraceEnabled()) {
          StringBuilder stringBuilder = new StringBuilder();
          chain.chainToString(stringBuilder);
@@ -392,6 +394,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
    public final void gc(EntryVersion minimumVersion) {
       for (DataContainerVersionChain versionChain : entries.values()) {
          versionChain.gc(minimumVersion);
+         versionChain.gcCommits(minimumVersion);
       }
    }
 
@@ -446,8 +449,8 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       return gmuReadVersion;
    }
    
-   public DataContainerVersionBody getFirstBody(Object key) {
-      return entries.get(key).getFirst();
+   public CommitBody getMostRecentCommit(Object key) {
+      return entries.get(key).getMostRecentCommit();
    }
 
    public static class DataContainerVersionChain extends VersionChain<InternalCacheEntry> {
@@ -464,9 +467,9 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          CommitBody iterator = this.commits;
          while (iterator != null) {
             CommitBody tmp = iterator.getPrevious();
-//            if (isOlderOrEquals(getValue().getVersion(), minVersion)) {
-//               iterator.clearPrevious();
-//            }
+            if (iterator.isOlderThan(minVersion)) {
+               iterator.clearPrevious();
+            }
             iterator = tmp;
          }
          
@@ -504,8 +507,8 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          visibleReadVersion.compareAndSet(previousVisibleReadVersion, newVisibleRead);
       }
       
-      protected DataContainerVersionBody getFirst() {
-         return (DataContainerVersionBody)this.first;
+      protected CommitBody getMostRecentCommit() {
+         return this.commits;
       }
       
       @Override

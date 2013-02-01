@@ -1,5 +1,8 @@
 package org.infinispan.container.gmu;
 
+import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
+
 public class CommitBody {
    
    private final long[] creatorActualVersion;
@@ -28,4 +31,19 @@ public class CommitBody {
       this.previous = null;
    }
 
+   public boolean isMoreRecentThan(EntryVersion version) {
+      if (version == null) {
+         return false;
+      }
+      GMUDistributedVersion distVersion = (GMUDistributedVersion) version;
+      return creatorActualVersion[distVersion.getNodeIndex()] > distVersion.getThisNodeVersionValue();
+   }
+   
+   public boolean isOlderThan(EntryVersion version) {
+      if (version == null) {
+         return true;
+      }
+      GMUDistributedVersion distVersion = (GMUDistributedVersion) version;
+      return creatorActualVersion[distVersion.getNodeIndex()] < distVersion.getThisNodeVersionValue();
+   }
 }

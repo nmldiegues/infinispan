@@ -11,6 +11,7 @@ import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
+import org.infinispan.container.gmu.CommitBody;
 import org.infinispan.container.gmu.GMUDataContainer;
 import org.infinispan.container.gmu.GMUDataContainer.DataContainerVersionBody;
 import org.infinispan.container.versioning.EntryVersion;
@@ -98,9 +99,9 @@ public class GMUHelper {
             container.markVisibleRead(key, latestVersion);
             //            System.out.println(Thread.currentThread().getId() + "] marked visible read: " + key + " " + Arrays.toString(((GMUDistributedVersion)latestVersion).getVersions()));
 
-            DataContainerVersionBody body = container.getFirstBody(key);
-            while (body != null && !body.isOlderOrEquals(prepareVersion)) {
-               if (body.hasOutgoingDep()) {
+            CommitBody body = container.getMostRecentCommit(key);
+            while (body != null && body.isMoreRecentThan(prepareVersion)) {
+               if (body.isOutgoing()) {
                   throw new ValidationException("Missed concurrent write, and its owner already has outgoing [" + key + "] with time " + Arrays.toString(body.getCreatorActualVersion()), key);
                }
 
