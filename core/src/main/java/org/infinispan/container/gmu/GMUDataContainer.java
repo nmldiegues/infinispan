@@ -453,12 +453,26 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
    public static class DataContainerVersionChain extends VersionChain<InternalCacheEntry> {
 
       // nmld: visible read vector clock, probably an EntryVersion?
-      // TODO: place 0-filled array with the correct size ?
       protected final AtomicReference<long[]> visibleReadVersion = new AtomicReference<long[]>();
+      protected volatile CommitBody commits;
 
+      protected synchronized void addCommit(long[] commitActualVersion, boolean outgoing) {
+         commits = new CommitBody(commitActualVersion, outgoing, commits);
+      }
+
+      public void gcCommits(EntryVersion minVersion) {
+         CommitBody iterator = this.commits;
+         while (iterator != null) {
+            CommitBody tmp = iterator.getPrevious();
+//            if (isOlderOrEquals(getValue().getVersion(), minVersion)) {
+//               iterator.clearPrevious();
+//            }
+            iterator = tmp;
+         }
+         
+      }
+      
       protected boolean wasReadSince(GMUDistributedVersion version) {
-         // TODO nmld: compute the magic. Should it be only one value instead of a vector?
-         // or should we look just at one id or the whole vector?
          long[] snapshot = version.getVersions();
          long[] vr = visibleReadVersion.get();
          for (int i = 0; i < snapshot.length; i++) {
