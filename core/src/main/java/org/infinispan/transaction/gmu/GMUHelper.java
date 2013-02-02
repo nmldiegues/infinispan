@@ -90,7 +90,8 @@ public class GMUHelper {
       CacheTransaction cacheTx = context.getCacheTransaction();
       GMUDataContainer container = (GMUDataContainer) dataContainer;
       EntryVersion prepareVersion = prepareCommand.getPrepareVersion();
-      long[] depVersion = new long[toGMUVersion(prepareVersion).getViewSize()];
+      GMUVersion gmuVersion = toGMUVersion(prepareVersion);
+      long[] depVersion = new long[gmuVersion.getViewSize()];
       Arrays.fill(depVersion, Long.MAX_VALUE);
 
       for (Object key : prepareCommand.getReadSet()) {
@@ -106,7 +107,14 @@ public class GMUHelper {
                }
 
                cacheTx.setHasOutgoingEdge(true);
-               mergeMinVectorClocks(depVersion, body.getCreatorActualVersion());
+               long nV = body.getCreatorActualVersion()[gmuVersion.getNodeIndex()];
+               if (nV < depVersion[gmuVersion.getNodeIndex()]) {
+                  depVersion[gmuVersion.getNodeIndex()] = nV;
+               }
+               // This was changed because of the following: A initial transaction I writes to X and Y in R1 and R0 and commits with [1, 1]. A writes to X in R1 and commits with [1, 2].  
+               // B reads X and gets anti-dependency to A, and writes Y on R0 and commits with [2, 2] but computed dependencies [1, 2] (basically it is C(A)). So when B writes-back to 
+               // Y on R0, there exists already a version 1 created by I, so it does not write to Y incorrectly.
+               // mergeMinVectorClocks(depVersion, body.getCreatorActualVersion());
                body = body.getPrevious();
                //               System.out.println(Thread.currentThread().getId() + "] missed concurrent write: " + key + " " + Arrays.toString(body.getCreatorActualVersion()));
             }
@@ -238,6 +246,8 @@ public class GMUHelper {
          long[] computedDeps = cacheTx.getComputedDepsVersion();
          if (wasNotComputed(computedDeps)) {
             cacheTx.setComputedDepsVersion(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions());
+         } else {
+            fillMissingDeps(computedDeps, ((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions());
          }
          //         System.out.println(Thread.currentThread().getId() + "] Alone commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
          return;
@@ -292,22 +302,28 @@ public class GMUHelper {
       if (wasNotComputed(outDep)) {
          cacheTx.setComputedDepsVersion(distVersion.getVersions());
       } else {
+         fillMissingDeps(outDep, distVersion.getVersions());
          cacheTx.setComputedDepsVersion(outDep);
       }
 
       System.err.println(Thread.currentThread().getId() + "] out flag: " + cacheTx.isHasOutgoingEdge() + " 2PC commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
    }
 
-   private static boolean wasNotComputed(long[] versions) {
-      boolean shouldReturnTrue = versions[0] == Long.MAX_VALUE;
-      for (int i = 1; i < versions.length; i++) {
-         if (versions[i] == Long.MAX_VALUE && !shouldReturnTrue) {
-            throw new RuntimeException("Inconsistency in versions");
-         } else if (versions[i] != Long.MAX_VALUE && shouldReturnTrue) {
-            throw new RuntimeException("Inconsistency in versions");
+   private static void fillMissingDeps(long[] computedDeps, long[] versions) {
+      for (int i = 0; i < versions.length; i++) {
+         if (computedDeps[i] == Long.MAX_VALUE) {
+            computedDeps[i] = versions[i];
          }
       }
-      return shouldReturnTrue;
+   }
+
+   private static boolean wasNotComputed(long[] computedDeps) {
+      for (int i = 0; i < computedDeps.length; i++) {
+         if (computedDeps[i] != Long.MAX_VALUE) {
+            return false;
+         }
+      }
+      return true;
    }
 
 }

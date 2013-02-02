@@ -43,6 +43,7 @@ public class TWMTest extends AbstractSSITest {
       final Object keyY = newKey(0, 1);
       final Object keyZ = newKey(1, 0);
       final Object keyO = newKey(1, 0);
+      final Object keyP = newKey(0, 1);
 
       logKeysUsedInTest("test1", keyX, keyY, keyZ);
 
@@ -50,7 +51,8 @@ public class TWMTest extends AbstractSSITest {
       assertKeyOwners(keyY, 0, 1);
       assertKeyOwners(keyZ, 1, 0);
       assertKeyOwners(keyO, 1, 0);
-      assertCacheValuesNull(keyX, keyY, keyZ, keyO);
+      assertKeyOwners(keyP, 0, 1);
+      assertCacheValuesNull(keyX, keyY, keyZ, keyO, keyP);
 
       tm(0).begin();
       cache(0).markAsWriteTransaction();
@@ -58,6 +60,7 @@ public class TWMTest extends AbstractSSITest {
       txPut(0, keyY, INIT, null);
       txPut(0, keyZ, INIT, null);
       txPut(0, keyO, INIT, null);
+      txPut(0, keyP, INIT, null);
       tm(0).commit();
 
       tm(0).begin();
@@ -80,8 +83,11 @@ public class TWMTest extends AbstractSSITest {
       tm(0).commit();
 
       tm(0).begin();
+      System.err.println("Started C on 0");
       cache(0).markAsWriteTransaction();
-      assert INIT.equals(cache(0).get(keyO));
+      // similar to above, but we need P to be hosted by 0 because that's where
+      // I we need C to miss a write
+      assert INIT.equals(cache(0).get(keyP));
       Transaction txC = tm(0).suspend();
 
       tm(1).resume(txB);
@@ -89,12 +95,14 @@ public class TWMTest extends AbstractSSITest {
       System.err.println("B read X: " + tmp);
       assert INIT.equals(tmp);
       txPut(1, keyY, "B", INIT);
+      System.err.println("Committed B on 1");
       tm(1).commit();
 
       tm(0).resume(txC);
       assert "A".equals(cache(0).get(keyZ));
       assert INIT.equals(cache(0).get(keyY));
       try {
+         System.err.println("Committed C on 0");
          tm(0).commit();
          assert false : "Expected to abort conflicting transaction";
       } catch (Exception e) {}
