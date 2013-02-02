@@ -36,6 +36,7 @@ public class GMUCommitCommand extends CommitCommand {
 
    private EntryVersion commitVersion;
    private long[] computedDepsVersion;
+   private boolean outgoing;
 
    public GMUCommitCommand(String cacheName, GlobalTransaction gtx) {
       super(cacheName, gtx);
@@ -66,6 +67,14 @@ public class GMUCommitCommand extends CommitCommand {
    public EntryVersion getCommitVersion() {
       return commitVersion;
    }
+   
+   public void setOutgoing(boolean outgoing) {
+      this.outgoing = outgoing;
+   }
+   
+   public boolean isOutgoing() {
+      return this.outgoing;
+   }
 
    public void setComputedDepsVersion(long[] computedDepsVersion) {
       this.computedDepsVersion = computedDepsVersion;
@@ -77,7 +86,7 @@ public class GMUCommitCommand extends CommitCommand {
    
    @Override
    public Object[] getParameters() {
-      return new Object[] {globalTx, commitVersion, computedDepsVersion};
+      return new Object[] {globalTx, commitVersion, computedDepsVersion, outgoing};
    }
 
    @Override
@@ -85,5 +94,6 @@ public class GMUCommitCommand extends CommitCommand {
       globalTx = (GlobalTransaction) args[0];
       commitVersion = (EntryVersion) args[1];
       computedDepsVersion = (long[]) args[2];
+      outgoing = (Boolean) args[3];
    }
 }

@@ -190,6 +190,10 @@ public abstract class AbstractSSITest extends MultipleCacheManagersTest {
    protected final void assertKeyOwners(Object key, int mapTo, int notMapTo) {
       assertKeyOwners(key, Collections.singleton(mapTo), Collections.singleton(notMapTo));
    }
+   
+   protected final void assertKeyOwners(Object key, int mapTo, Collection<Integer> notMapTo) {
+      assertKeyOwners(key, Collections.singleton(mapTo), notMapTo);
+   }
 
    protected final void assertKeyOwners(Object key, Collection<Integer> mapTo, Collection<Integer> notMapTo) {
       if (mapTo != null) {

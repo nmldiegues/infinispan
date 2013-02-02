@@ -1,13 +1,12 @@
 package org.infinispan.tx.gmu.ssi;
 
+import static junit.framework.Assert.assertEquals;
+
 import javax.transaction.Transaction;
 
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.testng.annotations.Test;
-
-import static junit.framework.Assert.assertEquals;
-import static org.infinispan.transaction.gmu.manager.SortedTransactionQueue.TransactionEntry;
 
 /**
  * // TODO: Document this

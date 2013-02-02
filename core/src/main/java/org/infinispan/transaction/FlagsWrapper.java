@@ -1,6 +1,7 @@
 package org.infinispan.transaction;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
 import org.infinispan.container.versioning.EntryVersion;
 
@@ -35,6 +36,10 @@ public class FlagsWrapper implements Serializable {
 
    public long[] getComputedDepsVersion() {
       return computedDepsVersion;
+   }
+   
+   public String toString() {
+      return "inc: " + hasIncomingEdge + " out: " + hasOutgoingEdge + " creationVersion: " + creationVersion.toString() + " computedDeps: " + Arrays.toString(computedDepsVersion);
    }
    
 }

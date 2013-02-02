@@ -67,9 +67,11 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
       if (ctx.isOriginLocal()) {
          gmuCommitCommand.setCommitVersion(ctx.getTransactionVersion());
          gmuCommitCommand.setComputedDepsVersion(ctx.getCacheTransaction().getComputedDepsVersion());
+         gmuCommitCommand.setOutgoing(ctx.getCacheTransaction().isHasOutgoingEdge());
       } else {
          ctx.setTransactionVersion(gmuCommitCommand.getCommitVersion());
          ctx.getCacheTransaction().setComputedDepsVersion(gmuCommitCommand.getComputedDepsVersion());
+         ctx.getCacheTransaction().setHasOutgoingEdge(gmuCommitCommand.isOutgoing());
       }
 
       transactionCommitManager.commitTransaction(ctx.getCacheTransaction(), gmuCommitCommand.getCommitVersion());
