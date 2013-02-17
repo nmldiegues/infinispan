@@ -86,7 +86,7 @@ public class TWMTest extends AbstractSSITest {
       System.err.println("Started C on 0");
       cache(0).markAsWriteTransaction();
       // similar to above, but we need P to be hosted by 0 because that's where
-      // I we need C to miss a write
+      // we need C to miss a write
       assert INIT.equals(cache(0).get(keyP));
       Transaction txC = tm(0).suspend();
 
@@ -111,4 +111,77 @@ public class TWMTest extends AbstractSSITest {
       assertNoTransactions();
    }
 
+   // Try to make snapshot validation fail due to concurrent write being time-warp committed
+   public void test2() throws Exception {
+      assertAtLeastCaches(3);
+      rewireMagicKeyAwareConsistentHash();
+
+      final Object x = newKey(2, Arrays.asList(0, 1));
+      final Object y = newKey(0, Arrays.asList(1, 2));
+      final Object w = newKey(2, Arrays.asList(0, 1));
+      final Object z = newKey(0, Arrays.asList(1, 2));
+
+      logKeysUsedInTest("test2", x, y, w, z);
+
+      assertKeyOwners(x, 2, Arrays.asList(0, 1));
+      assertKeyOwners(y, 0, Arrays.asList(1, 2));
+      assertKeyOwners(w, 2, Arrays.asList(0, 1));
+      assertKeyOwners(z, 0, Arrays.asList(1, 2));
+      assertCacheValuesNull(x, y, w, z);
+
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      txPut(0, x, INIT, null);
+      txPut(0, y, INIT, null);
+      txPut(0, w, INIT, null);
+      txPut(0, z, INIT, null);
+      tm(0).commit();
+      
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      cache(0).put(x, "A");
+      Transaction A = tm(0).suspend();
+      
+      tm(1).begin();
+      cache(1).markAsWriteTransaction();
+      assert INIT.equals(cache(1).get(x));
+      cache(1).put(y, "B");
+      cache(1).put(w, "B");
+      Transaction B = tm(1).suspend();
+      
+      tm(2).begin();
+      cache(2).markAsWriteTransaction();
+      cache(2).put(y, "D");
+      Transaction D = tm(2).suspend();
+      
+      tm(0).resume(A);
+      tm(0).commit();
+      
+      tm(2).resume(D);
+      tm(2).commit();
+      
+      tm(2).begin();
+      assert "D".equals(cache(2).get(y));
+      cache(2).put(z, "C");
+      Transaction C = tm(2).suspend();
+      
+      tm(1).resume(B);
+      try {
+         tm(1).commit();
+         assert false : "Expected to abort";
+      } catch (Exception e) {}
+      
+      // Commented the test because it cannot happen with read-before-write in GMU
+      
+//      tm(1).begin();
+//      assert "B".equals(cache(1).get(w));
+//      assert INIT.equals(cache(1).get(z));
+//      tm(1).commit();
+      
+//      tm(2).resume(C);
+//      try {
+//         tm(2).commit();
+//         assert false : "Expected to abort conflicting transaction";
+//      } catch (Exception e) {}
+   }
 }

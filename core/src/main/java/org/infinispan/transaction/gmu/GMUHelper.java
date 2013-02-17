@@ -13,7 +13,6 @@ import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.gmu.CommitBody;
 import org.infinispan.container.gmu.GMUDataContainer;
-import org.infinispan.container.gmu.GMUDataContainer.DataContainerVersionBody;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.InequalVersionComparisonResult;
 import org.infinispan.container.versioning.VersionGenerator;
