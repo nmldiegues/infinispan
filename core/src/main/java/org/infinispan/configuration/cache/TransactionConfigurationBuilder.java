@@ -46,7 +46,7 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
    private long cacheStopTimeout = TimeUnit.SECONDS.toMillis(30);
    private boolean eagerLockingSingleNode = false;
    LockingMode lockingMode = LockingMode.OPTIMISTIC;
-   private boolean ssiValidation = false;
+   private boolean ssiValidation = true;
    private boolean syncCommitPhase = true;
    private boolean syncRollbackPhase = false;
    private TransactionManagerLookup transactionManagerLookup;
@@ -337,6 +337,7 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
       this.transactionManagerLookup = template.transactionManagerLookup();
       this.transactionMode = template.transactionMode();
       this.transactionSynchronizationRegistryLookup = template.transactionSynchronizationRegistryLookup();
+      this.ssiValidation = template.ssiValidation();
       this.useEagerLocking = template.useEagerLocking();
       this.useSynchronization = template.useSynchronization();
       this.use1PcForAutoCommitTransactions = template.use1PcForAutoCommitTransactions();

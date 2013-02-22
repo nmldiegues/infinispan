@@ -518,6 +518,7 @@ public class LegacyConfigurationAdaptor {
             .transactionManagerLookup(legacy.getTransactionManagerLookup())
             .transactionMode(legacy.getTransactionMode())
             .transactionSynchronizationRegistryLookup(legacy.getTransactionSynchronizationRegistryLookup())
+            .ssiValidation(legacy.isSSIValidation())
             .useEagerLocking(legacy.isUseEagerLocking())
             .useSynchronization(legacy.isUseSynchronizationForTransactions())
             .transactionProtocol(legacy.getTransactionProtocol());

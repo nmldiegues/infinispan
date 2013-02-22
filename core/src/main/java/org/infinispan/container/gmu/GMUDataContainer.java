@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.infinispan.container.gmu.GMUEntryFactoryImpl.wrap;
@@ -161,7 +162,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          return wrap(k, null, true, version, null, null);
       }
 
-      chain.setVisibleRead(((GMUDistributedVersion)currentVersion).getVersions());
+      chain.setVisibleRead(((GMUDistributedVersion)currentVersion));
       while (lockManager.isLocked(k)) { }
       
       VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, false));
@@ -278,7 +279,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          entries.putIfAbsent(key, new DataContainerVersionChain());
          chain = entries.get(key);
       }
-      chain.setVisibleRead(((GMUDistributedVersion)version).getVersions());
+      chain.setVisibleRead(((GMUDistributedVersion)version));
    }
    
    @Override
@@ -456,7 +457,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
    public static class DataContainerVersionChain extends VersionChain<InternalCacheEntry> {
 
       // nmld: visible read vector clock, probably an EntryVersion?
-      protected final AtomicReference<long[]> visibleReadVersion = new AtomicReference<long[]>();
+      protected final AtomicLong visibleRead = new AtomicLong(-1);
       protected volatile CommitBody commits;
 
       protected synchronized void addCommit(long[] commitActualVersion, boolean outgoing) {
@@ -476,35 +477,15 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
       
       protected boolean wasReadSince(GMUDistributedVersion version) {
-         long[] snapshot = version.getVersions();
-         long[] vr = visibleReadVersion.get();
-         for (int i = 0; i < snapshot.length; i++) {
-            if (vr[i] < snapshot[i])  {
-               return false;
-            }
-         }
-         return true; 
+         return visibleRead.get() >= version.getThisNodeVersionValue();
       }
       
-      protected void setVisibleRead(long[] newVisibleRead) {
-         long[] previousVisibleReadVersion = visibleReadVersion.get();
-         if (previousVisibleReadVersion != null) { // handles the initial case in which noone read it?
-            // if the new visible read is older, then we do not need to update
-            boolean update = false;
-            newVisibleRead = Arrays.copyOf(newVisibleRead, newVisibleRead.length);
-            for (int i = 0; i < newVisibleRead.length; i++) {
-               if (newVisibleRead[i] < previousVisibleReadVersion[i]) {
-                  newVisibleRead[i] = previousVisibleReadVersion[i];
-               } else if (newVisibleRead[i] > previousVisibleReadVersion[i]) {
-                  update = true;
-               }
-            }
-            if (update) {
-               visibleReadVersion.compareAndSet(previousVisibleReadVersion, newVisibleRead);      
-            }
-            return;
+      protected void setVisibleRead(GMUDistributedVersion currentSnapshot) {
+         long currentVR = visibleRead.get();
+         long newVR = currentSnapshot.getThisNodeVersionValue();
+         if (newVR > currentVR) {
+            visibleRead.compareAndSet(currentVR, newVR);
          }
-         visibleReadVersion.compareAndSet(previousVisibleReadVersion, newVisibleRead);
       }
       
       protected CommitBody getMostRecentCommit() {
@@ -513,7 +494,6 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       
       @Override
       protected VersionBody<InternalCacheEntry> newValue(InternalCacheEntry value, boolean outFlag, long[] creatorVersion) {
-         GMUCacheEntryVersion v = (GMUCacheEntryVersion) value.getVersion();
          return new DataContainerVersionBody(value, outFlag, creatorVersion);
       }
       

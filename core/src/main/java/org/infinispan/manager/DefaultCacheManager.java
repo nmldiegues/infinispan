@@ -387,6 +387,7 @@ public class DefaultCacheManager implements EmbeddedCacheManager, CacheManager {
       }
       if (start)
          start();
+      
    }
    
    /**
