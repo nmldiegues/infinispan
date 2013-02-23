@@ -188,6 +188,48 @@ public class DistConsistencyTest extends AbstractSSITest {
 
       final Object cache0Key = newKey(0, 1);
       final Object cache1Key = newKey(1, 0);
+
+      logKeysUsedInTest("testWaitingForLocalCommit", cache0Key, cache1Key);
+
+      assertKeyOwners(cache0Key, 0, 1);
+      assertKeyOwners(cache1Key, 1, 0);
+      assertCacheValuesNull(cache0Key, cache1Key);
+
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      txPut(0, cache0Key, VALUE_1, null);
+      txPut(0, cache1Key, VALUE_1, null);
+      tm(0).commit();
+
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      assertEquals(VALUE_1, cache(0).get(cache0Key));
+      assertEquals(VALUE_1, cache(0).get(cache1Key));
+      Transaction tx0 = tm(0).suspend();
+
+      tm(1).begin();
+      cache(1).markAsWriteTransaction();
+      txPut(1, cache0Key, VALUE_2, VALUE_1);
+      txPut(1, cache1Key, VALUE_2, VALUE_1);
+      tm(1).commit();
+
+      tm(0).resume(tx0);
+      tm(0).commit();
+
+      printDataContainer();
+      assertNoTransactions();
+   }
+
+   public void testCycleDetectionRWs() throws Exception {
+      if (cacheManagers.size() > 2) {
+         //Note: this test is not determinist with more than 2 caches
+         return;
+      }
+      assertAtLeastCaches(2);
+      rewireMagicKeyAwareConsistentHash();
+
+      final Object cache0Key = newKey(0, 1);
+      final Object cache1Key = newKey(1, 0);
       final Object cache2Key = newKey(1, 0);
 
       logKeysUsedInTest("testWaitingForLocalCommit", cache0Key, cache1Key);
@@ -206,7 +248,7 @@ public class DistConsistencyTest extends AbstractSSITest {
       cache(0).markAsWriteTransaction();
       assertEquals(VALUE_1, cache(0).get(cache0Key));
       assertEquals(VALUE_1, cache(0).get(cache1Key));
-//      txPut(0, cache2Key, VALUE_2, null);
+      txPut(0, cache2Key, VALUE_2, null);
       Transaction tx0 = tm(0).suspend();
 
       tm(1).begin();
@@ -221,112 +263,53 @@ public class DistConsistencyTest extends AbstractSSITest {
       printDataContainer();
       assertNoTransactions();
    }
+   
+   public void testComputeDependencies() throws Exception {
+      if (cacheManagers.size() > 2) {
+         return;
+      }
+      assertAtLeastCaches(2);
+      rewireMagicKeyAwareConsistentHash();
 
-   public void testCycleDetectionRWs() throws Exception {
-//      if (cacheManagers.size() > 2) {
-//         //Note: this test is not determinist with more than 2 caches
-//         return;
-//      }
-//      assertAtLeastCaches(2);
-//      rewireMagicKeyAwareConsistentHash();
-//
-//      final Object cache0Key = newKey(0, 1);
-//      final Object cache1Key = newKey(1, 0);
-//
-//      logKeysUsedInTest("testWaitingForLocalCommit", cache0Key, cache1Key);
-//
-//      assertKeyOwners(cache0Key, 0, 1);
-//      assertKeyOwners(cache1Key, 1, 0);
-//      assertCacheValuesNull(cache0Key, cache1Key);
-//
-//      tm(0).begin();
-//      cache(0).markAsWriteTransaction();
-//      txPut(0, cache0Key, VALUE_1, null);
-//      txPut(0, cache1Key, VALUE_1, null);
-//      tm(0).commit();
-//
-//      tm(0).begin();
-//      cache(0).markAsWriteTransaction();
-//      assertEquals(VALUE_1, cache(0).get(cache0Key));
-//      assertEquals(VALUE_1, cache(0).get(cache1Key));
-//      txPut(0, cache2Key, VALUE_2, null);
-//      Transaction tx0 = tm(0).suspend();
-//
-//      tm(1).begin();
-//      cache(1).markAsWriteTransaction();
-//      txPut(1, cache0Key, VALUE_2, VALUE_1);
-//      txPut(1, cache1Key, VALUE_2, VALUE_1);
-//      tm(1).commit();
-//
-//      tm(0).resume(tx0);
-//      tm(0).commit();
-//
-//      printDataContainer();
-//      assertNoTransactions();
+      final Object x = newKey(0, 1); // @ R0
+      final Object y = newKey(1, 0); // @ R1
+
+      logKeysUsedInTest("testComputeDependencies", x, y);
+
+      assertKeyOwners(x, 0, 1);
+      assertKeyOwners(y, 1, 0);
+      assertCacheValuesNull(x, y);
+
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      txPut(0, x, VALUE_1, null); // VR: 0 @ R0
+      txPut(0, y, VALUE_1, null); // VR: 0 @ R1
+      System.err.println("==> Committing on 0 INIT");
+      tm(0).commit(); // prepare R0: 0; R1: 0      |      R0: 1; R1: 1  
+
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      cache(0).put(y, "A"); // VR: 1 @ R1
+      Transaction A = tm(0).suspend();
+
+      tm(1).begin();
+      cache(1).markAsWriteTransaction();
+      assertEquals(VALUE_1, cache(1).get(y)); // VR: 2 @ R1, missed concurrent write
+      cache(1).put(x, "B"); // VR: 1 @ R0
+      Transaction B = tm(1).suspend();
+
+      tm(0).resume(A);
+      System.err.println("==> Committing on 0");
+      tm(0).commit(); // prepare R0: 1; R1: 1      |      R0: 1; R1: 2
+      
+      tm(1).resume(B);
+      System.err.println("==> Committing on 1");
+      tm(1).commit(); // prepare R0: 1; R1: 1      |      R0: 2; R1: 2
+
+      printDataContainer();
+      assertNoTransactions();
    }
    
-   public void testWaitInRemoteNode() throws Exception {
-      //      if (cacheManagers.size() > 2) {
-      //         //Note: this test is not determinist with more than 2 caches
-      //         return;
-      //      }
-      //      assertAtLeastCaches(2);
-      //      rewireMagicKeyAwareConsistentHash();
-      //
-      //      final DelayCommit delayCommit = addDelayCommit(0, 5000);
-      //
-      //      final ObtainTransactionEntry obtainTransactionEntry = new ObtainTransactionEntry(cache(1));
-      //
-      //      final Object cache0Key = newKey(0, 1);
-      //      final Object cache1Key = newKey(1, 0);
-      //
-      //      logKeysUsedInTest("testWaitInRemoteNode", cache0Key, cache1Key);
-      //
-      //      assertKeyOwners(cache0Key, 0, 1);
-      //      assertKeyOwners(cache1Key, 1, 0);
-      //      assertCacheValuesNull(cache0Key, cache1Key);
-      //
-      //      tm(0).begin();
-      //      txPut(0, cache0Key, VALUE_1, null);
-      //      txPut(0, cache1Key, VALUE_1, null);
-      //      tm(0).commit();
-      //
-      //      Thread otherThread = new Thread("TestWaitingForLocalCommit-Thread") {
-      //         @Override
-      //         public void run() {
-      //            try {
-      //               tm(1).begin();
-      //               txPut(1, cache0Key, VALUE_2, VALUE_1);
-      //               txPut(1, cache1Key, VALUE_2, VALUE_1);
-      //               delayCommit.blockTransaction(globalTransaction(1));
-      //               obtainTransactionEntry.expectedThisThread();
-      //               tm(1).commit();
-      //            } catch (Exception e) {
-      //               e.printStackTrace();
-      //            }
-      //         }
-      //      };
-      //      obtainTransactionEntry.reset();
-      //      otherThread.start();
-      //      TransactionEntry transactionEntry = obtainTransactionEntry.getTransactionEntry();
-      //      transactionEntry.awaitUntilCommitted(null);
-      //
-      //      //tx already committed in cache(1). start a read only on cache(1) reading the local key and them the remote key.
-      //      // the remote get should wait until the transaction is committed
-      //      tm(1).begin();
-      //      assertEquals(VALUE_2, cache(1).get(cache1Key));
-      //      assertEquals(VALUE_2, cache(1).get(cache0Key));
-      //      tm(1).commit();
-      //
-      //      delayCommit.unblock();
-      //      otherThread.join();
-      //
-      //      printDataContainer();
-      //      assertNoTransactions();
-      //      cache(0).getAdvancedCache().removeInterceptor(DelayCommit.class);
-      //      cache(1).getAdvancedCache().removeInterceptor(ObtainTransactionEntry.class);
-   }
-
    @Override
    protected CacheMode cacheMode() {
       return CacheMode.DIST_SYNC;

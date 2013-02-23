@@ -184,4 +184,261 @@ public class TWMTest extends AbstractSSITest {
 //         assert false : "Expected to abort conflicting transaction";
 //      } catch (Exception e) {}
    }
+   
+   // Try to make snapshot validation fail due to concurrent write being time-warp committed
+   public void test3() throws Exception {
+      assertAtLeastCaches(3);
+      rewireMagicKeyAwareConsistentHash();
+
+      final Object x = newKey(2, Arrays.asList(0, 1));
+      final Object y = newKey(0, Arrays.asList(1, 2));
+      final Object w = newKey(2, Arrays.asList(0, 1));
+      final Object z = newKey(0, Arrays.asList(1, 2));
+
+      logKeysUsedInTest("test3", x, y, w, z);
+
+      assertKeyOwners(x, 2, Arrays.asList(0, 1));
+      assertKeyOwners(y, 0, Arrays.asList(1, 2));
+      assertKeyOwners(w, 2, Arrays.asList(0, 1));
+      assertKeyOwners(z, 0, Arrays.asList(1, 2));
+      assertCacheValuesNull(x, y, w, z);
+
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      txPut(0, x, INIT, null);
+      txPut(0, y, INIT, null);
+      txPut(0, w, INIT, null);
+      txPut(0, z, INIT, null);
+      tm(0).commit();
+      
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      cache(0).put(x, "A");
+      Transaction A = tm(0).suspend();
+      
+      tm(1).begin();
+      cache(1).markAsWriteTransaction();
+      assert INIT.equals(cache(1).get(x));
+      cache(1).put(y, "B");
+      cache(1).put(w, "B");
+      Transaction B = tm(1).suspend();
+      
+      tm(2).begin();
+      cache(2).markAsWriteTransaction();
+      assert INIT.equals(cache(2).get(y));
+      Transaction D = tm(2).suspend();
+      
+      tm(0).resume(A);
+      tm(0).commit();
+      
+      tm(1).resume(B);
+      tm(1).commit();
+      
+      tm(2).resume(D);
+      try {
+         tm(2).commit();
+         assert false : "Expected to abort";
+      } catch (Exception e) {}
+      
+   }
+   
+   // Try to make snapshot validation fail due to concurrent write being time-warp committed
+   public void test4() throws Exception {
+      assertAtLeastCaches(3);
+      rewireMagicKeyAwareConsistentHash();
+
+      final Object x = newKey(2, Arrays.asList(0, 1));
+      final Object y = newKey(0, Arrays.asList(1, 2));
+      final Object w = newKey(2, Arrays.asList(0, 1));
+      final Object z = newKey(0, Arrays.asList(1, 2));
+
+      logKeysUsedInTest("test4", x, y, w, z);
+
+      assertKeyOwners(x, 2, Arrays.asList(0, 1));
+      assertKeyOwners(y, 0, Arrays.asList(1, 2));
+      assertKeyOwners(w, 2, Arrays.asList(0, 1));
+      assertKeyOwners(z, 0, Arrays.asList(1, 2));
+      assertCacheValuesNull(x, y, w, z);
+
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      txPut(0, x, INIT, null);
+      txPut(0, y, INIT, null);
+      txPut(0, w, INIT, null);
+      txPut(0, z, INIT, null);
+      tm(0).commit();
+      
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      cache(0).put(x, "A");
+      Transaction A = tm(0).suspend();
+      
+      tm(1).begin();
+      cache(1).markAsWriteTransaction();
+      assert INIT.equals(cache(1).get(x));
+      cache(1).put(y, "B");
+      cache(1).put(w, "B");
+      Transaction B = tm(1).suspend();
+      
+      tm(2).begin();
+      cache(2).markAsWriteTransaction();
+      assert INIT.equals(cache(2).get(y));
+      Transaction D = tm(2).suspend();
+      
+      tm(0).resume(A);
+      tm(0).commit();
+      
+      tm(2).resume(D);
+      tm(2).commit();
+      
+      tm(1).resume(B);
+      try {
+         tm(1).commit();
+         assert false : "Expected to abort";
+      } catch (Exception e) {}
+      
+   }
+   
+   
+   // Read-only serialized before concurrent
+   public void test5() throws Exception {
+      assertAtLeastCaches(3);
+      rewireMagicKeyAwareConsistentHash();
+
+      final Object x = newKey(2, Arrays.asList(0, 1));
+      final Object y = newKey(0, Arrays.asList(1, 2));
+      final Object w = newKey(2, Arrays.asList(0, 1));
+      final Object z = newKey(0, Arrays.asList(1, 2));
+
+      logKeysUsedInTest("test5", x, y, w, z);
+
+      assertKeyOwners(x, 2, Arrays.asList(0, 1));
+      assertKeyOwners(y, 0, Arrays.asList(1, 2));
+      assertKeyOwners(w, 2, Arrays.asList(0, 1));
+      assertKeyOwners(z, 0, Arrays.asList(1, 2));
+      assertCacheValuesNull(x, y, w, z);
+
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      txPut(0, x, INIT, null);
+      txPut(0, y, INIT, null);
+      txPut(0, w, INIT, null);
+      txPut(0, z, INIT, null);
+      tm(0).commit();
+      
+      tm(0).begin();
+      assert INIT.equals(cache(0).get(x));
+      Transaction RO = tm(0).suspend();
+      
+      tm(1).begin();
+      cache(1).markAsWriteTransaction();
+      cache(1).put(x, "B");
+      cache(1).put(y, "B");
+      tm(1).commit();
+
+      tm(0).resume(RO);
+      assert INIT.equals(cache(0).get(y));
+      tm(0).commit();
+      
+   }
+   
+   // Write tx time-warps
+   public void test6() throws Exception {
+      assertAtLeastCaches(3);
+      rewireMagicKeyAwareConsistentHash();
+
+      final Object x = newKey(2, Arrays.asList(0, 1));
+      final Object y = newKey(0, Arrays.asList(1, 2));
+      final Object w = newKey(2, Arrays.asList(0, 1));
+      final Object z = newKey(0, Arrays.asList(1, 2));
+
+      logKeysUsedInTest("test6", x, y, w, z);
+
+      assertKeyOwners(x, 2, Arrays.asList(0, 1));
+      assertKeyOwners(y, 0, Arrays.asList(1, 2));
+      assertKeyOwners(w, 2, Arrays.asList(0, 1));
+      assertKeyOwners(z, 0, Arrays.asList(1, 2));
+      assertCacheValuesNull(x, y, w, z);
+
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      txPut(0, x, INIT, null);
+      txPut(0, y, INIT, null);
+      txPut(0, w, INIT, null);
+      txPut(0, z, INIT, null);
+      tm(0).commit();
+      
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      assert INIT.equals(cache(0).get(x));
+      Transaction RW = tm(0).suspend();
+      
+      tm(1).begin();
+      cache(1).markAsWriteTransaction();
+      cache(1).put(x, "B");
+      cache(1).put(y, "B");
+      tm(1).commit();
+
+      tm(0).resume(RW);
+      assert INIT.equals(cache(0).get(y));
+      tm(0).commit();
+      
+   }
+   
+   // Read-only reads from time-warp committed
+//   public void test7() throws Exception {
+//      assertAtLeastCaches(3);
+//      rewireMagicKeyAwareConsistentHash();
+//
+//      final Object x = newKey(2, Arrays.asList(0, 1)); // C = 2
+//      final Object y = newKey(0, Arrays.asList(1, 2)); // A = 0
+//      final Object w = newKey(2, Arrays.asList(0, 1)); // C = 2
+//      final Object z = newKey(0, Arrays.asList(1, 2)); // A = 0
+//      System.err.println(x + " " + y + " " + w + " " + z);
+//
+//      logKeysUsedInTest("test7", x, y, w, z);
+//
+//      assertKeyOwners(x, 2, Arrays.asList(0, 1));
+//      assertKeyOwners(y, 0, Arrays.asList(1, 2));
+//      assertKeyOwners(w, 2, Arrays.asList(0, 1));
+//      assertKeyOwners(z, 0, Arrays.asList(1, 2));
+//      assertCacheValuesNull(x, y, w, z);
+//
+//      // [B, C, A]
+//      
+//      tm(0).begin();
+//      cache(0).markAsWriteTransaction();
+//      txPut(0, x, INIT, null); // VR: 15@C; new body: [2, 16, 16] version 16
+//      txPut(0, y, INIT, null); // VR: 15@A; new body: [2, 16, 16] version 16
+//      txPut(0, w, INIT, null); // VR: 15@C; new body: [2, 16, 16] version 16
+//      txPut(0, z, INIT, null); // VR: 15@A; new body: [2, 16, 16] version 16
+//      tm(0).commit(); // out flag: false 2PC commit time: [2, 16, 16] computed deps: [2, 16, 16]
+//      
+//      tm(1).begin();
+//      cache(1).markAsWriteTransaction();
+//      assert INIT.equals(cache(1).get(w)); // VR: 16@C
+//      Transaction B = tm(1).suspend();
+//      
+//      tm(2).begin();
+//      cache(2).markAsWriteTransaction();
+//      cache(2).put(w, "C"); // VR: 16@C; new body: [2, 17, 16] version 17
+//      tm(2).commit(); // prepare [2, 16, 16]; commit alone [2, 17, 16]
+//      
+//      tm(0).begin();
+//      // this should force the RO to get a snapshot on y's node (A/0, but not on C/2)
+//      assert INIT.equals(cache(0).get(z)); // VR: 16@A
+//      Transaction RO = tm(0).suspend();
+//      
+//      tm(1).resume(B);
+//      cache(1).put(x, "B"); // VR: 17@C; new body: [2, 18, 17] version 17
+//      cache(1).put(y, "B"); // VR: 16@A; new body: [2, 18, 17] version 17
+//      tm(1).commit(); // prepare [2, 16, 16]; commit [2, 18, 17], computed deps [2, 17, 17]
+//      
+//      tm(0).resume(RO);
+//      assert "B".equals(cache(0).get(y)); // VR: 18@A
+//      tm(0).commit();
+      
+//   }
+   
+
 }
