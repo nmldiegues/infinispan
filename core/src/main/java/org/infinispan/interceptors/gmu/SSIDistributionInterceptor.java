@@ -24,7 +24,7 @@ public class SSIDistributionInterceptor extends GMUDistributionInterceptor {
       log.debugf("prepare command for transaction %s is sent. responses are: %s",
                  command.getGlobalTransaction().prettyPrint(), responses.toString());
 
-      joinAndSetTransactionVersionAndFlags(responses.values(), ctx, versionGenerator);
+      joinAndSetTransactionVersionAndFlags(responses.values(), ctx, versionGenerator, command, dataContainer);
    }
    
    @Override

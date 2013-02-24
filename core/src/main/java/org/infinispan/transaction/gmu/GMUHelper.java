@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.infinispan.CacheException;
 import org.infinispan.commands.tx.GMUPrepareCommand;
+import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
@@ -233,7 +234,7 @@ public class GMUHelper {
    }
 
    public static void joinAndSetTransactionVersionAndFlags(Collection<Response> responses, 
-         TxInvocationContext ctx, GMUVersionGenerator versionGenerator) {
+         TxInvocationContext ctx, GMUVersionGenerator versionGenerator, PrepareCommand prepareCommand, DataContainer dataContainer) {
       if (responses.isEmpty()) {
          if (log.isDebugEnabled()) {
             log.debugf("Versions received are empty!");
@@ -246,12 +247,29 @@ public class GMUHelper {
          }
 
          long[] computedDeps = cacheTx.getComputedDepsVersion();
-//         if (wasNotComputed(computedDeps)) {
+         if (wasNotComputed(computedDeps)) {
             cacheTx.setComputedDepsVersion(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions());
-//         } else {
-//            fillMissingDeps(computedDeps, ((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions());
-//         }
-         // System.out.println(Thread.currentThread().getId() + "] Alone commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
+         } else {
+            fillMissingDeps(computedDeps, ((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions());
+            
+            GMUDataContainer container = (GMUDataContainer) dataContainer;
+            for (WriteCommand writeCommand : prepareCommand.getModifications()) {
+               for (Object key : writeCommand.getAffectedKeys()) {
+                  CommitBody body = container.getMostRecentCommit(key);
+                  while (body != null) {
+                     long v = body.getCreatorActualVersion()[0];
+                     if (v == computedDeps[0]) {
+                        System.err.println("here!");
+                     } else if (v < computedDeps[0]) {
+                        break;
+                     }
+                     body = body.getPrevious();
+                  }
+               }
+            }
+         }
+         
+          // System.out.println(Thread.currentThread().getId() + "] Alone commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
          return;
       }
       List<EntryVersion> allPreparedVersions = new LinkedList<EntryVersion>();
@@ -301,12 +319,12 @@ public class GMUHelper {
       CacheTransaction cacheTx = ctx.getCacheTransaction();
       cacheTx.setHasOutgoingEdge(outFlag);
       cacheTx.setTransactionVersion(distVersion);
-//      if (wasNotComputed(outDep)) {
+      if (wasNotComputed(outDep)) {
          cacheTx.setComputedDepsVersion(distVersion.getVersions());
-//      } else {
-//         fillMissingDeps(outDep, distVersion.getVersions());
-//         cacheTx.setComputedDepsVersion(outDep);
-//      }
+      } else {
+         fillMissingDeps(outDep, distVersion.getVersions());
+         cacheTx.setComputedDepsVersion(outDep);
+      }
 
       // System.err.println(Thread.currentThread().getId() + "] out flag: " + cacheTx.isHasOutgoingEdge() + " 2PC commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
    }

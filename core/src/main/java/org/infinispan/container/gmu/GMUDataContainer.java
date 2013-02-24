@@ -458,8 +458,8 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
    public static class DataContainerVersionChain extends VersionChain<InternalCacheEntry> {
 
       // nmld: visible read vector clock, probably an EntryVersion?
-      protected final AtomicLong visibleRead = new AtomicLong(-1);
-      protected volatile CommitBody commits;
+      public final AtomicLong visibleRead = new AtomicLong(-1);
+      public volatile CommitBody commits;
 
       protected synchronized void addCommit(long[] commitActualVersion, boolean outgoing) {
          commits = new CommitBody(commitActualVersion, outgoing, commits);

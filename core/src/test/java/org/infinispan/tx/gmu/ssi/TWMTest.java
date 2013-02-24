@@ -8,6 +8,8 @@ import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.testng.annotations.Test;
 
+import com.arjuna.ats.arjuna.common.arjPropertyManager;
+
 @Test(groups = "functional", testName = "tx.gmu.ssi.TWMTest")
 public class TWMTest extends AbstractSSITest {
 
@@ -15,6 +17,7 @@ public class TWMTest extends AbstractSSITest {
    protected void decorate(ConfigurationBuilder builder) {
       builder.clustering().hash().numOwners(1);
       builder.clustering().sync().replTimeout(1000000);
+      arjPropertyManager.getCoordinatorEnvironmentBean().setDefaultTimeout(100000000);
    }
 
    @Override
@@ -382,6 +385,92 @@ public class TWMTest extends AbstractSSITest {
       tm(0).resume(RW);
       assert INIT.equals(cache(0).get(y));
       tm(0).commit();
+      
+   }
+   
+   // Write tx must not see concurrent time-warped committed txs and thus aborts
+   public void test7() throws Exception {
+      assertAtLeastCaches(3);
+      rewireMagicKeyAwareConsistentHash();
+
+      final Object x = newKey(2, Arrays.asList(0, 1));
+      final Object w = newKey(2, Arrays.asList(0, 1));
+
+      logKeysUsedInTest("test7", x, w);
+
+      assertKeyOwners(x, 2, Arrays.asList(0, 1));
+      assertKeyOwners(w, 2, Arrays.asList(0, 1));
+      assertCacheValuesNull(x, w);
+
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      txPut(0, x, INIT, null);
+      txPut(0, w, INIT, null);
+      tm(0).commit();
+      
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      cache(0).put(x,  "B");
+      Transaction B = tm(0).suspend();
+      
+      tm(1).begin();
+      cache(1).markAsWriteTransaction();
+      assert INIT.equals(cache(1).get(x));
+      cache(1).put(w, "A");
+      Transaction A = tm(1).suspend();
+      
+      tm(0).resume(B);
+      tm(0).commit();
+
+      tm(2).begin();
+      cache(2).markAsWriteTransaction();
+      assert "B".equals(cache(2).get(x));
+      Transaction C = tm(2).suspend();
+      
+      tm(1).resume(A);
+      tm(1).commit();
+      
+      tm(2).resume(C);
+      assert INIT.equals(cache(2).get(w));
+      try {
+         tm(2).commit();
+         assert false : "Expected to abort";
+      } catch (Exception e) {}
+      
+   }
+   
+   // Write contention leads to abort
+   public void test8() throws Exception {
+      assertAtLeastCaches(3);
+      rewireMagicKeyAwareConsistentHash();
+
+      final Object x = newKey(2, Arrays.asList(0, 1));
+
+      logKeysUsedInTest("test8", x);
+
+      assertKeyOwners(x, 2, Arrays.asList(0, 1));
+      assertCacheValuesNull(x);
+
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      txPut(0, x, INIT, null);
+      tm(0).commit();
+      
+      tm(0).begin();
+      cache(0).markAsWriteTransaction();
+      cache(0).put(x,  "B");
+      Transaction B = tm(0).suspend();
+      
+      tm(1).begin();
+      cache(1).markAsWriteTransaction();
+      cache(1).put(x,  "A");
+      tm(1).commit();
+      
+      tm(0).resume(B);
+      try {
+         tm(0).commit();
+         assert false : "Expected to abort";
+      } catch (Exception e) {}
       
    }
    
