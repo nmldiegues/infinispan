@@ -301,7 +301,7 @@ public class DummyTransaction implements Transaction {
          try {
             res.rollback(xid);
          } catch (XAException e) {
-            log.errorRollingBack(e);
+             // log.errorRollingBack(e);
          }
       }
    }

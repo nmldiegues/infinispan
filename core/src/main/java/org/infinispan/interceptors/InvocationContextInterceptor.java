@@ -148,7 +148,7 @@ public class InvocationContextInterceptor extends CommandInterceptor {
                         // We log this as DEBUG rather than ERROR - see ISPN-2076
                         log.debug("Exception executing call", th);
                      } else {
-                        log.executionError(th);
+                        // log.executionError(th);
                      }
                   } else {
                      log.trace("Exception while executing code", th);

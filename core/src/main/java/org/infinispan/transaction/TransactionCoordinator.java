@@ -184,12 +184,12 @@ public class TransactionCoordinator {
             return XA_OK;
          }
       } catch (Throwable e) {
-         if (shuttingDown)
-            log.trace("Exception while preparing back, probably because we're shutting down.");
-         else {
-            log.error("Error while processing prepare: " + e.getMessage());
-            log.debug("Error while processing prepare", e);
-         }
+//         if (shuttingDown)
+//            log.trace("Exception while preparing back, probably because we're shutting down.");
+//         else {
+//            log.error("Error while processing prepare: " + e.getMessage());
+//            log.debug("Error while processing prepare", e);
+//         }
 
          //rollback transaction before throwing the exception as there's no guarantee the TM calls XAResource.rollback
          //after prepare failed.

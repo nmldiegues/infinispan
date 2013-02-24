@@ -162,7 +162,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          return wrap(k, null, true, version, null, null);
       }
 
-      System.err.println(Thread.currentThread().getId() + "] marked visible RO read: " + k + " " + ((GMUDistributedVersion)currentVersion).getThisNodeVersionValue());
+      // System.err.println(Thread.currentThread().getId() + "] marked visible RO read: " + k + " " + ((GMUDistributedVersion)currentVersion).getThisNodeVersionValue());
       chain.setVisibleRead(((GMUDistributedVersion)currentVersion));
       while (lockManager.isLocked(k)) { }
       
