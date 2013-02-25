@@ -8,6 +8,8 @@ import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.testng.annotations.Test;
 
+import com.arjuna.ats.arjuna.common.arjPropertyManager;
+
 /**
  * // TODO: Document this
  *
@@ -166,6 +168,7 @@ public class DistConsistencyTest extends AbstractSSITest {
    @Override
    protected void decorate(ConfigurationBuilder builder) {
       builder.clustering().hash().numOwners(1);
+      arjPropertyManager.getCoordinatorEnvironmentBean().setDefaultTimeout(100000000);
    }
 
    @Override

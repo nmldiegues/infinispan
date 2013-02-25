@@ -77,7 +77,7 @@ public class ManualTest extends AbstractSSITest {
       
       tm(2).begin();
       cache(2).markAsWriteTransaction();
-      cache(2).put(x, "C");
+      System.out.println("C read previous version for x: " + cache(2).put(x, "C"));
       tm(2).commit();   // This commit must take place after 'A's commit
    }
    

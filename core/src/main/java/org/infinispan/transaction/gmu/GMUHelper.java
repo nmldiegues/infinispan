@@ -95,13 +95,13 @@ public class GMUHelper {
       long[] depVersion = new long[gmuVersion.getViewSize()];
       Arrays.fill(depVersion, Long.MAX_VALUE);
       
-      // System.err.println(Thread.currentThread().getId() + "] prepare version when read validating prepare: " + prepareVersion + " latestVersion: " + latestVersion);
+      System.out.println(Thread.currentThread().getId() + "] prepare version when read validating prepare: " + prepareVersion + " latestVersion: " + latestVersion);
       
       for (Object key : prepareCommand.getReadSet()) {
          if (keyLogic.localNodeIsOwner(key)) {
 
             container.markVisibleRead(key, latestVersion);
-            // System.out.println(Thread.currentThread().getId() + "] marked visible read: " + key + " " +((GMUDistributedVersion)latestVersion).getThisNodeVersionValue());
+            System.out.println(Thread.currentThread().getId() + "] marked visible read: " + key + " " +((GMUDistributedVersion)latestVersion).getThisNodeVersionValue());
 
             CommitBody body = container.getMostRecentCommit(key);
             while (body != null && body.isMoreRecentThan(prepareVersion)) {
@@ -119,7 +119,7 @@ public class GMUHelper {
                // Y on R0, there exists already a version 1 created by I, so it does not write to Y incorrectly.
                // mergeMinVectorClocks(depVersion, body.getCreatorActualVersion());
                body = body.getPrevious();
-               // System.out.println(Thread.currentThread().getId() + "] missed concurrent write: " + key + " " + Arrays.toString(body.getCreatorActualVersion()));
+               System.out.println(Thread.currentThread().getId() + "] missed concurrent write: " + key + " " + Arrays.toString(body.getCreatorActualVersion()));
             }
          } else {
             if (log.isDebugEnabled()) {
@@ -152,7 +152,7 @@ public class GMUHelper {
          for (Object key : writeCommand.getAffectedKeys()) {
             if (distributionLogic.localNodeIsOwner(key)) {
                if (container.wasReadSince(key, snapshotUsed)) {
-                  // System.out.println(Thread.currentThread().getId() + "] write to " + key + " invalidated read");
+                  System.out.println(Thread.currentThread().getId() + "] write to " + key + " invalidated read");
                   context.getCacheTransaction().setHasIncomingEdge(true);
                   break;
                }
@@ -242,7 +242,7 @@ public class GMUHelper {
 
          CacheTransaction cacheTx = ctx.getCacheTransaction();
          if (cacheTx.isHasIncomingEdge() && cacheTx.isHasOutgoingEdge()) {
-            // System.out.println(Thread.currentThread().getId() + "] both edges exist");
+            System.out.println(Thread.currentThread().getId() + "] both edges exist");
             throw new ValidationException("Both edges exist", null);
          }
 
@@ -259,7 +259,7 @@ public class GMUHelper {
                   while (body != null) {
                      long v = body.getCreatorActualVersion()[0];
                      if (v == computedDeps[0]) {
-                        System.err.println("here!");
+                        System.out.println("here!");
                      } else if (v < computedDeps[0]) {
                         break;
                      }
@@ -269,7 +269,7 @@ public class GMUHelper {
             }
          }
          
-          // System.out.println(Thread.currentThread().getId() + "] Alone commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
+          System.out.println(Thread.currentThread().getId() + "] Alone commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
          return;
       }
       List<EntryVersion> allPreparedVersions = new LinkedList<EntryVersion>();
@@ -326,7 +326,7 @@ public class GMUHelper {
          cacheTx.setComputedDepsVersion(outDep);
       }
 
-      // System.err.println(Thread.currentThread().getId() + "] out flag: " + cacheTx.isHasOutgoingEdge() + " 2PC commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
+      System.out.println(Thread.currentThread().getId() + "] out flag: " + cacheTx.isHasOutgoingEdge() + " 2PC commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
    }
 
    private static void fillMissingDeps(long[] computedDeps, long[] versions) {

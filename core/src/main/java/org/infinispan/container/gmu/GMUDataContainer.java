@@ -162,7 +162,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          return wrap(k, null, true, version, null, null);
       }
 
-      // System.err.println(Thread.currentThread().getId() + "] marked visible RO read: " + k + " " + ((GMUDistributedVersion)currentVersion).getThisNodeVersionValue());
+      System.out.println(Thread.currentThread().getId() + "] marked visible RO read: " + k + " " + ((GMUDistributedVersion)currentVersion).getThisNodeVersionValue());
       chain.setVisibleRead(((GMUDistributedVersion)currentVersion));
       while (lockManager.isLocked(k)) { }
       
@@ -191,6 +191,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
 
       VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, writeTx));
+      System.out.println(Thread.currentThread().getId() + "] Read as WriteTx key " + k + " " + entry + " having max version " + version);
 
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.peek(%s,%s) => %s", k, version, entry);
