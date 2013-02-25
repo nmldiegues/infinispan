@@ -130,7 +130,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
 //      EntryVersion v = entry.getVersion();
 //      if (v instanceof GMUCacheEntryVersion) {
 //         GMUCacheEntryVersion gmuV = (GMUCacheEntryVersion) v;
-//         System.out.println(Thread.currentThread().getId() + "] read " + k + " with version " + gmuV.getThisNodeVersionValue() + " creation " + gmuV.getCreationVersion()[0] + " and value " + entry.getValue());
+//         // System.out.println(Thread.currentThread().getId() + "] read " + k + " with version " + gmuV.getThisNodeVersionValue() + " creation " + gmuV.getCreationVersion()[0] + " and value " + entry.getValue());
 //      }
       long now = System.currentTimeMillis();
       if (entry.canExpire() && entry.isExpired(now)) {
@@ -162,7 +162,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          return wrap(k, null, true, version, null, null);
       }
 
-      System.out.println(Thread.currentThread().getId() + "] marked visible RO read: " + k + " " + ((GMUDistributedVersion)currentVersion).getThisNodeVersionValue());
+      // System.out.println(Thread.currentThread().getId() + "] marked visible RO read: " + k + " " + ((GMUDistributedVersion)currentVersion).getThisNodeVersionValue());
       chain.setVisibleRead(((GMUDistributedVersion)currentVersion));
       while (lockManager.isLocked(k)) { }
       
@@ -191,7 +191,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
 
       VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, writeTx));
-      System.out.println(Thread.currentThread().getId() + "] Read as WriteTx key " + k + " " + entry + " having max version " + version);
+      // System.out.println(Thread.currentThread().getId() + "] Read as WriteTx key " + k + " " + entry + " having max version " + version);
 
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.peek(%s,%s) => %s", k, version, entry);
@@ -271,7 +271,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       if (chain == null) {
          return false;
       }
-//      System.out.println(Thread.currentThread().getId() + "] validating write: " + key + " starting snapshot " + Arrays.toString(snapshot.getVersions()) + " visible read " + Arrays.toString(chain.visibleReadVersion.get()));
+//      // System.out.println(Thread.currentThread().getId() + "] validating write: " + key + " starting snapshot " + Arrays.toString(snapshot.getVersions()) + " visible read " + Arrays.toString(chain.visibleReadVersion.get()));
       return chain.wasReadSince(snapshot);
    }
 
