@@ -59,9 +59,11 @@ import static org.infinispan.transaction.gmu.manager.SortedTransactionQueue.Tran
  */
 public class TransactionCommitManager {
 
+   public static volatile TransactionCommitManager singleton = null;
+   
    private final static Log log = LogFactory.getLog(TransactionCommitManager.class);
    private final SortedTransactionQueue sortedTransactionQueue;
-   private long lastPreparedVersion = 0;
+   private volatile long lastPreparedVersion = 0;
    private CommitThread commitThread;
    private InvocationContextContainer icc;
    private GMUVersionGenerator versionGenerator;
@@ -73,6 +75,7 @@ public class TransactionCommitManager {
 
    public TransactionCommitManager() {
       sortedTransactionQueue = new SortedTransactionQueue();
+      TransactionCommitManager.singleton = this; 
    }
 
    @Inject
@@ -107,15 +110,21 @@ public class TransactionCommitManager {
     *
     * @param cacheTransaction the transaction to be prepared
     */
-   public synchronized void prepareTransaction(CacheTransaction cacheTransaction) {
+   public synchronized long prepareTransaction(CacheTransaction cacheTransaction) {
       long concurrentClockNumber = commitLog.getCurrentVersion().getThisNodeVersionValue();
+      long incrementedPrepareVersion = ++lastPreparedVersion;
       EntryVersion preparedVersion = versionGenerator.setNodeVersion(commitLog.getCurrentVersion(),
-                                                                     ++lastPreparedVersion);
+                                                                     incrementedPrepareVersion);
 
       cacheTransaction.setTransactionVersion(preparedVersion);
       sortedTransactionQueue.prepare(cacheTransaction,concurrentClockNumber);
+      return incrementedPrepareVersion;
    }
 
+   public long getLastPreparedVersion() {
+      return this.lastPreparedVersion;
+   }
+   
    public void rollbackTransaction(CacheTransaction cacheTransaction) {
       sortedTransactionQueue.rollback(cacheTransaction);
    }

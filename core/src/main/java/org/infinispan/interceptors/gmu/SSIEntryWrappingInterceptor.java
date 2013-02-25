@@ -110,9 +110,14 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
 
       cll.performWriteSetValidation(ctx, command);
       
-      cll.performSSIReadSetValidation(ctx, command, commitLog.getCurrentVersion());
+      long currentPrepVersion = transactionCommitManager.getLastPreparedVersion();
+      cll.performSSIReadSetValidation(ctx, command, currentPrepVersion);
       if (hasToUpdateLocalKeys) {
          transactionCommitManager.prepareTransaction(ctx.getCacheTransaction());
+         long lastPrepVersion = transactionCommitManager.getLastPreparedVersion();
+         if (lastPrepVersion != (currentPrepVersion + 1)) {
+            cll.refreshVisibleReads(command, lastPrepVersion - 1);
+         }
       } else {
          transactionCommitManager.prepareReadOnlyTransaction(ctx.getCacheTransaction());
       }

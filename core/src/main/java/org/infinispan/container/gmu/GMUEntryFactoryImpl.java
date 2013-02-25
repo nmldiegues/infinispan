@@ -21,6 +21,7 @@ import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.gmu.CommitLog;
+import org.infinispan.transaction.gmu.manager.TransactionCommitManager;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -98,6 +99,7 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
       EntryVersion maxVersionToRead = hasAlreadyReadFromThisNode ? versionToRead :
          commitLog.getAvailableVersionLessThan(versionToRead);
 
+      long lastPreparedVersion = TransactionCommitManager.singleton.getLastPreparedVersion(); 
       EntryVersion mostRecentCommitLogVersion = commitLog.getCurrentVersion();
 
       InternalGMUCacheEntry entry = null;
@@ -109,7 +111,7 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
          
       } else if (localTx != null && !localTx.isWriteTx() && configuration.isSSIValidation()) {
          // we have local transaction, it's read only and we are using SSI
-         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, mostRecentCommitLogVersion));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastPreparedVersion));
          
       }
       else if (command != null && command.hasFlag(Flag.WRITE_TX)) {
@@ -118,7 +120,7 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
          
       } else if (command != null && !command.hasFlag(Flag.WRITE_TX) && configuration.isSSIValidation()) {
          // remote command with read-only and SSI
-         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, mostRecentCommitLogVersion));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastPreparedVersion));
          
       }
       else {

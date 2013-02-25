@@ -70,8 +70,10 @@ public interface ClusteringDependentLogic {
 
    boolean localNodeIsOwner(Object key);
 
+   void refreshVisibleReads(GMUPrepareCommand prepareCommand, long currentPrepVersion);
+
    void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
-         GMUVersion currentVersion);
+         long lastPrepVersion);
 
    void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand);
 
@@ -173,12 +175,17 @@ public interface ClusteringDependentLogic {
 
       @Override
       public void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
-            GMUVersion currentVersion) {
+            long lastPrepVersion) {
          throw new UnsupportedOperationException("This should not be called in this context");
       }
 
       @Override
       public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+         throw new UnsupportedOperationException("This should not be called in this context");
+      }
+
+      @Override
+      public void refreshVisibleReads(GMUPrepareCommand prepareCommand, long currentPrepVersion) {
          throw new UnsupportedOperationException("This should not be called in this context");
       }
 
@@ -273,8 +280,13 @@ public interface ClusteringDependentLogic {
       }
       
       @Override
-      public void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, GMUVersion currentVersion) {
-         GMUHelper.performSSIReadSetValidation(context, prepareCommand, dataContainer, this, currentVersion);
+      public void refreshVisibleReads(GMUPrepareCommand prepareCommand, long currentPrepVersion) {
+         GMUHelper.refreshVisibleReads(prepareCommand, dataContainer, this, currentPrepVersion);
+      }
+      
+      @Override
+      public void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, long lastPrepVersion) {
+         GMUHelper.performSSIReadSetValidation(context, prepareCommand, dataContainer, this, lastPrepVersion);
       }
       
       @Override

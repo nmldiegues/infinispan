@@ -76,8 +76,19 @@ public class GMUHelper {
       }
    }
 
+   public static void refreshVisibleReads(GMUPrepareCommand prepareCommand, DataContainer dataContainer, 
+         ClusteringDependentLogic keyLogic, long currentPrepVersion) {
+      GMUDataContainer container = (GMUDataContainer) dataContainer;
+      for (Object key : prepareCommand.getReadSet()) {
+         if (keyLogic.localNodeIsOwner(key)) {
+            container.markVisibleRead(key, currentPrepVersion);
+         }
+      }
+   }
+   
+   
    public static void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
-         DataContainer dataContainer, ClusteringDependentLogic keyLogic, GMUVersion latestVersion) {
+         DataContainer dataContainer, ClusteringDependentLogic keyLogic, long lastPrepVersion) {
 
       
       GlobalTransaction gtx = prepareCommand.getGlobalTransaction();
@@ -100,7 +111,7 @@ public class GMUHelper {
       for (Object key : prepareCommand.getReadSet()) {
          if (keyLogic.localNodeIsOwner(key)) {
 
-            container.markVisibleRead(key, latestVersion);
+            container.markVisibleRead(key, lastPrepVersion);
             // System.out.println(Thread.currentThread().getId() + "] marked visible read: " + key + " " +((GMUDistributedVersion)latestVersion).getThisNodeVersionValue());
 
             CommitBody body = container.getMostRecentCommit(key);
@@ -259,7 +270,7 @@ public class GMUHelper {
                   while (body != null) {
                      long v = body.getCreatorActualVersion()[0];
                      if (v == computedDeps[0]) {
-                        // System.out.println("here!");
+                        System.out.println("here!");
                      } else if (v < computedDeps[0]) {
                         break;
                      }

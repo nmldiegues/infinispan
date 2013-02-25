@@ -99,11 +99,11 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       return entry;
    }
    
-   public InternalCacheEntry getAsRO(Object k, EntryVersion version, EntryVersion currentVersion) {
+   public InternalCacheEntry getAsRO(Object k, EntryVersion version, long currentPrepareVersion) {
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.get(%s,%s)", k, version);
       }
-      InternalCacheEntry entry = peekAsRO(k, version, currentVersion);
+      InternalCacheEntry entry = peekAsRO(k, version, currentPrepareVersion);
       long now = System.currentTimeMillis();
       if (entry.canExpire() && entry.isExpired(now)) {
          if (log.isTraceEnabled()) {
@@ -149,7 +149,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       return entry;
    }
 
-   public InternalCacheEntry peekAsRO(Object k, EntryVersion version, EntryVersion currentVersion) {
+   public InternalCacheEntry peekAsRO(Object k, EntryVersion version, long currentPrepareVersion) {
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.peek(%s,%s)", k, version);
       }
@@ -163,7 +163,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
 
       // System.out.println(Thread.currentThread().getId() + "] marked visible RO read: " + k + " " + ((GMUDistributedVersion)currentVersion).getThisNodeVersionValue());
-      chain.setVisibleRead(((GMUDistributedVersion)currentVersion));
+      chain.setVisibleRead(currentPrepareVersion);
       while (lockManager.isLocked(k)) { }
       
       VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, false));
@@ -275,13 +275,13 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       return chain.wasReadSince(snapshot);
    }
 
-   public void markVisibleRead(Object key, GMUVersion version) {
+   public void markVisibleRead(Object key, long currentPrepareVersion) {
       DataContainerVersionChain chain = entries.get(key);
       if (chain == null) {
          entries.putIfAbsent(key, new DataContainerVersionChain());
          chain = entries.get(key);
       }
-      chain.setVisibleRead(((GMUDistributedVersion)version));
+      chain.setVisibleRead(currentPrepareVersion);
    }
    
    @Override
@@ -482,11 +482,10 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          return visibleRead.get() >= version.getThisNodeVersionValue();
       }
       
-      protected void setVisibleRead(GMUDistributedVersion currentSnapshot) {
+      protected void setVisibleRead(long currentPrepareVersion) {
          long currentVR = visibleRead.get();
-         long newVR = currentSnapshot.getThisNodeVersionValue();
-         if (newVR > currentVR) {
-            visibleRead.compareAndSet(currentVR, newVR);
+         if (currentPrepareVersion > currentVR) {
+            visibleRead.compareAndSet(currentVR, currentPrepareVersion);
          }
       }
       

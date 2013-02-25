@@ -66,14 +66,19 @@ public class ClusteringDependentLogicDelegate extends AbstractProtocolDependentC
    }
 
    @Override
-   public void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
-         GMUVersion currentVersion) {
-      get().performSSIReadSetValidation(context, prepareCommand, currentVersion);
+   public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+      get().performWriteSetValidation(context, prepareCommand);
    }
 
    @Override
-   public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
-      get().performWriteSetValidation(context, prepareCommand);
+   public void refreshVisibleReads(GMUPrepareCommand prepareCommand, long currentPrepVersion) {
+      get().refreshVisibleReads(prepareCommand, currentPrepVersion);
+   }
+
+   @Override
+   public void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
+         long lastPrepVersion) {
+      get().performSSIReadSetValidation(context, prepareCommand, lastPrepVersion);
    }
 
 }
