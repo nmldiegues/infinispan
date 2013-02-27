@@ -94,7 +94,8 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          ctx.setTransactionVersion(gmuCommitCommand.getCommitVersion());
       }
 
-      transactionCommitManager.commitTransaction(ctx.getCacheTransaction(), gmuCommitCommand.getCommitVersion());
+      transactionCommitManager.commitTransaction(ctx.getCacheTransaction(), gmuCommitCommand.getCommitVersion(),
+            gmuCommitCommand.getComputedDepsVersion(), gmuCommitCommand.isOutgoing());
 
       Object retVal = null;
       try {

@@ -1,7 +1,28 @@
+/*
+ * INESC-ID, Instituto de Engenharia de Sistemas e Computadores Investigação e Desevolvimento em Lisboa
+ * Copyright 2013 INESC-ID and/or its affiliates and other
+ * contributors as indicated by the @author tags. All rights reserved.
+ * See the copyright.txt in the distribution for a full listing of
+ * individual contributors.
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 3.0 of
+ * the License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this software; if not, write to the Free
+ * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ */
 package org.infinispan.container;
 
 import org.infinispan.container.entries.CacheEntry;
-import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.util.logging.Log;
@@ -25,40 +46,9 @@ public class GMUCommitContextEntries extends NonVersionedCommitContextEntries {
    @Override
    protected void commitContextEntry(CacheEntry entry, InvocationContext ctx, boolean skipOwnershipCheck) {
       if (ctx.isInTxScope()) {
-         commitEntryPossibleSSI(entry, ctx, skipOwnershipCheck);
+         commitEntry(ctx, entry, ((TxInvocationContext)ctx).getTransactionVersion(), skipOwnershipCheck);
       } else {
-         commitEntry(entry, entry.getVersion(), skipOwnershipCheck);
-      }
-   }
-   
-   protected void commitEntryPossibleSSI(CacheEntry entry, InvocationContext ctx, boolean skipOwnershipCheck) {
-      if (configuration.transaction().ssiValidation()) {
-         commitDistributedEntrySSI(entry, ((TxInvocationContext)ctx), skipOwnershipCheck);
-      } else {
-         super.commitEntry(entry, ((TxInvocationContext)ctx).getTransactionVersion(), skipOwnershipCheck);
-      }
-   }
-
-   private void commitDistributedEntrySSI(CacheEntry entry, TxInvocationContext ctx, boolean skipOwnershipCheck) {
-      boolean doCommit = true;
-      boolean local = distributionManager.getLocality(entry.getKey()).isLocal();
-      // ignore locality for removals, even if skipOwnershipCheck is not true
-      if (!skipOwnershipCheck && !entry.isRemoved() && !distributionManager.getLocality(entry.getKey()).isLocal()) {
-         if (configuration.clustering().l1().enabled()) {
-            distributionManager.transformForL1(entry);
-         } else {
-            doCommit = false;
-         }
-      }
-      Log log = getLog();
-      if (log.isTraceEnabled()) {
-         log.tracef("Trying to commit entry in distributed mode. commit?=%s, local?=%s, key=%s", doCommit, local,
-                    entry.getKey());
-      }
-      if (doCommit) {
-         entry.commitSSI(dataContainer, ctx);
-      } else {
-         entry.rollback();
+         commitEntry(ctx, entry, entry.getVersion(), skipOwnershipCheck);
       }
    }
 }

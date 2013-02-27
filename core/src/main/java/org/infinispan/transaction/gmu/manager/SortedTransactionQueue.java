@@ -55,7 +55,7 @@ public class SortedTransactionQueue {
          private Node first;
 
          @Override
-         public void commitVersion(GMUVersion commitCommand) {}
+         public void commitVersion(GMUVersion commitCommand, long[] computedVersions, boolean isOutgoing) {}
 
          @Override
          public GMUVersion getVersion() {
@@ -129,7 +129,7 @@ public class SortedTransactionQueue {
          private Node last;
 
          @Override
-         public void commitVersion(GMUVersion commitCommand) {}
+         public void commitVersion(GMUVersion commitCommand, long[] computedVersions, boolean isOutgoing) {}
 
          @Override
          public GMUVersion getVersion() {
@@ -219,7 +219,7 @@ public class SortedTransactionQueue {
    }
 
    //return true if it is a read-write transaction
-   public final boolean commit(CacheTransaction cacheTransaction, GMUVersion commitVersion) {
+   public final boolean commit(CacheTransaction cacheTransaction, GMUVersion commitVersion, long[] computedVersions, boolean isOutgoing) {
       Node entry = concurrentHashMap.get(cacheTransaction.getGlobalTransaction());
       if (entry == null) {
          if (log.isDebugEnabled()) {
@@ -228,7 +228,7 @@ public class SortedTransactionQueue {
          }
          return false;
       }
-      update(entry, commitVersion);
+      update(entry, commitVersion, computedVersions, isOutgoing);
       notifyIfNeeded();
       return true;
    }
@@ -319,12 +319,12 @@ public class SortedTransactionQueue {
       newFirst.setPrevious(firstEntry);
    }
 
-   private synchronized void update(Node entry, GMUVersion commitVersion) {
+   private synchronized void update(Node entry, GMUVersion commitVersion, long[] computedVersions, boolean isOutgoing) {
       if (log.isTraceEnabled()) {
          log.tracef("Update %s with %s", entry, commitVersion);
       }
 
-      entry.commitVersion(commitVersion);
+      entry.commitVersion(commitVersion, computedVersions, isOutgoing);
       if (entry.compareTo(entry.getNext()) > 0) {
          Node insertBefore = entry.getNext().getNext();
          remove(entry);
@@ -407,6 +407,8 @@ public class SortedTransactionQueue {
 
       private final CacheTransaction cacheTransaction;
       private GMUVersion entryVersion;
+      private long[] computedVersions;
+      boolean isOutgoing;
       private boolean ready;
       private boolean committed;
       private GMUCommitCommand commitCommand;
@@ -421,8 +423,10 @@ public class SortedTransactionQueue {
          this.concurrentClockNumber = concurrentClockNumber;
       }
 
-      public synchronized void commitVersion(GMUVersion commitVersion) {
+      public synchronized void commitVersion(GMUVersion commitVersion, long[] computedVersions, boolean isOutgoing) {
          this.entryVersion = commitVersion;
+         this.computedVersions = computedVersions;
+         this.isOutgoing = isOutgoing;
          this.ready = true;
          if (log.isTraceEnabled()) {
             log.tracef("Set transaction commit version: %s", this);
@@ -495,6 +499,8 @@ public class SortedTransactionQueue {
       @Override
       public CacheTransaction getCacheTransactionForCommit() {
          cacheTransaction.setTransactionVersion(entryVersion);
+         cacheTransaction.setComputedDepsVersion(computedVersions);
+         cacheTransaction.setHasOutgoingEdge(isOutgoing);
          return cacheTransaction;
       }
 
@@ -551,7 +557,7 @@ public class SortedTransactionQueue {
    }
 
    private interface Node extends TransactionEntry, Comparable<Node> {
-      void commitVersion(GMUVersion commitCommand);
+      void commitVersion(GMUVersion commitCommand, long[] computedVersions, boolean isOutgoing);
       GMUVersion getVersion();
       boolean isReady();
       boolean isCommitted();

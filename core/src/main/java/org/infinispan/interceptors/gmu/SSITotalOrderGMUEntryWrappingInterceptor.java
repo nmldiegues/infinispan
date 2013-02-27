@@ -17,18 +17,20 @@ import org.infinispan.util.logging.LogFactory;
 import org.jgroups.blocks.RequestHandler;
 
 /**
- * @author Nuno Diegues
+ * // TODO: Document this
+ *
+ * @author Pedro Ruivo
  * @since 5.2
  */
-public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
+public class SSITotalOrderGMUEntryWrappingInterceptor extends TotalOrderGMUEntryWrappingInterceptor {
 
-   private static final Log log = LogFactory.getLog(SSIEntryWrappingInterceptor.class);
-   
+   private static final Log log = LogFactory.getLog(SSITotalOrderGMUEntryWrappingInterceptor.class);
+
    @Override
    protected void shouldEarlyAbort(TxInvocationContext txInvocationContext, InternalGMUCacheEntry internalGMUCacheEntry) {
       // empty on purpose, SSI never aborts because of a single stale read
    }
-   
+
    @Override
    public Object visitPrepareCommand(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
       GMUPrepareCommand spc = convert(command, GMUPrepareCommand.class);
@@ -47,7 +49,7 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
 
       if (ctx.isOriginLocal()) {
          EntryVersion commitVersion = calculateCommitVersion(ctx.getTransactionVersion(), versionGenerator,
-                                                             cll.getWriteOwners(ctx.getCacheTransaction()));
+               cll.getWriteOwners(ctx.getCacheTransaction()));
          ctx.setTransactionVersion(commitVersion);
       } else {
          retVal = ctx.getPrepareResult();
@@ -59,7 +61,7 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
 
       return retVal;
    }
-   
+
    @Override
    public Object visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
       GMUCommitCommand gmuCommitCommand = convert(command, GMUCommitCommand.class);
@@ -88,46 +90,47 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
       }
       return ctx.isOriginLocal() ? retVal : RequestHandler.DO_NOT_REPLY;
    }
-   
+
    @Override
    protected void performValidation(TxInvocationContext ctx, GMUPrepareCommand command) throws InterruptedException {
-      boolean hasToUpdateLocalKeys = false;
+      if (!ctx.isOriginLocal()) {
+         boolean hasToUpdateLocalKeys = false;
 
-      for (Object key : command.getAffectedKeys()) {
-         if (cll.localNodeIsOwner(key)) {
-            hasToUpdateLocalKeys = true;
-            break;
-         }
-      }
-
-      if (!hasToUpdateLocalKeys) {
-         for (WriteCommand writeCommand : command.getModifications()) {
-            if (writeCommand instanceof ClearCommand) {
+         for (Object key : command.getAffectedKeys()) {
+            if (cll.localNodeIsOwner(key)) {
                hasToUpdateLocalKeys = true;
                break;
             }
          }
-      }
 
-      cll.performWriteSetValidation(ctx, command);
-      
-      long currentPrepVersion = transactionCommitManager.getLastPreparedVersion();
-      cll.performSSIReadSetValidation(ctx, command, currentPrepVersion);
-      if (hasToUpdateLocalKeys) {
-         transactionCommitManager.prepareTransaction(ctx.getCacheTransaction());
-         long lastPrepVersion = transactionCommitManager.getLastPreparedVersion();
-         if (lastPrepVersion != (currentPrepVersion + 1)) {
-            cll.refreshVisibleReads(command, lastPrepVersion - 1);
+         if (!hasToUpdateLocalKeys) {
+            for (WriteCommand writeCommand : command.getModifications()) {
+               if (writeCommand instanceof ClearCommand) {
+                  hasToUpdateLocalKeys = true;
+                  break;
+               }
+            }
          }
-      } else {
-         transactionCommitManager.prepareReadOnlyTransaction(ctx.getCacheTransaction());
+
+         cll.performWriteSetValidation(ctx, command);
+
+         long currentPrepVersion = transactionCommitManager.getLastPreparedVersion();
+         cll.performSSIReadSetValidation(ctx, command, currentPrepVersion);
+         if (hasToUpdateLocalKeys) {
+            transactionCommitManager.prepareTransaction(ctx.getCacheTransaction());
+            long lastPrepVersion = transactionCommitManager.getLastPreparedVersion();
+            if (lastPrepVersion != (currentPrepVersion + 1)) {
+               cll.refreshVisibleReads(command, lastPrepVersion - 1);
+            }
+         } else {
+            transactionCommitManager.prepareReadOnlyTransaction(ctx.getCacheTransaction());
+         }
+
+         if (log.isDebugEnabled()) {
+            log.debugf("Transaction %s can commit on this node. Prepare Version is %s",
+                  command.getGlobalTransaction().prettyPrint(), ctx.getTransactionVersion());
+         }
       }
-      
-      if (log.isDebugEnabled()) {
-         log.debugf("Transaction %s can commit on this node. Prepare Version is %s",
-                    command.getGlobalTransaction().prettyPrint(), ctx.getTransactionVersion());
-      }
-      
    }
-   
+
 }

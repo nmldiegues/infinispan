@@ -19,7 +19,7 @@ import org.infinispan.util.logging.LogFactory;
 public class TotalOrderVersionedCommitContextEntries extends NonVersionedCommitContextEntries {
 
    private final Log log = LogFactory.getLog(TotalOrderVersionedCommitContextEntries.class);
-   private VersionGenerator versionGenerator;
+   protected VersionGenerator versionGenerator;
 
    @Inject
    public final void injectVersionGenerator(VersionGenerator versionGenerator) {
@@ -43,10 +43,10 @@ public class TotalOrderVersionedCommitContextEntries extends NonVersionedCommitC
          } else {
             newVersion = versionGenerator.increment((IncrementableEntryVersion) existingVersion);
          }
-         commitEntry(entry, newVersion, skipOwnershipCheck);
+         commitEntry(ctx, entry, newVersion, skipOwnershipCheck);
       } else {
          // This could be a state transfer call!
-         commitEntry(entry, entry.getVersion(), skipOwnershipCheck);
+         commitEntry(ctx, entry, entry.getVersion(), skipOwnershipCheck);
       }
    }
 }

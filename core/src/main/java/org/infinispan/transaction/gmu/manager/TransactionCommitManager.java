@@ -129,10 +129,10 @@ public class TransactionCommitManager {
       sortedTransactionQueue.rollback(cacheTransaction);
    }
 
-   public synchronized void commitTransaction(CacheTransaction cacheTransaction, EntryVersion version) {
+   public synchronized void commitTransaction(CacheTransaction cacheTransaction, EntryVersion version, long[] computedVersions, boolean isOutgoing) {
       GMUVersion commitVersion = toGMUVersion(version);
       lastPreparedVersion = Math.max(commitVersion.getThisNodeVersionValue(), lastPreparedVersion);
-      if (!sortedTransactionQueue.commit(cacheTransaction, commitVersion)) {
+      if (!sortedTransactionQueue.commit(cacheTransaction, commitVersion, computedVersions, isOutgoing)) {
          commitLog.updateMostRecentVersion(commitVersion);
       }
    }

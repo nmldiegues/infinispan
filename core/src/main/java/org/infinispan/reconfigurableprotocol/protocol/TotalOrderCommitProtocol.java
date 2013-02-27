@@ -3,6 +3,7 @@ package org.infinispan.reconfigurableprotocol.protocol;
 import org.infinispan.CacheException;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.interceptors.base.CommandInterceptor;
+import org.infinispan.interceptors.gmu.SSITotalOrderGMUEntryWrappingInterceptor;
 import org.infinispan.interceptors.gmu.TotalOrderGMUDistributionInterceptor;
 import org.infinispan.interceptors.gmu.TotalOrderGMUEntryWrappingInterceptor;
 import org.infinispan.interceptors.gmu.TotalOrderGMUReplicationInterceptor;
@@ -126,9 +127,15 @@ public class TotalOrderCommitProtocol extends ReconfigurableProtocol {
 
       //Wrapper
       if (configuration.locking().isolationLevel() == IsolationLevel.SERIALIZABLE) {
-         interceptors.put(InterceptorType.WRAPPER,
-                          createInterceptor(new TotalOrderGMUEntryWrappingInterceptor(),
-                                            TotalOrderGMUEntryWrappingInterceptor.class));
+         if (configuration.transaction().ssiValidation()) {
+            interceptors.put(InterceptorType.WRAPPER,
+                  createInterceptor(new SSITotalOrderGMUEntryWrappingInterceptor(),
+                        SSITotalOrderGMUEntryWrappingInterceptor.class));            
+         } else {
+            interceptors.put(InterceptorType.WRAPPER,
+                  createInterceptor(new TotalOrderGMUEntryWrappingInterceptor(),
+                        TotalOrderGMUEntryWrappingInterceptor.class));
+         }
       } else if (needsVersionAwareComponents()) {
          interceptors.put(InterceptorType.WRAPPER,
                           createInterceptor(new TotalOrderVersionedEntryWrappingInterceptor(),

@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 
 public class FlagsWrapper implements Serializable {
    
@@ -19,7 +20,12 @@ public class FlagsWrapper implements Serializable {
       this.hasIncomingEdge = hasIncomingEdge;
       this.hasOutgoingEdge = hasOutgoingEdge;
       this.creationVersion = creationVersion;
-      this.computedDepsVersion = computedDepsVersion;
+      if (computedDepsVersion == null) {
+         this.computedDepsVersion = new long[((GMUDistributedVersion)creationVersion).getViewSize()];
+         Arrays.fill(this.computedDepsVersion, Long.MAX_VALUE);
+      } else {
+         this.computedDepsVersion = computedDepsVersion;
+      }
    }
 
    public boolean isHasIncomingEdge() {

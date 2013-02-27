@@ -1,6 +1,7 @@
 package org.infinispan.interceptors.gmu;
 
 import org.infinispan.commands.tx.PrepareCommand;
+import org.infinispan.context.impl.LocalTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.transport.Address;
@@ -11,6 +12,7 @@ import java.util.Collection;
 
 import static org.infinispan.interceptors.totalorder.TotalOrderHelper.*;
 import static org.infinispan.transaction.gmu.GMUHelper.joinAndSetTransactionVersion;
+import static org.infinispan.transaction.gmu.GMUHelper.joinAndSetTransactionVersionAndFlags;
 import static org.infinispan.util.Util.getAffectedKeys;
 
 /**
@@ -41,6 +43,16 @@ public class TotalOrderGMUDistributionInterceptor extends GMUDistributionInterce
       Collection<Response> responses = totalOrderBroadcastPrepare(command, recipients, getAffectedKeys(command, null),
                                                                   rpcManager, false, configuration.isSyncCommitPhase(),
                                                                   configuration.getSyncReplTimeout());
-      joinAndSetTransactionVersion(responses, ctx, versionGenerator);
+      
+      if (configuration.isSSIValidation()) {
+         joinAndSetTransactionVersionAndFlags(responses, ctx, versionGenerator, command, dataContainer);
+      } else {
+         joinAndSetTransactionVersion(responses, ctx, versionGenerator);
+      }
+   }
+   
+   @Override
+   protected boolean shouldInvokePrepare(TxInvocationContext ctx) {
+      return ctx.isOriginLocal() && (ctx.hasModifications() || !((LocalTxInvocationContext) ctx).getRemoteLocksAcquired().isEmpty());
    }
 }

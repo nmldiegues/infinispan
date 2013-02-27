@@ -6,6 +6,7 @@ import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.SingleKeyNonTxInvocationContext;
+import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.distribution.DistributionManager;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.util.logging.Log;
@@ -67,12 +68,12 @@ public class NonVersionedCommitContextEntries implements CommitContextEntries {
    }
 
    protected void commitContextEntry(CacheEntry entry, InvocationContext ctx, boolean skipOwnershipCheck) {
-      commitEntry(entry, null, skipOwnershipCheck);
+      commitEntry(ctx, entry, null, skipOwnershipCheck);
    }
 
-   protected void commitEntry(CacheEntry entry, EntryVersion newVersion, boolean skipOwnershipCheck) {
+   protected void commitEntry(InvocationContext ctx, CacheEntry entry, EntryVersion newVersion, boolean skipOwnershipCheck) {
       if (configuration.clustering().cacheMode().isDistributed()) {
-         commitDistributedEntry(entry, newVersion, skipOwnershipCheck);
+         commitDistributedEntry(ctx, entry, newVersion, skipOwnershipCheck);
       } else {
          commitReplicatedEntry(entry, newVersion);
       }
@@ -93,7 +94,7 @@ public class NonVersionedCommitContextEntries implements CommitContextEntries {
       return false;
    }
 
-   private void commitDistributedEntry(CacheEntry entry, EntryVersion newVersion, boolean skipOwnershipCheck) {
+   private void commitDistributedEntry(InvocationContext ctx, CacheEntry entry, EntryVersion newVersion, boolean skipOwnershipCheck) {
       boolean doCommit = true;
       boolean local = distributionManager.getLocality(entry.getKey()).isLocal();
       // ignore locality for removals, even if skipOwnershipCheck is not true
@@ -110,7 +111,11 @@ public class NonVersionedCommitContextEntries implements CommitContextEntries {
                     entry.getKey());
       }
       if (doCommit) {
-         entry.commit(dataContainer, newVersion);
+         if (configuration.transaction().ssiValidation()) {
+            entry.commitSSI(dataContainer, (TxInvocationContext) ctx);
+         } else {
+            entry.commit(dataContainer, newVersion);
+         }
       } else {
          entry.rollback();
       }

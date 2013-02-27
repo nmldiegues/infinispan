@@ -1,5 +1,17 @@
 package org.infinispan.container.gmu;
 
+import static org.infinispan.container.gmu.GMUEntryFactoryImpl.wrap;
+import static org.infinispan.transaction.gmu.GMUHelper.convert;
+import static org.infinispan.transaction.gmu.GMUHelper.toInternalGMUCacheEntry;
+
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.infinispan.container.AbstractDataContainer;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
@@ -9,7 +21,6 @@ import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.gmu.GMUCacheEntryVersion;
 import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.container.versioning.gmu.GMUReadVersion;
-import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.eviction.EvictionThreadPolicy;
@@ -21,20 +32,6 @@ import org.infinispan.util.Util;
 import org.infinispan.util.concurrent.locks.LockManager;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
-
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static org.infinispan.container.gmu.GMUEntryFactoryImpl.wrap;
-import static org.infinispan.transaction.gmu.GMUHelper.convert;
-import static org.infinispan.transaction.gmu.GMUHelper.toInternalGMUCacheEntry;
 
 /**
  * // TODO: Document this
