@@ -27,7 +27,7 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
    
    @Override
    protected void shouldEarlyAbort(TxInvocationContext txInvocationContext, InternalGMUCacheEntry internalGMUCacheEntry) {
-      if (txInvocationContext.getLocalTransaction().isWriteTx() && internalGMUCacheEntry.sawOutgoing()) {
+      if (txInvocationContext.getLocalTransaction().isWriteTx() && !internalGMUCacheEntry.isMostRecent() && internalGMUCacheEntry.sawOutgoing()) {
          throw new CacheException("Read-Write transaction read an old value produced by a time-warp committed tx and should rollback");
       }
    }
