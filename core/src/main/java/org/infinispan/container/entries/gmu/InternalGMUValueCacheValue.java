@@ -25,14 +25,16 @@ public class InternalGMUValueCacheValue implements InternalGMUCacheValue {
    private final EntryVersion maxTxVersion;
    private final EntryVersion maxValidVersion;
    private final boolean mostRecent;
+   private final boolean sawOutgoing;
 
    public InternalGMUValueCacheValue(InternalCacheValue internalCacheValue, EntryVersion maxTxVersion,
-                                     boolean mostRecent, EntryVersion creationVersion, EntryVersion maxValidVersion) {
+                                     boolean mostRecent, boolean sawOutgoing, EntryVersion creationVersion, EntryVersion maxValidVersion) {
       this.internalCacheValue = internalCacheValue;
       this.creationVersion = creationVersion;
       this.maxTxVersion = maxTxVersion;
       this.maxValidVersion = maxValidVersion;
       this.mostRecent = mostRecent;
+      this.sawOutgoing = sawOutgoing;
    }
 
    @Override
@@ -42,7 +44,7 @@ public class InternalGMUValueCacheValue implements InternalGMUCacheValue {
 
    @Override
    public InternalCacheEntry toInternalCacheEntry(Object key) {
-      return new InternalGMUValueCacheEntry(internalCacheValue.toInternalCacheEntry(key), maxTxVersion, mostRecent,
+      return new InternalGMUValueCacheEntry(internalCacheValue.toInternalCacheEntry(key), maxTxVersion, mostRecent, sawOutgoing,
                                             creationVersion, maxValidVersion);
    }
 
@@ -131,6 +133,7 @@ public class InternalGMUValueCacheValue implements InternalGMUCacheValue {
          output.writeObject(object.maxTxVersion);
          output.writeObject(object.maxValidVersion);
          output.writeBoolean(object.mostRecent);
+         output.writeBoolean(object.sawOutgoing);
       }
 
       @Override
@@ -140,7 +143,8 @@ public class InternalGMUValueCacheValue implements InternalGMUCacheValue {
          EntryVersion maxTxVersion = (EntryVersion) input.readObject();
          EntryVersion maxValidVersion = (EntryVersion) input.readObject();
          boolean mostRecent = input.readBoolean();
-         return new InternalGMUValueCacheValue(internalCacheValue, maxTxVersion, mostRecent, creationVersion,
+         boolean sawOutgoing = input.readBoolean();
+         return new InternalGMUValueCacheValue(internalCacheValue, maxTxVersion, mostRecent, sawOutgoing, creationVersion,
                                                maxValidVersion
          );
       }

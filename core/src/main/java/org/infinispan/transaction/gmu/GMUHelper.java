@@ -117,6 +117,7 @@ public class GMUHelper {
             CommitBody body = container.getMostRecentCommit(key);
             while (body != null && body.isMoreRecentThan(prepareVersion)) {
                if (body.isOutgoing()) {
+                  System.out.println("Missed concurrent write, and its owner already has outgoing");
                   throw new ValidationException("Missed concurrent write, and its owner already has outgoing [" + key + "] with time " + Arrays.toString(body.getCreatorActualVersion()), key);
                }
 
@@ -262,22 +263,6 @@ public class GMUHelper {
             cacheTx.setComputedDepsVersion(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions());
          } else {
             fillMissingDeps(computedDeps, ((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions());
-            
-            GMUDataContainer container = (GMUDataContainer) dataContainer;
-            for (WriteCommand writeCommand : prepareCommand.getModifications()) {
-               for (Object key : writeCommand.getAffectedKeys()) {
-                  CommitBody body = container.getMostRecentCommit(key);
-                  while (body != null) {
-                     long v = body.getCreatorActualVersion()[0];
-                     if (v == computedDeps[0]) {
-                        System.out.println("here!");
-                     } else if (v < computedDeps[0]) {
-                        break;
-                     }
-                     body = body.getPrevious();
-                  }
-               }
-            }
          }
          
           // System.out.println(Thread.currentThread().getId() + "] Alone commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
@@ -314,6 +299,7 @@ public class GMUHelper {
       }
 
       if (outFlag && inFlag) {
+         System.out.println("Both edges exist");
          throw new ValidationException("Both edges exist", null);
       }
 

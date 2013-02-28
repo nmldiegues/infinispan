@@ -22,6 +22,10 @@ public class InternalGMURemovedCacheEntry implements InternalGMUCacheEntry {
       this.version = version;
    }
 
+   public boolean sawOutgoing() {
+      return false;
+   }
+   
    @Override
    public boolean isExpired(long now) {
       return false;

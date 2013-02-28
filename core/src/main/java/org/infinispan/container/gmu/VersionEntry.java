@@ -12,11 +12,13 @@ public class VersionEntry<T> {
    private final T entry;
    private final EntryVersion nextVersion;
    private final boolean found;
+   private final boolean hasOutgoingEdge;
 
-   public VersionEntry(T entry, EntryVersion nextVersion, boolean found) {
+   public VersionEntry(T entry, EntryVersion nextVersion, boolean found, boolean outgoingEdge) {
       this.entry = entry;
       this.nextVersion = nextVersion;
       this.found = found;
+      this.hasOutgoingEdge = outgoingEdge;
    }
 
    public final T getEntry() {
@@ -34,6 +36,10 @@ public class VersionEntry<T> {
    public final boolean isFound() {
       return found;
    }
+   
+   public final boolean hasOutgoingEdge() {
+      return this.hasOutgoingEdge;
+   }
 
    @Override
    public String toString() {
@@ -41,6 +47,7 @@ public class VersionEntry<T> {
             "entry=" + entry +
             ", nextVersion=" + nextVersion +
             ", found=" + found +
+            ", outgoing=" + hasOutgoingEdge +
             '}';
    }
 }

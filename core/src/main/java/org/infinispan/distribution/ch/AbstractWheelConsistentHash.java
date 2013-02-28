@@ -264,7 +264,7 @@ public abstract class AbstractWheelConsistentHash extends AbstractConsistentHash
    }
 
    @Override
-   public final Address primaryLocation(final Object key) {
+   public Address primaryLocation(final Object key) {
       final int normalizedHash = getNormalizedHash(getGrouping(key));
       return positionValues[getPositionIndex(normalizedHash)];
    }

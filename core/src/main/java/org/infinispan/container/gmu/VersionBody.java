@@ -31,7 +31,7 @@ public abstract class VersionBody<T> {
    protected static boolean isEqual(EntryVersion older, EntryVersion newer) {
       return older.compareTo(newer) == InequalVersionComparisonResult.EQUAL;
    }
-
+   
    public T getValue() {
       return value;
    }
@@ -92,5 +92,7 @@ public abstract class VersionBody<T> {
    public abstract VersionBody<T> gc(EntryVersion minVersion);
 
    protected abstract boolean isExpired(long now);
+   
+   protected abstract boolean hasOutgoingEdge();
 
 }

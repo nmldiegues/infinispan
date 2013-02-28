@@ -156,7 +156,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          if (log.isTraceEnabled()) {
             log.tracef("DataContainer.peek(%s,%s) => NOT_FOUND", k, version);
          }
-         return wrap(k, null, true, version, null, null);
+         return wrap(k, null, true, false, version, null, null);
       }
 
       // System.out.println(Thread.currentThread().getId() + "] marked visible RO read: " + k + " " + ((GMUDistributedVersion)currentVersion).getThisNodeVersionValue());
@@ -170,7 +170,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
       EntryVersion creationVersion = entry.getEntry() == null ? null : entry.getEntry().getVersion();
 
-      return wrap(k, entry.getEntry(), entry.isMostRecent(), version, creationVersion, entry.getNextVersion());
+      return wrap(k, entry.getEntry(), entry.isMostRecent(), entry.hasOutgoingEdge(), version, creationVersion, entry.getNextVersion());
    }
    
    @Override
@@ -184,7 +184,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          if (log.isTraceEnabled()) {
             log.tracef("DataContainer.peek(%s,%s) => NOT_FOUND", k, version);
          }
-         return wrap(k, null, true, version, null, null);
+         return wrap(k, null, true, false, version, null, null);
       }
 
       VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, writeTx));
@@ -195,7 +195,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
       EntryVersion creationVersion = entry.getEntry() == null ? null : entry.getEntry().getVersion();
 
-      return wrap(k, entry.getEntry(), entry.isMostRecent(), version, creationVersion, entry.getNextVersion());
+      return wrap(k, entry.getEntry(), entry.isMostRecent(), entry.hasOutgoingEdge(), version, creationVersion, entry.getNextVersion());
    }
 
    @Override
@@ -311,14 +311,14 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          if (log.isTraceEnabled()) {
             log.tracef("DataContainer.remove(%s,%s) => NOT_FOUND", k, version);
          }
-         return wrap(k, null, true, null, null, null);
+         return wrap(k, null, true, false, null, null, null);
       }
       VersionEntry<InternalCacheEntry> entry = chain.remove(new InternalGMURemovedCacheEntry(k, assertGMUCacheEntryVersion(version)));
 
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.remove(%s,%s) => %s", k, version, entry);
       }
-      return wrap(k, entry.getEntry(), entry.isMostRecent(), null, null, null);
+      return wrap(k, entry.getEntry(), entry.isMostRecent(), entry.hasOutgoingEdge(), null, null, null);
    }
 
    @Override
@@ -573,6 +573,11 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
 
       public long[] getCreatorActualVersion() {
          return creatorActualVersion;
+      }
+      
+      @Override
+      protected boolean hasOutgoingEdge() {
+         return this.creatorHasOutgoingDep;
       }
    }
 

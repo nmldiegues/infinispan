@@ -39,14 +39,14 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
    private CommitLog commitLog;
    private GMUVersionGenerator gmuVersionGenerator;
 
-   public static InternalGMUCacheEntry wrap(Object key, InternalCacheEntry entry, boolean mostRecent,
+   public static InternalGMUCacheEntry wrap(Object key, InternalCacheEntry entry, boolean mostRecent, boolean sawOutgoing,
          EntryVersion maxTxVersion, EntryVersion creationVersion,
          EntryVersion maxValidVersion) {
       if (entry == null || entry.isNull()) {
-         return new InternalGMUNullCacheEntry(key, (entry == null ? null : entry.getVersion()), maxTxVersion, mostRecent,
+         return new InternalGMUNullCacheEntry(key, (entry == null ? null : entry.getVersion()), maxTxVersion, mostRecent, sawOutgoing,
                creationVersion, maxValidVersion);
       }
-      return new InternalGMUValueCacheEntry(entry, maxTxVersion, mostRecent, creationVersion, maxValidVersion);
+      return new InternalGMUValueCacheEntry(entry, maxTxVersion, mostRecent, sawOutgoing, creationVersion, maxValidVersion);
    }
 
    @Inject

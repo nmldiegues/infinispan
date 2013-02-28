@@ -34,6 +34,8 @@ public interface InternalGMUCacheEntry extends InternalCacheEntry {
     * @return  true if this cache entry version is the most recent
     */
    boolean isMostRecent();
+   
+   boolean sawOutgoing();
 
    /**
     * @return  the internal cache entry encapsulated by this instance

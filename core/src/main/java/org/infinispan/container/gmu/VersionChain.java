@@ -39,17 +39,21 @@ public abstract class VersionChain<T> {
          if (log.isTraceEnabled()) {
             log.tracef("[%s] version is null... returning the most recent: %s", Thread.currentThread().getName(), entry);
          }
-         return new VersionEntry<T>(entry, null, true);
+         return new VersionEntry<T>(entry, null, true, false);
       }
 
       EntryVersion nextVersion = null;
+      boolean sawOutgoing = false;
 
       while (iterator != null) {
+         if(iterator.hasOutgoingEdge()) {
+            sawOutgoing = true;
+         }
          if (iterator.isOlderOrEquals(version)) {
             if (log.isTraceEnabled()) {
                log.tracef("[%s] value found: %s", Thread.currentThread().getName(), iterator);
             }
-            return new VersionEntry<T>(iterator.getValue(), nextVersion, true);
+            return new VersionEntry<T>(iterator.getValue(), nextVersion, true, sawOutgoing);
          }
          nextVersion = iterator.getVersion();
          iterator = iterator.getPrevious();
@@ -58,7 +62,7 @@ public abstract class VersionChain<T> {
       if (log.isTraceEnabled()) {
          log.tracef("[%s] No value found!", Thread.currentThread().getName());
       }
-      return new VersionEntry<T>(null, nextVersion, false);
+      return new VersionEntry<T>(null, nextVersion, false, sawOutgoing);
    }
 
    public final VersionBody<T> add(T value, boolean outFlag, long[] creatorVersion) {
@@ -94,7 +98,7 @@ public abstract class VersionChain<T> {
       VersionBody<T> previous = add(removeObject, false, null);
       T entry = previous == null ? null : previous.getValue();
       //TODO check if is it the most recent
-      return new VersionEntry<T>(entry, null, previous != null);
+      return new VersionEntry<T>(entry, null, previous != null, false);
    }
 
    public final void purgeExpired(long now) {
