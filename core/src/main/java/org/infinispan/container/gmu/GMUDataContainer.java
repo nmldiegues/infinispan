@@ -160,8 +160,8 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
 
       // System.out.println(Thread.currentThread().getId() + "] marked visible RO read: " + k + " " + ((GMUDistributedVersion)currentVersion).getThisNodeVersionValue());
-      chain.setVisibleRead(currentPrepareVersion);
-      while (lockManager.isLocked(k)) { }
+//      chain.setVisibleRead(currentPrepareVersion);
+//      while (lockManager.isLocked(k)) { }
       
       VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, false));
 

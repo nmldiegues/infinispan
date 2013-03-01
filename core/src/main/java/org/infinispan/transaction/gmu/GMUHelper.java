@@ -117,7 +117,7 @@ public class GMUHelper {
             CommitBody body = container.getMostRecentCommit(key);
             while (body != null && body.isMoreRecentThan(prepareVersion)) {
                if (body.isOutgoing()) {
-                  System.out.println("Missed concurrent write, and its owner already has outgoing");
+                  // System.out.println("Missed concurrent write, and its owner already has outgoing");
                   throw new ValidationException("Missed concurrent write, and its owner already has outgoing [" + key + "] with time " + Arrays.toString(body.getCreatorActualVersion()), key);
                }
 
@@ -299,7 +299,7 @@ public class GMUHelper {
       }
 
       if (outFlag && inFlag) {
-         System.out.println("Both edges exist");
+//         System.out.println("Both edges exist");
          throw new ValidationException("Both edges exist", null);
       }
 
