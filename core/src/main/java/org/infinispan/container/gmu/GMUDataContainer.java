@@ -221,7 +221,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          log.tracef("DataContainer.put(%s,%s,%s,%s,%s), correct version is %s", k, v, version, lifespan, maxIdle, cacheEntryVersion);
       }
 
-      chain.add(entryFactory.create(k, v, cacheEntryVersion, lifespan, maxIdle), false, null);
+      chain.add(entryFactory.create(k, v, cacheEntryVersion, lifespan, maxIdle), false, null, false);
       if (log.isTraceEnabled()) {
          StringBuilder stringBuilder = new StringBuilder();
          chain.chainToString(stringBuilder);
@@ -253,7 +253,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          log.tracef("DataContainer.put(%s,%s,%s,%s,%s), correct version is %s", k, v, version, lifespan, maxIdle, cacheEntryVersion);
       }
 
-      chain.add(entryFactory.create(k, v, cacheEntryVersion, lifespan, maxIdle), cacheTx.isHasOutgoingEdge(), cacheEntryVersion.getCreationVersion());
+      chain.add(entryFactory.create(k, v, cacheEntryVersion, lifespan, maxIdle), cacheTx.isHasOutgoingEdge(), cacheEntryVersion.getCreationVersion(), cacheEntryVersion.isBoostedVersion());
       chain.addCommit(cacheEntryVersion.getCreationVersion(), cacheTx.isHasOutgoingEdge());
       
       if (log.isTraceEnabled()) {

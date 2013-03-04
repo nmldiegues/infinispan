@@ -65,11 +65,11 @@ public abstract class VersionChain<T> {
       return new VersionEntry<T>(null, nextVersion, false, sawOutgoing);
    }
 
-   public final VersionBody<T> add(T value, boolean outFlag, long[] creatorVersion) {
+   public final VersionBody<T> add(T value, boolean outFlag, long[] creatorVersion, boolean isBoost) {
       VersionBody<T> toAdd = newValue(value, outFlag, creatorVersion);
-      VersionBody<T> iterator = firstAdd(toAdd);
+      VersionBody<T> iterator = firstAdd(toAdd, isBoost);
       while (iterator != null) {
-         iterator = iterator.add(toAdd);
+         iterator = iterator.add(toAdd, isBoost);
       }
       return toAdd.getPrevious();
    }
@@ -95,7 +95,7 @@ public abstract class VersionChain<T> {
 
    public final VersionEntry<T> remove(T removeObject) {
       // TODO nmld make sure this is not problematic
-      VersionBody<T> previous = add(removeObject, false, null);
+      VersionBody<T> previous = add(removeObject, false, null, false);
       T entry = previous == null ? null : previous.getValue();
       //TODO check if is it the most recent
       return new VersionEntry<T>(entry, null, previous != null, false);
@@ -171,15 +171,20 @@ public abstract class VersionChain<T> {
    protected abstract void writeValue(BufferedWriter writer, T value) throws IOException;
 
    //return null if the value was added successfully
-   private synchronized VersionBody<T> firstAdd(VersionBody<T> body) {
+   private synchronized VersionBody<T> firstAdd(VersionBody<T> body, boolean boostVersion) {
       if (first == null || first.isOlder(body)) {
          body.setPrevious(first);
          first = body;
          return null;
       } else if (first.isEqual(body)) {
-         first.reincarnate(body);
+         if (boostVersion) {
+            body.setPrevious(first);
+            first = body;            
+         } else {
+            first.reincarnate(body);
+         }
          return null;
       }
-      return first.add(body);
+      return first.add(body, boostVersion);
    }
 }

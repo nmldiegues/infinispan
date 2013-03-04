@@ -70,10 +70,12 @@ public class SSITotalOrderGMUEntryWrappingInterceptor extends TotalOrderGMUEntry
          gmuCommitCommand.setCommitVersion(ctx.getTransactionVersion());
          gmuCommitCommand.setComputedDepsVersion(ctx.getCacheTransaction().getComputedDepsVersion());
          gmuCommitCommand.setOutgoing(ctx.getCacheTransaction().isHasOutgoingEdge());
+         gmuCommitCommand.setBoostedIndexes(ctx.getCacheTransaction().getBoostedVector());
       } else {
          ctx.setTransactionVersion(gmuCommitCommand.getCommitVersion());
          ctx.getCacheTransaction().setComputedDepsVersion(gmuCommitCommand.getComputedDepsVersion());
          ctx.getCacheTransaction().setHasOutgoingEdge(gmuCommitCommand.isOutgoing());
+         ctx.getCacheTransaction().setBoostVector(gmuCommitCommand.getBoostedIndexes());
       }
 
       transactionCommitManager.commitTransaction(ctx.getCacheTransaction(), gmuCommitCommand.getCommitVersion(), 

@@ -115,7 +115,7 @@ public class L1GMUContainer {
          versionChain = old == null ? versionChain : old;
       }
 
-      versionChain.add(new L1Entry(value), false, null);
+      versionChain.add(new L1Entry(value), false, null, false);
    }
 
    public final void handleNewEntries() {

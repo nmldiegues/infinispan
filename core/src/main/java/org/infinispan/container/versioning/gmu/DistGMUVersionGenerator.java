@@ -147,11 +147,12 @@ public class DistGMUVersionGenerator implements GMUVersionGenerator {
    }
 
    @Override
-   public final GMUCacheEntryVersion convertVersionToWrite(EntryVersion version, int subVersion, long[] computedDeps) {
+   public final GMUCacheEntryVersion convertVersionToWrite(EntryVersion version, int subVersion, long[] computedDeps, boolean[] boostedIndexes) {
       GMUVersion gmuVersion = toGMUVersion(version);
       long v = computedDeps != null ? computedDeps[gmuVersion.nodeIndex] : gmuVersion.getThisNodeVersionValue();
+      boolean boost = boostedIndexes != null ? boostedIndexes[gmuVersion.getNodeIndex()] : false;
       GMUCacheEntryVersion cacheEntryVersion = new GMUCacheEntryVersion(cacheName, currentViewId, this, 
-            v, subVersion, ((GMUDistributedVersion) gmuVersion).getVersions());
+            v, subVersion, ((GMUDistributedVersion) gmuVersion).getVersions(), boost);
 
       if (log.isTraceEnabled()) {
          log.tracef("convertVersionToWrite(%s) ==> %s", version, cacheEntryVersion);

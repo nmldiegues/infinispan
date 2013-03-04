@@ -28,6 +28,7 @@ import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.EntryVersionsMap;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.xa.CacheTransaction;
@@ -82,6 +83,7 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    private boolean hasOutgoingEdge = false;
    private boolean hasIncomingEdge = false;
    private long[] computedDepsVersion = null;  // only makes sense if hasOutgoingEdge is true
+   private boolean[] boostVector = null;
    
    public AbstractCacheTransaction(GlobalTransaction tx, int viewId) {
       this.tx = tx;
@@ -285,7 +287,7 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    
    @Override
    public FlagsWrapper getFlagsAndVersion() {
-      return new FlagsWrapper(hasIncomingEdge, hasOutgoingEdge, transactionVersion, computedDepsVersion);
+      return new FlagsWrapper(hasIncomingEdge, hasOutgoingEdge, transactionVersion, computedDepsVersion, ((GMUDistributedVersion)transactionVersion).getNodeIndex());
    }
 
    @Override
@@ -341,6 +343,17 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    public void setComputedDepsVersion(long[] computedDepsVersion) {
       this.computedDepsVersion = computedDepsVersion;
    }
+   
+   @Override
+   public boolean[] getBoostedVector() {
+      return this.boostVector;
+   }
+   
+   @Override
+   public void setBoostVector(boolean[] boostIndexes) {
+      this.boostVector = boostIndexes;
+   }
+   
    
 
 }

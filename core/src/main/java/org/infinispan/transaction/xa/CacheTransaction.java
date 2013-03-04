@@ -127,4 +127,8 @@ public interface CacheTransaction {
    long[] getComputedDepsVersion();
 
    void setComputedDepsVersion(long[] computedDepsVersion);
+   
+   boolean[] getBoostedVector();
+   
+   void setBoostVector(boolean[] boostIndexes);
 }

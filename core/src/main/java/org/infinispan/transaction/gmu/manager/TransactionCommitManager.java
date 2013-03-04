@@ -233,7 +233,8 @@ public class TransactionCommitManager {
 
       private TxInvocationContext createInvocationContext(CacheTransaction cacheTransaction, int subVersion) {
          GMUCacheEntryVersion cacheEntryVersion = versionGenerator.convertVersionToWrite(cacheTransaction.getTransactionVersion(),
-                                                                                         subVersion, cacheTransaction.getComputedDepsVersion());
+                                                                                         subVersion, cacheTransaction.getComputedDepsVersion(), 
+                                                                                         cacheTransaction.getBoostedVector());
          cacheTransaction.setTransactionVersion(cacheEntryVersion);
          if (cacheTransaction instanceof LocalTransaction) {
             LocalTxInvocationContext localTxInvocationContext = icc.createTxInvocationContext();

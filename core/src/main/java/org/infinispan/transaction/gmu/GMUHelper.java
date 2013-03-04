@@ -122,14 +122,7 @@ public class GMUHelper {
                }
 
                cacheTx.setHasOutgoingEdge(true);
-               long nV = body.getCreatorActualVersion()[gmuVersion.getNodeIndex()];
-               if (nV < depVersion[gmuVersion.getNodeIndex()]) {
-                  depVersion[gmuVersion.getNodeIndex()] = nV;
-               }
-               // This was changed because of the following: A initial transaction I writes to X and Y in R1 and R0 and commits with [1, 1]. A writes to X in R1 and commits with [1, 2].  
-               // B reads X and gets anti-dependency to A, and writes Y on R0 and commits with [2, 2] but computed dependencies [1, 2] (basically it is C(A)). So when B writes-back to 
-               // Y on R0, there exists already a version 1 created by I, so it does not write to Y incorrectly.
-               // mergeMinVectorClocks(depVersion, body.getCreatorActualVersion());
+               mergeMinVectorClocks(depVersion, body.getCreatorActualVersion());
                body = body.getPrevious();
                // System.out.println(Thread.currentThread().getId() + "] missed concurrent write: " + key + " " + Arrays.toString(body.getCreatorActualVersion()));
             }
@@ -259,10 +252,13 @@ public class GMUHelper {
          }
 
          long[] computedDeps = cacheTx.getComputedDepsVersion();
-         if (wasNotComputed(computedDeps)) {
-            cacheTx.setComputedDepsVersion(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions());
+         boolean[] boostedIndexes = new boolean[computedDeps.length];
+         GMUDistributedVersion distVersion = (GMUDistributedVersion)cacheTx.getTransactionVersion();
+         if (!wasComputed(computedDeps)) {
+            cacheTx.setComputedDepsVersion(distVersion.getVersions());
          } else {
-            fillMissingDeps(computedDeps, ((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions());
+            boostedIndexes[distVersion.getNodeIndex()] = true;
+            cacheTx.setBoostVector(boostedIndexes);
          }
          
           // System.out.println(Thread.currentThread().getId() + "] Alone commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
@@ -276,7 +272,8 @@ public class GMUHelper {
       boolean outFlag = flagsWrapper.isHasOutgoingEdge();
       boolean inFlag = flagsWrapper.isHasIncomingEdge();
       long[] outDep = flagsWrapper.getComputedDepsVersion();
-
+      boolean[] boostedIndexes = new boolean[outDep.length];
+      
       //process all responses
       for (Response r : responses) {
          if (r == null) {
@@ -290,7 +287,11 @@ public class GMUHelper {
             if (flagsWrapper.isHasOutgoingEdge()) {
                outFlag = true;
             }
-            mergeMinVectorClocks(outDep, flagsWrapper.getComputedDepsVersion());
+            long[] remoteDeps = flagsWrapper.getComputedDepsVersion();
+            mergeMinVectorClocks(outDep, remoteDeps);
+            if (wasComputed(remoteDeps)) {
+               boostedIndexes[flagsWrapper.getNodeIndex()] = true;
+            }
          } else if(r instanceof ExceptionResponse) {
             throw new ValidationException(((ExceptionResponse) r).getException());
          } else if(!r.isSuccessful()) {
@@ -316,31 +317,18 @@ public class GMUHelper {
       CacheTransaction cacheTx = ctx.getCacheTransaction();
       cacheTx.setHasOutgoingEdge(outFlag);
       cacheTx.setTransactionVersion(distVersion);
-      if (wasNotComputed(outDep)) {
+      if (!wasComputed(outDep)) {
          cacheTx.setComputedDepsVersion(distVersion.getVersions());
       } else {
-         fillMissingDeps(outDep, distVersion.getVersions());
          cacheTx.setComputedDepsVersion(outDep);
+         cacheTx.setBoostVector(boostedIndexes);
       }
 
       // System.out.println(Thread.currentThread().getId() + "] out flag: " + cacheTx.isHasOutgoingEdge() + " 2PC commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
    }
 
-   private static void fillMissingDeps(long[] computedDeps, long[] versions) {
-      for (int i = 0; i < versions.length; i++) {
-         if (computedDeps[i] == Long.MAX_VALUE) {
-            computedDeps[i] = versions[i];
-         }
-      }
-   }
-
-   private static boolean wasNotComputed(long[] computedDeps) {
-      for (int i = 0; i < computedDeps.length; i++) {
-         if (computedDeps[i] != Long.MAX_VALUE) {
-            return false;
-         }
-      }
-      return true;
+   private static boolean wasComputed(long[] computedDeps) {
+      return computedDeps[0] != Long.MAX_VALUE;
    }
 
 }

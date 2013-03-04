@@ -13,9 +13,10 @@ public class FlagsWrapper implements Serializable {
    private final boolean hasOutgoingEdge;
    private final EntryVersion creationVersion;
    private final long[] computedDepsVersion;
+   private final int nodeIndex;
    
    public FlagsWrapper(boolean hasIncomingEdge, boolean hasOutgoingEdge, EntryVersion creationVersion,
-         long[] computedDepsVersion) {
+         long[] computedDepsVersion, int nodeIndex) {
       super();
       this.hasIncomingEdge = hasIncomingEdge;
       this.hasOutgoingEdge = hasOutgoingEdge;
@@ -26,6 +27,11 @@ public class FlagsWrapper implements Serializable {
       } else {
          this.computedDepsVersion = computedDepsVersion;
       }
+      this.nodeIndex = nodeIndex;
+   }
+   
+   public int getNodeIndex() {
+      return this.nodeIndex;
    }
 
    public boolean isHasIncomingEdge() {
@@ -45,7 +51,7 @@ public class FlagsWrapper implements Serializable {
    }
    
    public String toString() {
-      return "inc: " + hasIncomingEdge + " out: " + hasOutgoingEdge + " creationVersion: " + creationVersion.toString() + " computedDeps: " + Arrays.toString(computedDepsVersion);
+      return "inc: " + hasIncomingEdge + " out: " + hasOutgoingEdge + " creationVersion: " + creationVersion.toString() + " computedDeps: " + Arrays.toString(computedDepsVersion) + " from node: " + nodeIndex;
    }
    
 }
