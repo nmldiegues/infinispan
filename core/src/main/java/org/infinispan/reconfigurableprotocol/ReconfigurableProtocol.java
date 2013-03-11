@@ -457,11 +457,11 @@ public abstract class ReconfigurableProtocol {
       //Wrapper
       if (serializability) {
          if (configuration.transaction().ssiValidation()) {
-            System.err.println("\n\n~~~~~ Using TWM ~~~~~ \n\n");
+            System.err.println("\n\n~~~~~ Using TWM ~~~~~ | RO vr? " + configuration.transaction().readOnlyVisible() + "\n\n");
             defaultIC.put(InterceptorType.WRAPPER,
                        createInterceptor(new SSIEntryWrappingInterceptor(), SSIEntryWrappingInterceptor.class));
          } else {
-            System.err.println("\n\n~~~~~ Using GMU ~~~~~ \n\n");
+            System.err.println("\n\n~~~~~ Using GMU ~~~~~ | RO vr? " + configuration.transaction().readOnlyVisible() + "\n\n");
             defaultIC.put(InterceptorType.WRAPPER,
                        createInterceptor(new GMUEntryWrappingInterceptor(), GMUEntryWrappingInterceptor.class));
          }
