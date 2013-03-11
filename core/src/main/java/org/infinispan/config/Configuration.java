@@ -2125,7 +2125,7 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
       }
       
       @Deprecated
-      public TransactionConfig setReadOnlyVisible(boolean readOnlyVisible) {
+      public TransactionConfig setReadOnlyVisible(Boolean readOnlyVisible) {
          testImmutability("readOnlyVisible");
          this.readOnlyVisible = readOnlyVisible;
          return this;
