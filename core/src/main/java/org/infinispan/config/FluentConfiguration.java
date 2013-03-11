@@ -213,7 +213,7 @@ public class FluentConfiguration extends AbstractFluentConfigurationBean {
       TransactionConfig setSSIValidation(Boolean ssiValidation);
       
       @Deprecated
-      TransactionConfig readOnlyVisible(Boolean readOnlyVisible);
+      TransactionConfig setReadOnlyVisible(Boolean readOnlyVisible);
       
       /**
        * Only has effect for DIST mode and when useEagerLocking is set to true. When this is
@@ -1059,7 +1059,7 @@ abstract class AbstractFluentConfigurationBean extends AbstractNamedCacheConfigu
    }
    
    public FluentConfiguration.TransactionConfig setReadOnlyVisible(Boolean readOnlyVisible) {
-      return transaction().readOnlyVisible(readOnlyVisible);
+      return transaction().setReadOnlyVisible(readOnlyVisible);
    }
    
    public FluentConfiguration.TransactionConfig useEagerLocking(Boolean useEagerLocking) {
