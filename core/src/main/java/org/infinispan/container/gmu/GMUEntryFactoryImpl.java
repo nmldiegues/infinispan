@@ -111,7 +111,7 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
          
       } else if (localTx != null && !localTx.isWriteTx() && configuration.isSSIValidation()) {
          // we have local transaction, it's read only and we are using SSI
-         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastPreparedVersion));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastPreparedVersion, configuration.isReadOnlyVisible()));
          
       }
       else if (command != null && command.hasFlag(Flag.WRITE_TX)) {
@@ -120,7 +120,7 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
          
       } else if (command != null && !command.hasFlag(Flag.WRITE_TX) && configuration.isSSIValidation()) {
          // remote command with read-only and SSI
-         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastPreparedVersion));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastPreparedVersion, configuration.isReadOnlyVisible()));
          
       }
       else {

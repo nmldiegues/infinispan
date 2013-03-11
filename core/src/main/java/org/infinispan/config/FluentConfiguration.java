@@ -212,6 +212,9 @@ public class FluentConfiguration extends AbstractFluentConfigurationBean {
       @Deprecated
       TransactionConfig setSSIValidation(Boolean ssiValidation);
       
+      @Deprecated
+      TransactionConfig readOnlyVisible(Boolean readOnlyVisible);
+      
       /**
        * Only has effect for DIST mode and when useEagerLocking is set to true. When this is
        * enabled, then only one node is locked in the cluster, disregarding numOwners config. On the
@@ -1053,6 +1056,10 @@ abstract class AbstractFluentConfigurationBean extends AbstractNamedCacheConfigu
 
    public FluentConfiguration.TransactionConfig setSSIValidation(Boolean ssiValidation) {
       return transaction().setSSIValidation(ssiValidation);
+   }
+   
+   public FluentConfiguration.TransactionConfig setReadOnlyVisible(Boolean readOnlyVisible) {
+      return transaction().readOnlyVisible(readOnlyVisible);
    }
    
    public FluentConfiguration.TransactionConfig useEagerLocking(Boolean useEagerLocking) {

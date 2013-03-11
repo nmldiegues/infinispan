@@ -96,11 +96,11 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       return entry;
    }
    
-   public InternalCacheEntry getAsRO(Object k, EntryVersion version, long currentPrepareVersion) {
+   public InternalCacheEntry getAsRO(Object k, EntryVersion version, long currentPrepareVersion, boolean visibleRead) {
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.get(%s,%s)", k, version);
       }
-      InternalCacheEntry entry = peekAsRO(k, version, currentPrepareVersion);
+      InternalCacheEntry entry = peekAsRO(k, version, currentPrepareVersion, visibleRead);
       long now = System.currentTimeMillis();
       if (entry.canExpire() && entry.isExpired(now)) {
          if (log.isTraceEnabled()) {
@@ -146,7 +146,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       return entry;
    }
 
-   public InternalCacheEntry peekAsRO(Object k, EntryVersion version, long currentPrepareVersion) {
+   public InternalCacheEntry peekAsRO(Object k, EntryVersion version, long currentPrepareVersion, boolean visibleRead) {
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.peek(%s,%s)", k, version);
       }
@@ -160,8 +160,10 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
 
       // System.out.println(Thread.currentThread().getId() + "] marked visible RO read: " + k + " " + ((GMUDistributedVersion)currentVersion).getThisNodeVersionValue());
-//      chain.setVisibleRead(currentPrepareVersion);
-//      while (lockManager.isLocked(k)) { }
+      if (visibleRead) {
+         chain.setVisibleRead(currentPrepareVersion);
+         while (lockManager.isLocked(k)) { }
+      }
       
       VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version, false));
 
