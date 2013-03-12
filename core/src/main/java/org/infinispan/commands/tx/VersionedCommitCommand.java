@@ -27,7 +27,6 @@ import org.infinispan.transaction.xa.GlobalTransaction;
  * optimistically transactional caches making use of write skew checking when using {@link org.infinispan.util.concurrent.IsolationLevel#REPEATABLE_READ}.
  *
  * @author Manik Surtani
- * @author Sebastiano Peluso
  * @since 5.1
  */
 public class VersionedCommitCommand extends CommitCommand {
@@ -61,13 +60,12 @@ public class VersionedCommitCommand extends CommitCommand {
 
    @Override
    public Object[] getParameters() {
-      return new Object[]{globalTx, synchCommitPhase, updatedVersions};
+      return new Object[]{globalTx, updatedVersions};
    }
 
    @Override
    public void setParameters(int commandId, Object[] args) {
       globalTx = (GlobalTransaction) args[0];
-      synchCommitPhase = (Boolean) args[1];
-      updatedVersions = (EntryVersionsMap) args[2];
+      updatedVersions = (EntryVersionsMap) args[1];
    }
 }

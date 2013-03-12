@@ -47,7 +47,6 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
    private boolean eagerLockingSingleNode = false;
    LockingMode lockingMode = LockingMode.OPTIMISTIC;
    private boolean ssiValidation = true;
-   private boolean readOnlyVisible = false;
    private boolean syncCommitPhase = true;
    private boolean syncRollbackPhase = false;
    private TransactionManagerLookup transactionManagerLookup;
@@ -140,11 +139,6 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
     */
    public TransactionConfigurationBuilder ssiValidation(boolean b) {
       this.ssiValidation = b;
-      return this;
-   }
-   
-   public TransactionConfigurationBuilder readOnlyVisible(boolean b) {
-      this.readOnlyVisible = b;
       return this;
    }
 
@@ -328,7 +322,7 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
       else if (transactionMode == null)
          transactionMode = TransactionMode.NON_TRANSACTIONAL;
       return new TransactionConfiguration(autoCommit, cacheStopTimeout, eagerLockingSingleNode, lockingMode, syncCommitPhase,
-            syncRollbackPhase, ssiValidation, readOnlyVisible, transactionManagerLookup, transactionSynchronizationRegistryLookup, transactionMode,
+            syncRollbackPhase, ssiValidation, transactionManagerLookup, transactionSynchronizationRegistryLookup, transactionMode,
             useEagerLocking, useSynchronization, use1PcForAutoCommitTransactions, recovery.create(), transactionProtocol);
    }
 
@@ -344,7 +338,6 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
       this.transactionMode = template.transactionMode();
       this.transactionSynchronizationRegistryLookup = template.transactionSynchronizationRegistryLookup();
       this.ssiValidation = template.ssiValidation();
-      this.readOnlyVisible = template.readOnlyVisible();
       this.useEagerLocking = template.useEagerLocking();
       this.useSynchronization = template.useSynchronization();
       this.use1PcForAutoCommitTransactions = template.use1PcForAutoCommitTransactions();
@@ -362,8 +355,6 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
             ", eagerLockingSingleNode=" + eagerLockingSingleNode +
             ", lockingMode=" + lockingMode +
             ", syncCommitPhase=" + syncCommitPhase +
-            ", ssiValidation=" + ssiValidation +
-            ", readOnlyVisible=" + readOnlyVisible +
             ", syncRollbackPhase=" + syncRollbackPhase +
             ", transactionManagerLookup=" + transactionManagerLookup +
             ", transactionSynchronizationRegistryLookup=" + transactionSynchronizationRegistryLookup +

@@ -816,16 +816,6 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
       this.transaction.setSSIValidation(ssiValidation);
    }
    
-   @Deprecated
-   public void setReadOnlyVisible(boolean readOnlyVisible) {
-      this.transaction.setReadOnlyVisible(readOnlyVisible);
-   }
-   
-   @Deprecated
-   public boolean isReadOnlyVisible() {
-      return this.transaction.readOnlyVisible;
-   }
-   
    /**
     * Only has effect for DIST mode and when useEagerLocking is set to true. When this is enabled, then only one node is
     * locked in the cluster, disregarding numOwners config. On the opposite, if this is false, then on all cache.lock()
@@ -1911,10 +1901,6 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
       @Dynamic
       protected Boolean ssiValidation = false;
       
-      @ConfigurationDocRef(bean = Configuration.class, targetElement = "setReadOnlyVisible")
-      @Dynamic
-      public Boolean readOnlyVisible = false;
-      
       @Dynamic
       @ConfigurationDocRef(bean = Configuration.class, targetElement = "setUseEagerLocking")
       protected Boolean useEagerLocking = false;
@@ -2118,18 +2104,6 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
          this.ssiValidation = ssiValidation;
          return this;
       }
-      
-      @XmlAttribute
-      public Boolean isReadOnlyVisible() {
-         return this.readOnlyVisible;
-      }
-      
-      @Deprecated
-      public TransactionConfig setReadOnlyVisible(Boolean readOnlyVisible) {
-         testImmutability("readOnlyVisible");
-         this.readOnlyVisible = readOnlyVisible;
-         return this;
-      }
 
       @XmlAttribute
       public Boolean isUseEagerLocking() {
@@ -2269,8 +2243,6 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
             return false;
          if (ssiValidation != null ? !ssiValidation.equals(that.ssiValidation) : that.ssiValidation != null)
             return false;
-         if (readOnlyVisible != null ? !readOnlyVisible.equals(that.readOnlyVisible) : that.readOnlyVisible != null)
-            return false;
          if (transactionManagerLookup != null ? !transactionManagerLookup.equals(that.transactionManagerLookup) : that.transactionManagerLookup != null)
             return false;
          if (transactionManagerLookupClass != null ? !transactionManagerLookupClass.equals(that.transactionManagerLookupClass) : that.transactionManagerLookupClass != null)
@@ -2298,7 +2270,6 @@ public class Configuration extends AbstractNamedCacheConfigurationBean {
          result = 31 * result + (syncCommitPhase != null ? syncCommitPhase.hashCode() : 0);
          result = 31 * result + (syncRollbackPhase != null ? syncRollbackPhase.hashCode() : 0);
          result = 31 * result + (ssiValidation != null ? ssiValidation.hashCode() : 0);
-         result = 31 * result + (readOnlyVisible != null ? readOnlyVisible.hashCode() : 0);
          result = 31 * result + (useEagerLocking != null ? useEagerLocking.hashCode() : 0);
          result = 31 * result + (cacheStopTimeout != null ? cacheStopTimeout.hashCode() : 0);
          return result;

@@ -1,25 +1,25 @@
 /*
-* INESC-ID, Instituto de Engenharia de Sistemas e Computadores Investigação e Desevolvimento em Lisboa
-* Copyright 2013 INESC-ID and/or its affiliates and other
-* contributors as indicated by the @author tags. All rights reserved.
-* See the copyright.txt in the distribution for a full listing of
-* individual contributors.
-*
-* This is free software; you can redistribute it and/or modify it
-* under the terms of the GNU Lesser General Public License as
-* published by the Free Software Foundation; either version 3.0 of
-* the License, or (at your option) any later version.
-*
-* This software is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-* Lesser General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public
-* License along with this software; if not, write to the Free
-* Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-* 02110-1301 USA, or see the FSF site: http://www.fsf.org.
-*/
+ * INESC-ID, Instituto de Engenharia de Sistemas e Computadores Investigação e Desevolvimento em Lisboa
+ * Copyright 2013 INESC-ID and/or its affiliates and other
+ * contributors as indicated by the @author tags. All rights reserved.
+ * See the copyright.txt in the distribution for a full listing of
+ * individual contributors.
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 3.0 of
+ * the License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this software; if not, write to the Free
+ * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ */
 package org.infinispan.transaction.gmu;
 
 
@@ -153,31 +153,31 @@ public class CommitLog {
 
       LinkedList<GMUVersion> possibleVersion = new LinkedList<GMUVersion>();
       VersionEntry iterator;
-      
+
+
       VersionEntry firstFoundPossible = null; //These are used to optimize the search
       long concurrentClockNumber = 0L;
-      
+
       /*
       *
       * If this is the node N, the concurrentClockNumber of a VersionEntry A is the value
       * of the last committed vector clock's N-th entry at the time A was "prepared" on this node.
-      */
-      
-      
+       */
+
       synchronized (this) {
          iterator = currentVersion;
       }
 
       while (iterator != null &&
-            (firstFoundPossible == null ||
-            concurrentClockNumber < iterator.getVersion().getThisNodeVersionValue())
-            ) {
+              (firstFoundPossible == null ||
+              concurrentClockNumber < iterator.getVersion().getThisNodeVersionValue())
+              ) {
          if (isLessOrEquals(iterator.getVersion(), gmuVersion)) {
             possibleVersion.add(iterator.getVersion());
 
             if(firstFoundPossible == null){
-               firstFoundPossible = iterator;
-               concurrentClockNumber = iterator.getConcurrentClockNumber();
+                firstFoundPossible = iterator;
+                concurrentClockNumber = iterator.getConcurrentClockNumber();
             }
 
          }
@@ -203,10 +203,11 @@ public class CommitLog {
       long concurrentClockNumber = 0L;
 
       /*
-       *
-       * If this is the node N, the concurrentClockNumber of a VersionEntry A is the value
-       * of the last committed vector clock's N-th entry at the time A was "prepared" on this node.
+      *
+      * If this is the node N, the concurrentClockNumber of a VersionEntry A is the value
+      * of the last committed vector clock's N-th entry at the time A was "prepared" on this node.
        */
+
 
 
       synchronized (this) {
@@ -214,9 +215,9 @@ public class CommitLog {
       }
 
       while (iterator != null &&
-            (firstFoundPossible == null ||
-            concurrentClockNumber < iterator.getVersion().getThisNodeVersionValue())
-            ) {
+              (firstFoundPossible == null ||
+              concurrentClockNumber < iterator.getVersion().getThisNodeVersionValue())
+              ) {
          if (log.isTraceEnabled()) {
             log.tracef("getReadVersion(...) ==> comparing %s and %s", iterator.getVersion(), gmuReadVersion);
          }
@@ -261,8 +262,8 @@ public class CommitLog {
             log.tracef("insertNewCommittedVersions(...) ==> add %s", transaction.getCommitVersion());
          }
          VersionEntry current = new VersionEntry(toGMUVersion(transaction.getCommitVersion()),
-               Util.getAffectedKeys(transaction.getModifications(), null),
-               transaction.getSubVersion(), transaction.getConcurrentClockNumber());
+                                                 Util.getAffectedKeys(transaction.getModifications(), null),
+                                                 transaction.getSubVersion(), transaction.getConcurrentClockNumber());
          current.setPrevious(currentVersion);
          currentVersion = current;
          mostRecentVersion = versionGenerator.mergeAndMax(mostRecentVersion, currentVersion.getVersion());
@@ -283,7 +284,7 @@ public class CommitLog {
          return;
       }
       mostRecentVersion = versionGenerator.mergeAndMax(mostRecentVersion, gmuEntryVersion);
-       */
+      */
    }
 
    public final synchronized boolean waitForVersion(EntryVersion version, long timeout) throws InterruptedException {
@@ -298,7 +299,7 @@ public class CommitLog {
          }
          if (log.isTraceEnabled()) {
             log.tracef("waitForVersion(%s) ==> %s TRUE ?", version,
-                  currentVersion.getVersion().getThisNodeVersionValue());
+                       currentVersion.getVersion().getThisNodeVersionValue());
          }
          return true;
       }
@@ -311,7 +312,7 @@ public class CommitLog {
          if (currentVersion.getVersion().getThisNodeVersionValue() >= versionValue) {
             if (log.isTraceEnabled()) {
                log.tracef("waitForVersion(%s) ==> %s >= %s ?", version,
-                     currentVersion.getVersion().getThisNodeVersionValue(), versionValue);
+                          currentVersion.getVersion().getThisNodeVersionValue(), versionValue);
             }
             return true;
          }
@@ -323,7 +324,7 @@ public class CommitLog {
       } while (true);
       if (log.isTraceEnabled()) {
          log.tracef("waitForVersion(%s) ==> %s >= %s ?", version,
-               currentVersion.getVersion().getThisNodeVersionValue(), versionValue);
+                    currentVersion.getVersion().getThisNodeVersionValue(), versionValue);
       }
       return currentVersion.getVersion().getThisNodeVersionValue() >= versionValue;
    }
@@ -456,7 +457,7 @@ public class CommitLog {
          return subVersion;
       }
 
-      public long getConcurrentClockNumber() {
+      public long getConcurrentClockNumber(){
          return concurrentClockNumber;
       }
 
