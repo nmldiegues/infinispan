@@ -266,7 +266,6 @@ public class LegacyConfigurationAdaptor {
             .transactionMode(config.transaction().transactionMode())
             .transactionSynchronizationRegistryLookup(config.transaction().transactionSynchronizationRegistryLookup())
             .setSSIValidation(config.transaction().ssiValidation())
-            .setReadOnlyVisible(config.transaction().readOnlyVisible())
             .useEagerLocking(config.transaction().useEagerLocking())
             .useSynchronization(config.transaction().useSynchronization())
             .use1PcForAutoCommitTransactions(config.transaction().use1PcForAutoCommitTransactions())
@@ -520,7 +519,6 @@ public class LegacyConfigurationAdaptor {
             .transactionMode(legacy.getTransactionMode())
             .transactionSynchronizationRegistryLookup(legacy.getTransactionSynchronizationRegistryLookup())
             .ssiValidation(legacy.isSSIValidation())
-            .readOnlyVisible(legacy.isReadOnlyVisible())
             .useEagerLocking(legacy.isUseEagerLocking())
             .useSynchronization(legacy.isUseSynchronizationForTransactions())
             .transactionProtocol(legacy.getTransactionProtocol());

@@ -40,7 +40,6 @@ public class TransactionConfiguration {
    private boolean syncCommitPhase;
    private boolean syncRollbackPhase;
    private boolean ssiValidation;
-   private boolean readOnlyVisible;
    private final TransactionManagerLookup transactionManagerLookup;
    private final TransactionSynchronizationRegistryLookup transactionSynchronizationRegistryLookup;
    private final TransactionMode transactionMode;
@@ -51,7 +50,7 @@ public class TransactionConfiguration {
    private final TransactionProtocol transactionProtocol; //2PC or Total order protocol
 
    TransactionConfiguration(boolean autoCommit, long cacheStopTimeout, boolean eagerLockingSingleNode, LockingMode lockingMode,
-         boolean syncCommitPhase, boolean syncRollbackPhase, boolean ssiValidation, boolean readOnlyVisible, TransactionManagerLookup transactionManagerLookup,
+         boolean syncCommitPhase, boolean syncRollbackPhase, boolean ssiValidation, TransactionManagerLookup transactionManagerLookup,
          TransactionSynchronizationRegistryLookup transactionSynchronizationRegistryLookup, TransactionMode transactionMode,
          boolean useEagerLocking, boolean useSynchronization, boolean use1PcForAutoCommitTransactions,
          RecoveryConfiguration recovery, TransactionProtocol transactionProtocol) {
@@ -62,7 +61,6 @@ public class TransactionConfiguration {
       this.syncCommitPhase = syncCommitPhase;
       this.syncRollbackPhase = syncRollbackPhase;
       this.ssiValidation = ssiValidation;
-      this.readOnlyVisible = readOnlyVisible;
       this.transactionManagerLookup = transactionManagerLookup;
       this.transactionSynchronizationRegistryLookup = transactionSynchronizationRegistryLookup;
       this.transactionMode = transactionMode;
@@ -177,17 +175,8 @@ public class TransactionConfiguration {
       return ssiValidation;
    }
    
-   public boolean readOnlyVisible() {
-      return readOnlyVisible;
-   }
-   
    public TransactionConfiguration ssiValidation(boolean b) {
       this.ssiValidation = b;
-      return this;
-   }
-   
-   public TransactionConfiguration readOnlyVisible(boolean b) {
-      this.readOnlyVisible = b;
       return this;
    }
    
@@ -272,8 +261,7 @@ public class TransactionConfiguration {
             ", lockingMode=" + lockingMode +
             ", syncCommitPhase=" + syncCommitPhase +
             ", syncRollbackPhase=" + syncRollbackPhase +
-            ", ssiValidation=" + ssiValidation +
-            ", readOnlyVisible=" + readOnlyVisible +
+            ", ssiValidation=" + ssiValidation + 
             ", transactionManagerLookup=" + transactionManagerLookup +
             ", transactionSynchronizationRegistryLookup=" + transactionSynchronizationRegistryLookup +
             ", transactionMode=" + transactionMode +
@@ -297,7 +285,6 @@ public class TransactionConfiguration {
       if (syncCommitPhase != that.syncCommitPhase) return false;
       if (syncRollbackPhase != that.syncRollbackPhase) return false;
       if (ssiValidation != that.ssiValidation) return false;
-      if (readOnlyVisible != that.readOnlyVisible) return false;
       if (use1PcForAutoCommitTransactions != that.use1PcForAutoCommitTransactions)
          return false;
       if (useEagerLocking != that.useEagerLocking) return false;
@@ -326,7 +313,6 @@ public class TransactionConfiguration {
       result = 31 * result + (syncCommitPhase ? 1 : 0);
       result = 31 * result + (syncRollbackPhase ? 1 : 0);
       result = 31 * result + (ssiValidation ? 1 : 0);
-      result = 31 * result + (readOnlyVisible ? 1 : 0);
       result = 31 * result + (transactionManagerLookup != null ? transactionManagerLookup.hashCode() : 0);
       result = 31 * result + (transactionSynchronizationRegistryLookup != null ? transactionSynchronizationRegistryLookup.hashCode() : 0);
       result = 31 * result + (transactionMode != null ? transactionMode.hashCode() : 0);

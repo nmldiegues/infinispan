@@ -474,8 +474,6 @@ public class Parser {
             case SSI_VALIDATION:
                builder.transaction().ssiValidation(Boolean.parseBoolean(value));
                break;
-            case READ_ONLY_VISIBLE:
-               builder.transaction().readOnlyVisible(Boolean.parseBoolean(value));
             case SYNC_COMMIT_PHASE:
                builder.transaction().syncCommitPhase(Boolean.parseBoolean(value));
                break;

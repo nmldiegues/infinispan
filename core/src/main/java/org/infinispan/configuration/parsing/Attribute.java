@@ -108,7 +108,6 @@ public enum Attribute {
    SITE_ID("siteId"),
    SPIN_DURATION("spinDuration"),
    SSI_VALIDATION("ssiValidation"),
-   READ_ONLY_VISIBLE("readOnlyVisible"),
    STORE_KEYS_AS_BINARY("storeKeysAsBinary"),
    STORE_VALUES_AS_BINARY("storeValuesAsBinary"),
    STRATEGY("strategy"),
