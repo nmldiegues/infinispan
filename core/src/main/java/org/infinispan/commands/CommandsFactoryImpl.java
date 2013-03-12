@@ -282,12 +282,16 @@ public class CommandsFactoryImpl implements CommandsFactory {
 
    @Override
    public CommitCommand buildCommitCommand(GlobalTransaction gtx) {
-      return new CommitCommand(cacheName, gtx);
+      CommitCommand cmd = new CommitCommand(cacheName, gtx);
+      cmd.setSynchCommitPhase(this.configuration.isSyncCommitPhase());
+      return cmd;
    }
 
    @Override
    public VersionedCommitCommand buildVersionedCommitCommand(GlobalTransaction gtx) {
-      return new VersionedCommitCommand(cacheName, gtx);
+      VersionedCommitCommand cmd = new VersionedCommitCommand(cacheName, gtx);
+      cmd.setSynchCommitPhase(this.configuration.isSyncCommitPhase());
+      return cmd;
    }
 
    @Override
@@ -445,6 +449,7 @@ public class CommandsFactoryImpl implements CommandsFactory {
          case DataPlacementCommand.COMMAND_ID:
             DataPlacementCommand dataPlacementRequestCommand = (DataPlacementCommand)c;
             dataPlacementRequestCommand.initialize(dataPlacementManager);
+            break;
          case ReconfigurableProtocolCommand.COMMAND_ID:
             ReconfigurableProtocolCommand rpc = (ReconfigurableProtocolCommand) c;
             rpc.init(reconfigurableReplicationManager);
@@ -456,6 +461,7 @@ public class CommandsFactoryImpl implements CommandsFactory {
          case ConfigurationStateCommand.COMMAND_ID:
             ConfigurationStateCommand csc = (ConfigurationStateCommand) c;
             csc.initialize(distributionManager, reconfigurableReplicationManager);
+            break;
          default:
             ModuleCommandInitializer mci = moduleCommandInitializers.get(c.getCommandId());
             if (mci != null) {
@@ -551,7 +557,9 @@ public class CommandsFactoryImpl implements CommandsFactory {
 
    @Override
    public GMUCommitCommand buildSerializableCommitCommand(GlobalTransaction gtx) {
-      return new GMUCommitCommand(cacheName, gtx);
+      GMUCommitCommand cmd = new GMUCommitCommand(cacheName, gtx);
+      cmd.setSynchCommitPhase(this.configuration.isSyncCommitPhase());
+      return cmd;
    }
 
    @Override

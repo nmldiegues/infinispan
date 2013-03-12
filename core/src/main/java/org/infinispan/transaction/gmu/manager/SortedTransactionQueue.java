@@ -23,7 +23,9 @@
 package org.infinispan.transaction.gmu.manager;
 
 import org.infinispan.commands.tx.GMUCommitCommand;
+import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.container.versioning.gmu.GMUVersion;
+import org.infinispan.factories.annotations.Inject;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
@@ -38,12 +40,14 @@ import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersion;
  * // TODO: Document this
  *
  * @author Pedro Ruivo
+ * @author Sebastiano Peluso
  * @since 5.2
  */
 public class SortedTransactionQueue {
 
    private static final Log log = LogFactory.getLog(SortedTransactionQueue.class);
 
+   private boolean synchCommitPhase;
    private final ConcurrentHashMap<GlobalTransaction, Node> concurrentHashMap;
    private final Node firstEntry;
    private final Node lastEntry;
@@ -203,6 +207,10 @@ public class SortedTransactionQueue {
       lastEntry.setPrevious(firstEntry);
    }
 
+   public void setSynchCommitPhase(boolean synchCommitPhase){
+      this.synchCommitPhase = synchCommitPhase;
+   }
+   
    public final void prepare(CacheTransaction cacheTransaction, long concurrentClockNumber) {
       GlobalTransaction globalTransaction = cacheTransaction.getGlobalTransaction();
       if (concurrentHashMap.contains(globalTransaction)) {
@@ -474,6 +482,7 @@ public class SortedTransactionQueue {
          if (log.isTraceEnabled()) {
             log.tracef("await until this [%s] is committed.", this);
          }
+         
          if (committed && commitCommand != null) {
             commitCommand.sendReply(null, false);
             if (log.isTraceEnabled()) {
@@ -488,9 +497,11 @@ public class SortedTransactionQueue {
             }
             return;
          }
+         
          while (!committed) {
             wait();
          }
+         
          if (log.isTraceEnabled()) {
             log.tracef("Done! This [%s] is committed.", this);
          }

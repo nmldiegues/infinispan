@@ -24,6 +24,7 @@ package org.infinispan.transaction.gmu.manager;
 
 import org.infinispan.Cache;
 import org.infinispan.commands.tx.GMUCommitCommand;
+import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.container.CommitContextEntries;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
@@ -42,6 +43,7 @@ import org.infinispan.transaction.RemoteTransaction;
 import org.infinispan.transaction.gmu.CommitLog;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
+import org.infinispan.util.concurrent.locks.LockManager;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -72,6 +74,8 @@ public class TransactionCommitManager {
    private Cache cache;
    private CommitContextEntries commitContextEntries;
    private GarbageCollectorManager garbageCollectorManager;
+   //private Configuration configuration;
+   private LockManager lm;
 
    public TransactionCommitManager() {
       sortedTransactionQueue = new SortedTransactionQueue();
@@ -81,7 +85,7 @@ public class TransactionCommitManager {
    @Inject
    public void inject(InvocationContextContainer icc, VersionGenerator versionGenerator, CommitLog commitLog,
                       Transport transport, Cache cache, CommitContextEntries commitContextEntries,
-                      GarbageCollectorManager garbageCollectorManager) {
+                      GarbageCollectorManager garbageCollectorManager/*, Configuration configuration*/, LockManager lm) {
       this.icc = icc;
       this.versionGenerator = toGMUVersionGenerator(versionGenerator);
       this.commitLog = commitLog;
@@ -89,6 +93,8 @@ public class TransactionCommitManager {
       this.cache = cache;
       this.commitContextEntries = commitContextEntries;
       this.garbageCollectorManager = garbageCollectorManager;
+      //this.configuration = configuration;
+      this.lm = lm;
    }
 
    //AFTER THE VersionGenerator
@@ -96,6 +102,7 @@ public class TransactionCommitManager {
    public void start() {
       commitThread = new CommitThread(transport.getAddress() + "-" + cache.getName() + "-GMU-Commit");
       commitThread.start();
+      //sortedTransactionQueue.setSynchCommitPhase(configuration.transaction().syncCommitPhase());
    }
 
    @Stop
@@ -217,6 +224,7 @@ public class TransactionCommitManager {
                log.fatalf(throwable, "Exception caught in commit. This should not happen");
             } finally {
                for (TransactionEntry transactionEntry : commitList) {
+                  lm.unlock(transactionEntry.getCacheTransactionForCommit().getLockedKeys(), transactionEntry.getCacheTransactionForCommit().getGlobalTransaction());
                   transactionEntry.committed();
                }
                committedTransactions.clear();
