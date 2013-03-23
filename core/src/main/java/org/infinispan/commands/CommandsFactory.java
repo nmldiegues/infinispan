@@ -22,6 +22,7 @@
  */
 package org.infinispan.commands;
 
+import org.infinispan.DelayedComputation;
 import org.infinispan.atomic.Delta;
 import org.infinispan.commands.control.LockControlCommand;
 import org.infinispan.commands.control.StateTransferControlCommand;
@@ -400,7 +401,7 @@ public interface CommandsFactory {
     * @return
     */
    GMUPrepareCommand buildSerializablePrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications,
-                                                     boolean onePhaseCommit);
+                                                     boolean onePhaseCommit, DelayedComputation<?>[] computations);
 
    /**
     *

@@ -323,7 +323,7 @@ public class TransactionTable {
       localTx.setWriteTx(true);
       return localTx;
    }
-
+   
    /**
     * Removes the {@link org.infinispan.transaction.xa.TransactionXaAdapter} corresponding to the given tx. Returns true
     * if such an tx exists.

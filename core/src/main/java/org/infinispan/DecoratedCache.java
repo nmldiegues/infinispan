@@ -148,6 +148,20 @@ public class DecoratedCache<K, V> extends AbstractDelegatingAdvancedCache<K, V> 
    public void markAsWriteTransaction() {
       cacheImplementation.markAsWriteTransaction(flags, classLoader);
    }
+   
+   @Override
+   public void delayedComputation(DelayedComputation<?> computation) {
+      cacheImplementation.delayedComputation(computation);
+   }
+   
+   public Object delayedGet(Object key) {
+      return cacheImplementation.delayedGet(key);
+   }
+   
+   @Override
+   public void delayedPut(Object key, Object value) {
+      cacheImplementation.delayedPut(key, value);
+   }
 
    @Override
    public void evict(K key) {

@@ -3,7 +3,11 @@ package org.infinispan.interceptors.gmu;
 import static org.infinispan.transaction.gmu.GMUHelper.calculateCommitVersion;
 import static org.infinispan.transaction.gmu.GMUHelper.convert;
 
+import java.util.Arrays;
+import java.util.HashSet;
+
 import org.infinispan.CacheException;
+import org.infinispan.DelayedComputation;
 import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.GMUCommitCommand;
 import org.infinispan.commands.tx.GMUPrepareCommand;
@@ -13,6 +17,7 @@ import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.context.impl.TxInvocationContext;
+import org.infinispan.transaction.gmu.GMUHelper;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.jgroups.blocks.RequestHandler;
@@ -72,13 +77,17 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
          gmuCommitCommand.setComputedDepsVersion(ctx.getCacheTransaction().getComputedDepsVersion());
          gmuCommitCommand.setOutgoing(ctx.getCacheTransaction().isHasOutgoingEdge());
          gmuCommitCommand.setBoostedIndexes(ctx.getCacheTransaction().getBoostedVector());
+         gmuCommitCommand.setDelayedComputations(ctx.getCacheTransaction().getDelayedComputations());
       } else {
          ctx.setTransactionVersion(gmuCommitCommand.getCommitVersion());
          ctx.getCacheTransaction().setComputedDepsVersion(gmuCommitCommand.getComputedDepsVersion());
          ctx.getCacheTransaction().setHasOutgoingEdge(gmuCommitCommand.isOutgoing());
          ctx.getCacheTransaction().setBoostVector(gmuCommitCommand.getBoostedIndexes());
+         ctx.getCacheTransaction().setDelayedComputations(new HashSet<DelayedComputation<?>>(Arrays.asList(gmuCommitCommand.getDelayedComputations())));
       }
 
+      GMUHelper.performDelayedComputations(ctx.getCacheTransaction());
+      
       transactionCommitManager.commitTransaction(ctx.getCacheTransaction(), gmuCommitCommand.getCommitVersion(), 
             gmuCommitCommand.getComputedDepsVersion(), gmuCommitCommand.isOutgoing());
 

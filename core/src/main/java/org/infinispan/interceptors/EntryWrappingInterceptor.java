@@ -47,6 +47,8 @@ import org.infinispan.util.logging.LogFactory;
  */
 public class EntryWrappingInterceptor extends CommandInterceptor {
 
+   public static EntryFactory FACTORY;
+   
    protected EntryFactory entryFactory;
    protected DataContainer dataContainer;
    protected ClusteringDependentLogic cll;
@@ -64,6 +66,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
    public void init(EntryFactory entryFactory, DataContainer dataContainer, ClusteringDependentLogic cll,
                     CommitContextEntries commitContextEntries) {
       this.entryFactory =  entryFactory;
+      FACTORY = this.entryFactory;
       this.dataContainer = dataContainer;
       this.cll = cll;
       this.commitContextEntries = commitContextEntries;

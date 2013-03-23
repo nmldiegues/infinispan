@@ -146,6 +146,13 @@ public class EntryFactoryImpl implements EntryFactory {
       return mvccEntry;
    }
 
+   public final Object delayedPut(InvocationContext ctx, Object key, Object value) {
+      CacheEntry cacheEntry = getFromContext(ctx, key);
+      MVCCEntry mvccEntry = wrapMvccEntryForPut(ctx, key, cacheEntry);
+      mvccEntry.copyForUpdate(container, localModeWriteSkewCheck);
+      return mvccEntry.setValue(value);
+   }
+   
    @Override
    public final MVCCEntry wrapEntryForPut(InvocationContext ctx, Object key, InternalCacheEntry icEntry, boolean undeleteIfNeeded) throws InterruptedException {
       CacheEntry cacheEntry = getFromContext(ctx, key);

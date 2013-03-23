@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.infinispan.DelayedComputation;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
@@ -131,4 +132,10 @@ public interface CacheTransaction {
    boolean[] getBoostedVector();
    
    void setBoostVector(boolean[] boostIndexes);
+   
+   public DelayedComputation<?>[] getDelayedComputations();
+   
+   public void setDelayedComputations(Set<DelayedComputation<?>> computations);
+   
+   public void addDelayedComputation(DelayedComputation<?> computation);
 }

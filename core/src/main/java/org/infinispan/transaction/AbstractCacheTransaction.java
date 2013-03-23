@@ -23,6 +23,17 @@
 
 package org.infinispan.transaction;
 
+import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersionGenerator;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.infinispan.DelayedComputation;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
@@ -37,16 +48,6 @@ import org.infinispan.util.concurrent.ConcurrentHashSet;
 import org.infinispan.util.concurrent.ConcurrentMapFactory;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
-
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersionGenerator;
 
 /**
  * Base class for local and remote transaction. Impl note: The aggregated modification list and lookedUpEntries are not
@@ -84,6 +85,7 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    private boolean hasIncomingEdge = false;
    private long[] computedDepsVersion = null;  // only makes sense if hasOutgoingEdge is true
    private boolean[] boostVector = null;
+   protected Set<DelayedComputation<?>> delayedComputations = null;
    
    public AbstractCacheTransaction(GlobalTransaction tx, int viewId) {
       this.tx = tx;
@@ -342,6 +344,27 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    @Override
    public void setComputedDepsVersion(long[] computedDepsVersion) {
       this.computedDepsVersion = computedDepsVersion;
+   }
+   
+   @Override
+   public DelayedComputation<?>[] getDelayedComputations() {
+      if (delayedComputations != null) {
+         return delayedComputations.toArray(new DelayedComputation<?>[0]);
+      }
+      return null;
+   }
+   
+   @Override
+   public void setDelayedComputations(Set<DelayedComputation<?>> computations) {
+      this.delayedComputations = computations;
+   }
+   
+   @Override
+   public void addDelayedComputation(DelayedComputation<?> computation) {
+      if (this.delayedComputations == null) {
+         this.delayedComputations = new HashSet<DelayedComputation<?>>();
+      }
+      this.delayedComputations.add(computation);
    }
    
    @Override

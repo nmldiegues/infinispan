@@ -46,6 +46,7 @@ import org.infinispan.configuration.cache.LegacyConfigurationAdaptor;
 import org.infinispan.config.ConfigurationException;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
+import org.infinispan.container.gmu.GMUEntryFactoryImpl;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextContainer;
@@ -56,6 +57,7 @@ import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.SurvivesRestarts;
+import org.infinispan.interceptors.EntryWrappingInterceptor;
 import org.infinispan.interceptors.InterceptorChain;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.jmx.annotations.MBean;
@@ -72,6 +74,7 @@ import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.stats.Stats;
 import org.infinispan.stats.StatsImpl;
+import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.TransactionCoordinator;
 import org.infinispan.transaction.TransactionTable;
 import org.infinispan.transaction.xa.TransactionXaAdapter;
@@ -376,6 +379,28 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
       if (config.isSSIValidation()) {
          markAsWriteTransaction(null, null);
       }
+   }
+   
+   @Override
+   public final void delayedComputation(DelayedComputation<?> computation) {
+      TxInvocationContext ctx = (TxInvocationContext) getInvocationContextWithImplicitTransaction(null, null, 1);
+      LocalTransaction tx = txTable.getOrCreateLocalTransaction(ctx.getTransaction(), ctx);
+      txTable.enlist(ctx.getTransaction(), tx);
+      tx.addDelayedComputation(computation);
+   }
+   
+   @Override
+   public final Object delayedGet(Object key) {
+      InvocationContext ctx = getInvocationContextForRead(null, null, null, 1);
+      InternalCacheEntry entry = ((GMUEntryFactoryImpl)EntryWrappingInterceptor.FACTORY).getDelayedFromContainer(key, ctx);
+      ctx.putLookedUpEntry(key, entry);
+      return entry != null ? entry.getValue() : null;
+   }
+   
+   @Override
+   public final void delayedPut(Object key, Object value) {
+      InvocationContext ctx = getInvocationContextWithImplicitTransaction(null, null, 1);
+      ((GMUEntryFactoryImpl)EntryWrappingInterceptor.FACTORY).delayedPut(ctx, key, value);
    }
    
    final void markAsWriteTransaction(EnumSet<Flag> explicitFlags, ClassLoader explicitClassLoader) {

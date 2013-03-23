@@ -68,6 +68,12 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
       return new SerializableEntry(key, value, lifespan, version);
    }
 
+   public InternalCacheEntry getDelayedFromContainer(Object key, InvocationContext context) {
+      EntryVersion maxVersionToRead = commitLog.getAvailableVersionLessThan(null);
+      InternalGMUCacheEntry entry = toInternalGMUCacheEntry(container.get(key, maxVersionToRead));
+      return entry.getInternalCacheEntry();
+   }
+   
    @Override
    protected InternalCacheEntry getFromContainer(Object key, InvocationContext context, GetKeyValueCommand command) {
       boolean singleRead = context instanceof SingleKeyNonTxInvocationContext;
