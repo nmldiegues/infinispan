@@ -101,6 +101,9 @@ public class GMUCommitCommand extends CommitCommand {
    }
    
    public DelayedComputation<?>[] getDelayedComputations() {
+      if (this.delayedComputations == null) {
+         return new DelayedComputation<?>[0];
+      }
       return this.delayedComputations;
    }
    
