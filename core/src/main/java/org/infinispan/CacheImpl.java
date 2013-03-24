@@ -407,7 +407,7 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
    
    @Override
    public final void delayedPut(Object key, Object value) {
-      if (config.isSSIValidation()) {
+      if (! config.isSSIValidation()) {
          put((K) key, (V) value); 
       } else {
          InvocationContext ctx = getInvocationContextWithImplicitTransaction(null, null, 1);
