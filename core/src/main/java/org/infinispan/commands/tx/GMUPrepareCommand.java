@@ -78,12 +78,20 @@ public class GMUPrepareCommand extends PrepareCommand {
    @Override
    public Set<Object> getAffectedKeys() {
       int modLength = modifications == null ? 0 : modifications.length;
-      Set<Object> keys = new HashSet<Object>(modLength + delayedKeys.length);
-      if (modLength != 0) {
-         for (WriteCommand wc: modifications) keys.addAll(wc.getAffectedKeys());
+      if (delayedKeys == null) {
+         Set<Object> keys = new HashSet<Object>(modLength);
+         if (modLength != 0) {
+            for (WriteCommand wc: modifications) keys.addAll(wc.getAffectedKeys());
+         }
+         return keys;
+      } else {
+         Set<Object> keys = new HashSet<Object>(modLength + delayedKeys.length);
+         if (modLength != 0) {
+            for (WriteCommand wc: modifications) keys.addAll(wc.getAffectedKeys());
+         }
+         for (Object key : delayedKeys) keys.add(key);
+         return keys;
       }
-      for (Object key : delayedKeys) keys.add(key);
-      return keys;
    }
 
    @Override
