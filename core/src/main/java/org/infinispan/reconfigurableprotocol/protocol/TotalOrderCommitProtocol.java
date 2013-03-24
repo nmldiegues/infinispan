@@ -128,10 +128,12 @@ public class TotalOrderCommitProtocol extends ReconfigurableProtocol {
       //Wrapper
       if (configuration.locking().isolationLevel() == IsolationLevel.SERIALIZABLE) {
          if (configuration.transaction().ssiValidation()) {
+System.out.println("\n\n\n~~~~~  TOTAL ORDER TWM ~~~~~~\n\n\n");
             interceptors.put(InterceptorType.WRAPPER,
                   createInterceptor(new SSITotalOrderGMUEntryWrappingInterceptor(),
                         SSITotalOrderGMUEntryWrappingInterceptor.class));            
          } else {
+System.out.println("\n\n\n~~~~~  TOTAL ORDER GMU ~~~~~~\n\n\n");
             interceptors.put(InterceptorType.WRAPPER,
                   createInterceptor(new TotalOrderGMUEntryWrappingInterceptor(),
                         TotalOrderGMUEntryWrappingInterceptor.class));

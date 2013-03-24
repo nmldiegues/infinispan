@@ -3,6 +3,7 @@ package org.infinispan.interceptors.gmu;
 import static org.infinispan.transaction.gmu.GMUHelper.calculateCommitVersion;
 import static org.infinispan.transaction.gmu.GMUHelper.convert;
 
+import org.infinispan.CacheException;
 import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.GMUCommitCommand;
 import org.infinispan.commands.tx.GMUPrepareCommand;
@@ -28,7 +29,9 @@ public class SSITotalOrderGMUEntryWrappingInterceptor extends TotalOrderGMUEntry
 
    @Override
    protected void shouldEarlyAbort(TxInvocationContext txInvocationContext, InternalGMUCacheEntry internalGMUCacheEntry) {
-      // empty on purpose, SSI never aborts because of a single stale read
+      if (txInvocationContext.getLocalTransaction().isWriteTx() && !internalGMUCacheEntry.isMostRecent() && internalGMUCacheEntry.sawOutgoing()) {
+         throw new CacheException("Read-Write transaction read an old value produced by a time-warp committed tx and should rollback");
+      }
    }
 
    @Override
