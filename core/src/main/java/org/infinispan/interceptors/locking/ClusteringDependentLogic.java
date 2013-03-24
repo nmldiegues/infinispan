@@ -23,6 +23,7 @@
 
 package org.infinispan.interceptors.locking;
 
+import org.infinispan.DelayedComputation;
 import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.commands.tx.VersionedPrepareCommand;
 import org.infinispan.config.Configuration;
@@ -46,6 +47,7 @@ import org.infinispan.util.Util;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -243,16 +245,19 @@ public interface ClusteringDependentLogic {
 
       @Override
       public Collection<Address> getInvolvedNodes(CacheTransaction cacheTransaction) {
+         Collection<Address> delayedOwners = getDelayedOwners(cacheTransaction);
          Collection<Address> writeOwners = getWriteOwners(cacheTransaction);
-         if (writeOwners == null) {
+         if (writeOwners == null && delayedOwners.isEmpty()) {
             return null;
          }
          Collection<Address> readOwners = getReadOwners(cacheTransaction);
-         if (readOwners.isEmpty()) {
+         if (readOwners.isEmpty() && delayedOwners.isEmpty()) {
             return writeOwners;
          }
+         
          Set<Address> addressSet = new HashSet<Address>(writeOwners);
          addressSet.addAll(readOwners);
+         addressSet.addAll(delayedOwners);
          return addressSet;
       }
 
@@ -299,6 +304,18 @@ public interface ClusteringDependentLogic {
          Collection<Object> affectedKeys = Util.getAffectedKeys(cacheTransaction.getModifications(), null);
          if (affectedKeys == null) {
             return null;
+         }
+         return dm.getAffectedNodes(affectedKeys);
+      }
+      
+      private Collection<Address> getDelayedOwners(CacheTransaction cacheTransaction) {
+         Collection<Object> affectedKeys = new ArrayList<Object>();
+         DelayedComputation<?>[] delayedComputations = cacheTransaction.getDelayedComputations();
+         if (delayedComputations == null) {
+            return Collections.emptyList();
+         }
+         for (DelayedComputation<?> computation : delayedComputations) {
+            affectedKeys.addAll(computation.getAffectedKeys());
          }
          return dm.getAffectedNodes(affectedKeys);
       }

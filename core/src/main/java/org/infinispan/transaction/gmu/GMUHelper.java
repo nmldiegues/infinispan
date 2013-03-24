@@ -2,10 +2,12 @@ package org.infinispan.transaction.gmu;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
 import org.infinispan.CacheException;
+import org.infinispan.DelayedComputation;
 import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.write.WriteCommand;
@@ -329,6 +331,16 @@ public class GMUHelper {
 
    private static boolean wasComputed(long[] computedDeps) {
       return computedDeps[0] != Long.MAX_VALUE;
+   }
+   
+   public static void performDelayedComputations(CacheTransaction cacheTx) {
+      DelayedComputation<?>[] delayedComputations = cacheTx.getDelayedComputations();
+      if (delayedComputations == null) {
+         return;
+      }
+      for (DelayedComputation<?> computation : delayedComputations) {
+         Object result = computation.compute();
+      }
    }
 
 }

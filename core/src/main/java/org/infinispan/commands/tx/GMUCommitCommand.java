@@ -22,6 +22,7 @@
  */
 package org.infinispan.commands.tx;
 
+import org.infinispan.DelayedComputation;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.transaction.xa.GlobalTransaction;
 
@@ -39,6 +40,7 @@ public class GMUCommitCommand extends CommitCommand {
    private long[] computedDepsVersion;
    private boolean outgoing;
    private boolean[] boostedIndexes;
+   private DelayedComputation<?>[] delayedComputations;
 
    public GMUCommitCommand(String cacheName, GlobalTransaction gtx) {
       super(cacheName, gtx);
@@ -92,6 +94,14 @@ public class GMUCommitCommand extends CommitCommand {
    
    public long[] getComputedDepsVersion() {
       return this.computedDepsVersion;
+   }
+   
+   public void setDelayedComputations(DelayedComputation<?>[] computations) {
+      this.delayedComputations = computations;
+   }
+   
+   public DelayedComputation<?>[] getDelayedComputations() {
+      return this.delayedComputations;
    }
    
    @Override

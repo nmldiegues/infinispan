@@ -243,4 +243,10 @@ public interface Cache<K, V> extends BasicCache<K, V>, Listenable {
     */
    @Override
    Set<Map.Entry<K, V>> entrySet();
+
+   void delayedComputation(DelayedComputation<?> computation);
+
+   Object delayedGet(Object key);
+
+   void delayedPut(Object key, Object value);
 }
