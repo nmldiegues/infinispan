@@ -333,12 +333,23 @@ public class GMUHelper {
       return computedDeps[0] != Long.MAX_VALUE;
    }
    
-   public static void performDelayedComputations(CacheTransaction cacheTx) {
+   public static void performDelayedComputations(CacheTransaction cacheTx, ClusteringDependentLogic distributionLogic) {
       DelayedComputation<?>[] delayedComputations = cacheTx.getDelayedComputations();
       if (delayedComputations == null) {
          return;
       }
       for (DelayedComputation<?> computation : delayedComputations) {
+         Collection<Object> keys = computation.getAffectedKeys();
+         boolean doComputation = true;
+         for (Object key : keys) {
+            if (! distributionLogic.localNodeIsOwner(key)) {
+               doComputation = false;
+               break;
+            }
+         }
+         if (! doComputation) {
+            continue;
+         }
          Object result = computation.compute();
       }
    }

@@ -86,7 +86,7 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
          ctx.getCacheTransaction().setDelayedComputations(new HashSet<DelayedComputation<?>>(Arrays.asList(gmuCommitCommand.getDelayedComputations())));
       }
 
-      GMUHelper.performDelayedComputations(ctx.getCacheTransaction());
+      GMUHelper.performDelayedComputations(ctx.getCacheTransaction(), cll);
       
       transactionCommitManager.commitTransaction(ctx.getCacheTransaction(), gmuCommitCommand.getCommitVersion(), 
             gmuCommitCommand.getComputedDepsVersion(), gmuCommitCommand.isOutgoing());
