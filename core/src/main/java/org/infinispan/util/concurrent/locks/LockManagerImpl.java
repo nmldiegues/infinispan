@@ -131,8 +131,8 @@ public class LockManagerImpl implements LockManager {
    }
 
    @Override
-   public boolean isSharedOrUnlocked(Object key) {
-      return lockContainer.isSharedOrUnlocked(key);
+   public boolean isExclusiveLocked(Object key) {
+      return lockContainer.isExclusiveLocked(key);
    }
    
    @Override

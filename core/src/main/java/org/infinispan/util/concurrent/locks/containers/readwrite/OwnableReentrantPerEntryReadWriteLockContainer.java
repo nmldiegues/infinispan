@@ -61,6 +61,15 @@ public class OwnableReentrantPerEntryReadWriteLockContainer extends AbstractPerE
       return l != null && l.isLocked();
    }
    
+   public boolean isOnlyExclusiveLocked(Object key) {
+      OwnableReentrantReadWriteLock l = getLockFromMap(key, false);
+      if (l == null) {
+         return false;
+      } else {
+         return l.actuallyExclusiveLocked();
+      }
+   }
+   
    @Override
    public boolean isSharedOrUnlocked(Object key) {
       OwnableReentrantReadWriteLock l = getLockFromMap(key, false);

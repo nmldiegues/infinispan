@@ -81,10 +81,8 @@ public class LockManagerWrapper implements LockManager {
       return actual.isLocked(key);
    }
 
-   @Override
-   public boolean isSharedOrUnlocked(Object key) {
-      log.tracef("LockManagerWrapper.isSharedOrExclusiveLocked");
-      return actual.isSharedOrUnlocked(key);
+   public boolean isExclusiveLocked(Object key) {
+      return actual.isExclusiveLocked(key);
    }
    
    @Override

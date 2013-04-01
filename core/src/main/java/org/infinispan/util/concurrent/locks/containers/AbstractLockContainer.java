@@ -39,6 +39,10 @@ public abstract class AbstractLockContainer<L extends Lock> implements LockConta
          }
       }
    }
+   
+   public boolean isOnlyExclusiveLocked(Object key) {
+      throw new UnsupportedOperationException();
+   }
 
    protected void safeShareRelease(L toRelease, Object lockOwner) {
       if (toRelease != null) {

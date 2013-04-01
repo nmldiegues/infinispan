@@ -88,7 +88,7 @@ public interface LockManager {
     */
    boolean isLocked(Object key);
 
-   boolean isSharedOrUnlocked(Object key);
+   boolean isExclusiveLocked(Object key);
    
    /**
     * Retrieves the write lock owner, if any, for the specified cache entry.

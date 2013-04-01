@@ -142,4 +142,6 @@ public interface LockContainer<L extends Lock> {
    int getLockId(Object key);
    
    public boolean isSharedOrUnlocked(Object key);
+   
+   public boolean isOnlyExclusiveLocked(Object key);
 }

@@ -70,6 +70,10 @@ public class OwnableReentrantReadWriteLock extends OwnableReentrantLock {
       return getState() == 0;
    }
 
+   public final boolean actuallyExclusiveLocked() {
+      return getState() > 0;
+   }
+   
    @Override
    protected int tryAcquireShared(int i) {
       Object requestor = currentRequestor();
