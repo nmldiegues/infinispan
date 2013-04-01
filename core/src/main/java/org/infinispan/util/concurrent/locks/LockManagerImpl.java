@@ -132,7 +132,7 @@ public class LockManagerImpl implements LockManager {
 
    @Override
    public boolean isExclusiveLocked(Object key) {
-      return lockContainer.isExclusiveLocked(key);
+      return lockContainer.isOnlyExclusiveLocked(key);
    }
    
    @Override
