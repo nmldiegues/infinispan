@@ -60,6 +60,12 @@ public class OwnableReentrantPerEntryReadWriteLockContainer extends AbstractPerE
       OwnableReentrantReadWriteLock l = getLockFromMap(key, false);
       return l != null && l.isLocked();
    }
+   
+   @Override
+   public boolean isSharedOrUnlocked(Object key) {
+      OwnableReentrantReadWriteLock l = getLockFromMap(key, false);
+      return l != null && (l.isShareLocked() || l.isUnlocked());
+   }
 
    @Override
    public boolean isSharedLocked(Object key) {

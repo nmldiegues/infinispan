@@ -65,6 +65,10 @@ public class OwnableReentrantReadWriteLock extends OwnableReentrantLock {
    public final boolean isShareLocked() {
       return getState() < 0;
    }
+   
+   public final boolean isUnlocked() {
+      return getState() == 0;
+   }
 
    @Override
    protected int tryAcquireShared(int i) {

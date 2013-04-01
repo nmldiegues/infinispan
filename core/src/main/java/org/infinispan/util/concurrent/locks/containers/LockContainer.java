@@ -140,4 +140,6 @@ public interface LockContainer<L extends Lock> {
     * @return the ID of the lock.
     */
    int getLockId(Object key);
+   
+   public boolean isSharedOrUnlocked(Object key);
 }

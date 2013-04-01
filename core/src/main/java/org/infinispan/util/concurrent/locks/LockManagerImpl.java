@@ -131,6 +131,11 @@ public class LockManagerImpl implements LockManager {
    }
 
    @Override
+   public boolean isSharedOrUnlocked(Object key) {
+      return lockContainer.isSharedOrUnlocked(key);
+   }
+   
+   @Override
    public String printLockInfo() {
       return lockContainer.toString();
    }

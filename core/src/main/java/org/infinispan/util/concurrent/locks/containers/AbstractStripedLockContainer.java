@@ -55,6 +55,11 @@ public abstract class AbstractStripedLockContainer<L extends Lock> extends Abstr
       return (hash(object) >>> lockSegmentShift) & lockSegmentMask;
    }
 
+   @Override
+   public boolean isSharedOrUnlocked(Object key) {
+      throw new UnsupportedOperationException();
+   }
+   
    /**
     * Returns a hash code for non-null Object x. Uses the same hash code spreader as most other java.util hash tables,
     * except that this uses the string representation of the object passed in.

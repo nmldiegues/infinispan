@@ -74,7 +74,7 @@ public class OwnableReentrantPerEntryLockContainer extends AbstractPerEntryLockC
    protected OwnableReentrantLock newLock() {
       return new OwnableReentrantLock();
    }
-
+   
    @Override
    protected boolean tryExclusiveLock(OwnableReentrantLock lock, long timeout, TimeUnit unit, Object lockOwner) throws InterruptedException {
       return lock.tryLock(lockOwner, timeout, unit);

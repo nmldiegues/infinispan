@@ -59,6 +59,11 @@ public abstract class AbstractLockContainer<L extends Lock> implements LockConta
    protected abstract boolean tryShareLock(L lock, long timeout, TimeUnit unit, Object lockOwner) throws InterruptedException;      
 
    @Override
+   public boolean isSharedOrUnlocked(Object key) {
+      throw new UnsupportedOperationException();
+   }
+   
+   @Override
    public boolean ownsShareLock(Object key, Object owner) {
       return false;
    }
