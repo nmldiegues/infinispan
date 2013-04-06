@@ -444,7 +444,12 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
    }
    
    public CommitBody getMostRecentCommit(Object key) {
-      return entries.get(key).getMostRecentCommit();
+      try {
+
+          return entries.get(key).getMostRecentCommit();
+      } catch (NullPointerException npe) {
+          return null;
+      }
    }
 
    public static class DataContainerVersionChain extends VersionChain<InternalCacheEntry> {
