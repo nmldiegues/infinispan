@@ -107,7 +107,7 @@ public class GMUPrepareCommand extends PrepareCommand {
       int numReads = readSet == null ? 0 : readSet.length;
       int delayKeys = delayedKeys == null ? 0 : delayedKeys.length;
       int i = 0;
-      final int params = 5;
+      final int params = 7;
       Object[] retVal = new Object[numMods + numReads + params + delayKeys];
       retVal[i++] = globalTx;
       retVal[i++] = onePhaseCommit;
