@@ -483,25 +483,32 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
       
       protected boolean wasReadSince(GMUVersion version, boolean readSelf) {
-         boolean readers = severalReaders;
-         long[] txVersion = ((GMUDistributedVersion)version).getVersions();
-         boolean equal = true;
-         for (int i = 0; i < txVersion.length; i++) {
-            if (visibleRead[i] > txVersion[i]) {
-               return true;
-            }
+         synchronized (vrLock) {
+//            long[] txVersion = ((GMUDistributedVersion)version).getVersions();
+//            boolean equal = true;
+//            for (int i = 0; i < txVersion.length; i++) {
+//               if (visibleRead[i] > txVersion[i]) {
+//                  return true;
+//               }
+//               
+//               if (visibleRead[i] < txVersion[i]) {
+//                  equal = false;
+//               }
+//            }
+//            if (equal) {
+//               return severalReaders;
+//            } else {
+//               return false;
+//            }
             
-            if (visibleRead[i] < txVersion[i]) {
-               equal = false;
+            int idx = ((GMUDistributedVersion)version).getNodeIndex();
+            long begin = ((GMUDistributedVersion)version).getThisNodeVersionValue();
+            long vr = visibleRead[idx];
+            if (begin == vr) {
+               return severalReaders;
+            } else {
+               return vr > begin;
             }
-         }
-         if (equal) {
-            if (readSelf) {
-               return readers;
-            }
-            return true;
-         } else {
-            return false;
          }
       }
          
