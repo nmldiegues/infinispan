@@ -505,10 +505,8 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
             long begin = ((GMUDistributedVersion)version).getThisNodeVersionValue();
             long vr = visibleRead[idx];
             if (begin == vr) {
-System.out.println("Node: " + idx + " scalars equal -- vr " + java.util.Arrays.toString(visibleRead) + "   begin " + java.util.Arrays.toString(((GMUDistributedVersion)version).getVersions()) + " several readers: " + severalReaders);
                return severalReaders;
             } else {
-System.out.println("Node: " + idx + " != -- vr " + java.util.Arrays.toString(visibleRead) + "   begin " + java.util.Arrays.toString(((GMUDistributedVersion)version).getVersions()) + " several readers: " + severalReaders);
                return vr > begin;
             }
          }
