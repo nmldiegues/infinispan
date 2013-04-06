@@ -194,6 +194,7 @@ public class TransactionCoordinator {
 //            log.error("Error while processing prepare: " + e.getMessage());
 //            log.debug("Error while processing prepare", e);
 //         }
+e.printStackTrace();
 
          //rollback transaction before throwing the exception as there's no guarantee the TM calls XAResource.rollback
          //after prepare failed.
