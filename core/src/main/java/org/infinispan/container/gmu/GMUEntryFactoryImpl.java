@@ -108,7 +108,9 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
 
       GMUVersion beginVC = context.getBeginVC();
       if (beginVC == null) {
-         beginVC = ((TxInvocationContext)context).getCacheTransaction().getBeginVC();
+         if (context instanceof TxInvocationContext) {
+            beginVC = ((TxInvocationContext)context).getCacheTransaction().getBeginVC();
+         }
          if (beginVC == null) {
             beginVC = TransactionCommitManager.singleton.getLastCommittedVC();
          }
