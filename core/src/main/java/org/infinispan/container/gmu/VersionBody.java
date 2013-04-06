@@ -44,7 +44,7 @@ public abstract class VersionBody<T> {
       this.previous = previous;
    }
 
-   public synchronized VersionBody<T> add(VersionBody<T> other, boolean boostVersion) {
+   public synchronized VersionBody<T> add(VersionBody<T> other) {
       if (previous == null) {
          previous = other;
          return null;
@@ -53,12 +53,7 @@ public abstract class VersionBody<T> {
          setPrevious(other);
          return null;
       } else if (previous.isEqual(other)) {
-         if (boostVersion) {
-            other.setPrevious(previous);
-            setPrevious(other);            
-         } else {
-            previous.reincarnate(other);
-         }
+         previous.reincarnate(other);
          return null;
       }
       return previous;

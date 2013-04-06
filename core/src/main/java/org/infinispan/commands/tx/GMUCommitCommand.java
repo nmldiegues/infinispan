@@ -39,7 +39,6 @@ public class GMUCommitCommand extends CommitCommand {
    private EntryVersion commitVersion;
    private long[] computedDepsVersion;
    private boolean outgoing;
-   private boolean[] boostedIndexes;
    private DelayedComputation<?>[] delayedComputations;
 
    public GMUCommitCommand(String cacheName, GlobalTransaction gtx) {
@@ -72,14 +71,6 @@ public class GMUCommitCommand extends CommitCommand {
       return commitVersion;
    }
    
-   public boolean[] getBoostedIndexes() {
-      return this.boostedIndexes;
-   }
-   
-   public void setBoostedIndexes(boolean[] boosts) {
-      this.boostedIndexes = boosts;
-   }
-   
    public void setOutgoing(boolean outgoing) {
       this.outgoing = outgoing;
    }
@@ -109,7 +100,7 @@ public class GMUCommitCommand extends CommitCommand {
    
    @Override
    public Object[] getParameters() {
-      return new Object[] {globalTx, synchCommitPhase, commitVersion, computedDepsVersion, outgoing, boostedIndexes};
+      return new Object[] {globalTx, synchCommitPhase, commitVersion, computedDepsVersion, outgoing};
    }
 
    @Override
@@ -119,6 +110,5 @@ public class GMUCommitCommand extends CommitCommand {
       commitVersion = (EntryVersion) args[2];
       computedDepsVersion = (long[]) args[3];
       outgoing = (Boolean) args[4];
-      boostedIndexes = (boolean[]) args[5];
    }
 }

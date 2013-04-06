@@ -1,17 +1,12 @@
 package org.infinispan.container.gmu;
 
-import org.infinispan.container.entries.InternalCacheEntry;
-import org.infinispan.container.entries.versioned.VersionedImmortalCacheEntry;
-import org.infinispan.container.gmu.GMUDataContainer.DataContainerVersionBody;
+import java.io.BufferedWriter;
+import java.io.IOException;
+
 import org.infinispan.container.versioning.EntryVersion;
-import org.infinispan.container.versioning.gmu.GMUCacheEntryVersion;
 import org.infinispan.util.Util;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
-
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * // TODO: Document this
@@ -65,11 +60,11 @@ public abstract class VersionChain<T> {
       return new VersionEntry<T>(null, nextVersion, false, sawOutgoing);
    }
 
-   public final VersionBody<T> add(T value, boolean outFlag, long[] creatorVersion, boolean isBoost) {
+   public final VersionBody<T> add(T value, boolean outFlag, long[] creatorVersion) {
       VersionBody<T> toAdd = newValue(value, outFlag, creatorVersion);
-      VersionBody<T> iterator = firstAdd(toAdd, isBoost);
+      VersionBody<T> iterator = firstAdd(toAdd);
       while (iterator != null) {
-         iterator = iterator.add(toAdd, isBoost);
+         iterator = iterator.add(toAdd);
       }
       return toAdd.getPrevious();
    }
@@ -95,7 +90,7 @@ public abstract class VersionChain<T> {
 
    public final VersionEntry<T> remove(T removeObject) {
       // TODO nmld make sure this is not problematic
-      VersionBody<T> previous = add(removeObject, false, null, false);
+      VersionBody<T> previous = add(removeObject, false, null);
       T entry = previous == null ? null : previous.getValue();
       //TODO check if is it the most recent
       return new VersionEntry<T>(entry, null, previous != null, false);
@@ -171,20 +166,15 @@ public abstract class VersionChain<T> {
    protected abstract void writeValue(BufferedWriter writer, T value) throws IOException;
 
    //return null if the value was added successfully
-   private synchronized VersionBody<T> firstAdd(VersionBody<T> body, boolean boostVersion) {
+   private synchronized VersionBody<T> firstAdd(VersionBody<T> body) {
       if (first == null || first.isOlder(body)) {
          body.setPrevious(first);
          first = body;
          return null;
       } else if (first.isEqual(body)) {
-         if (boostVersion) {
-            body.setPrevious(first);
-            first = body;            
-         } else {
-            first.reincarnate(body);
-         }
+         first.reincarnate(body);
          return null;
       }
-      return first.add(body, boostVersion);
+      return first.add(body);
    }
 }

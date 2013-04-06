@@ -12,6 +12,7 @@ import org.infinispan.container.entries.gmu.InternalGMUNullCacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMUValueCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
@@ -105,7 +106,7 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
       EntryVersion maxVersionToRead = hasAlreadyReadFromThisNode ? versionToRead :
          commitLog.getAvailableVersionLessThan(versionToRead);
 
-      long lastPreparedVersion = TransactionCommitManager.singleton.getLastPreparedVersion(); 
+      GMUVersion lastCommittedVC = TransactionCommitManager.singleton.getLastCommittedVC(); 
       EntryVersion mostRecentCommitLogVersion = commitLog.getCurrentVersion();
 
       InternalGMUCacheEntry entry = null;
@@ -113,20 +114,20 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
       
       if (localTx != null && localTx.isWriteTx()) {
          // we have local transaction and it is a writer. we are definitely using SSI
-         entry = toInternalGMUCacheEntry(container.getAsWriteTx(key, maxVersionToRead));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsWriteTx(key, maxVersionToRead, lastCommittedVC));
          
       } else if (localTx != null && !localTx.isWriteTx() && configuration.isSSIValidation()) {
          // we have local transaction, it's read only and we are using SSI
-         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastPreparedVersion));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastCommittedVC));
          
       }
       else if (command != null && command.hasFlag(Flag.WRITE_TX)) {
          // remote command with writer transaction, definitely SSI
-         entry = toInternalGMUCacheEntry(container.getAsWriteTx(key, maxVersionToRead));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsWriteTx(key, maxVersionToRead, lastCommittedVC));
          
       } else if (command != null && !command.hasFlag(Flag.WRITE_TX) && configuration.isSSIValidation()) {
          // remote command with read-only and SSI
-         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastPreparedVersion));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastCommittedVC));
          
       }
       else {

@@ -29,6 +29,7 @@ import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.tx.RollbackCommand;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.config.Configuration;
+import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.context.InvocationContextContainer;
 import org.infinispan.context.impl.LocalTxInvocationContext;
 import org.infinispan.factories.annotations.Inject;
@@ -37,6 +38,7 @@ import org.infinispan.factories.annotations.Stop;
 import org.infinispan.interceptors.InterceptorChain;
 import org.infinispan.reconfigurableprotocol.ProtocolTable;
 import org.infinispan.reconfigurableprotocol.manager.ReconfigurableReplicationManager;
+import org.infinispan.transaction.gmu.GMUHelper;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
@@ -110,8 +112,8 @@ public class TransactionCoordinator {
             }
 
             @Override
-            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations) {
-               return commandsFactory.buildSerializablePrepareCommand(gtx, modifications, false, computations);
+            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, GMUDistributedVersion beginVC) {
+               return commandsFactory.buildSerializablePrepareCommand(gtx, modifications, false, computations, beginVC);
             }
          };
       } else if (configuration.isRequireVersioning()) {
@@ -123,7 +125,7 @@ public class TransactionCoordinator {
             }
 
             @Override
-            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations) {
+            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, GMUDistributedVersion beginVC) {
                return commandsFactory.buildVersionedPrepareCommand(gtx, modifications, false);
             }
          };
@@ -135,7 +137,7 @@ public class TransactionCoordinator {
             }
 
             @Override
-            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations) {
+            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, GMUDistributedVersion beginVC) {
                return commandsFactory.buildPrepareCommand(gtx, modifications, false);
             }
          };
@@ -168,7 +170,7 @@ public class TransactionCoordinator {
       }
 
       DelayedComputation<?>[] computations = localTransaction.getDelayedComputations();
-      PrepareCommand prepareCommand = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), modificationsList, computations);
+      PrepareCommand prepareCommand = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), modificationsList, computations, GMUHelper.LAST_COMMIT_VC.get());
       if (trace) log.tracef("Sending prepare command through the chain: %s", prepareCommand);
 
       LocalTxInvocationContext ctx = icc.createTxInvocationContext();
@@ -210,7 +212,7 @@ public class TransactionCoordinator {
       if (use1PC || isOnePhase) {
          validateNotMarkedForRollback(localTransaction);
          if (trace) log.trace("Doing an 1PC prepare call on the interceptor chain");
-         PrepareCommand command = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), localTransaction.getModifications(), null);
+         PrepareCommand command = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), localTransaction.getModifications(), null, GMUHelper.LAST_COMMIT_VC.get());
          command.setOnePhaseCommit(true);
 
          try {
@@ -298,6 +300,6 @@ public class TransactionCoordinator {
 
    private static interface CommandCreator {
       CommitCommand createCommitCommand(GlobalTransaction gtx);
-      PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations);
+      PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, GMUDistributedVersion beginVC);
    }
 }

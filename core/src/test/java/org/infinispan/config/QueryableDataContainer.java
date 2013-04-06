@@ -25,6 +25,7 @@ package org.infinispan.config;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -70,15 +71,9 @@ public class QueryableDataContainer implements DataContainer {
 	}
 	
 	@Override
-	public InternalCacheEntry getAsWriteTx(Object k, EntryVersion version) {
-	   loggedOperations.add("getAsWriteTx(" + k + ")" );
-	   return delegate.getAsWriteTx(k, null);
-	}
-
-	@Override
-	public InternalCacheEntry peek(Object k, EntryVersion version, boolean writeTx) {
+	public InternalCacheEntry peek(Object k, EntryVersion version, boolean writeTx, GMUVersion dist) {
 		loggedOperations.add("peek(" + k + ")" );
-		return delegate.peek(k, null, writeTx);
+		return delegate.peek(k, null, writeTx, dist);
 	}
 
 	@Override

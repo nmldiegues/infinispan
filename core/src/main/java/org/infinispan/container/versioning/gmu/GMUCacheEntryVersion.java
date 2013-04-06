@@ -28,10 +28,9 @@ public class GMUCacheEntryVersion extends GMUVersion {
    private final int subVersion;
    // nmld: may differ from version
    private final long[] creationVersion;
-   private final boolean boostVersion;
 
    public GMUCacheEntryVersion(String cacheName, int viewId, GMUVersionGenerator versionGenerator, long version,
-                               int subVersion, long[] creationVersion, boolean boostVersion) {
+                               int subVersion, long[] creationVersion) {
       super(cacheName, viewId, versionGenerator);
       this.version = version;
 //      if (this.version == Long.MAX_VALUE) {
@@ -39,11 +38,10 @@ public class GMUCacheEntryVersion extends GMUVersion {
 //      }
       this.subVersion = subVersion;
       this.creationVersion = creationVersion;
-      this.boostVersion = boostVersion;
    }
 
    private GMUCacheEntryVersion(String cacheName, int viewId, ClusterSnapshot clusterSnapshot, Address localAddress,
-                                long version, int subVersion, long[] creationVersion, boolean boostVersion) {
+                                long version, int subVersion, long[] creationVersion) {
       super(cacheName, viewId, clusterSnapshot, localAddress);
       this.version = version;
 //      if (this.version == Long.MAX_VALUE) {
@@ -51,13 +49,8 @@ public class GMUCacheEntryVersion extends GMUVersion {
 //      }
       this.subVersion = subVersion;
       this.creationVersion = creationVersion;
-      this.boostVersion = boostVersion;
    }
 
-   public final boolean isBoostedVersion() {
-      return this.boostVersion;
-   }
-   
    @Override
    public final long getVersionValue(Address address) {
       return getVersionValue(clusterSnapshot.indexOf(address));
@@ -146,7 +139,6 @@ public class GMUCacheEntryVersion extends GMUVersion {
          output.writeLong(object.version);
          output.writeInt(object.subVersion);
          output.writeObject(object.creationVersion);
-         output.writeBoolean(object.boostVersion);
       }
 
       @Override
@@ -161,9 +153,8 @@ public class GMUCacheEntryVersion extends GMUVersion {
          long version = input.readLong();
          int subVersion = input.readInt();
          long[] creation = (long[]) input.readObject();
-         boolean boostVersion = input.readBoolean();
          return new GMUCacheEntryVersion(cacheName, viewId, clusterSnapshot, gmuVersionGenerator.getAddress(), version,
-                                         subVersion, creation, boostVersion);
+                                         subVersion, creation);
       }
 
       @Override

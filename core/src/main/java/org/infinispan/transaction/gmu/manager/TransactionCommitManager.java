@@ -132,6 +132,10 @@ public class TransactionCommitManager {
       return this.lastPreparedVersion;
    }
    
+   public GMUVersion getLastCommittedVC() {
+      return this.commitLog.getCurrentVersion();
+   }
+   
    public void rollbackTransaction(CacheTransaction cacheTransaction) {
       sortedTransactionQueue.rollback(cacheTransaction);
    }
@@ -241,8 +245,7 @@ public class TransactionCommitManager {
 
       private TxInvocationContext createInvocationContext(CacheTransaction cacheTransaction, int subVersion) {
          GMUCacheEntryVersion cacheEntryVersion = versionGenerator.convertVersionToWrite(cacheTransaction.getTransactionVersion(),
-                                                                                         subVersion, cacheTransaction.getComputedDepsVersion(), 
-                                                                                         cacheTransaction.getBoostedVector());
+                                                                                         subVersion, cacheTransaction.getComputedDepsVersion());
          cacheTransaction.setTransactionVersion(cacheEntryVersion);
          if (cacheTransaction instanceof LocalTransaction) {
             LocalTxInvocationContext localTxInvocationContext = icc.createTxInvocationContext();

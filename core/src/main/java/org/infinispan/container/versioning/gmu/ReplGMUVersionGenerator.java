@@ -98,9 +98,9 @@ public class ReplGMUVersionGenerator implements GMUVersionGenerator {
    }
 
    @Override
-   public final GMUCacheEntryVersion convertVersionToWrite(EntryVersion version, int subVersion, long[] creation, boolean[] boostedIndexes) {
+   public final GMUCacheEntryVersion convertVersionToWrite(EntryVersion version, int subVersion, long[] creation) {
       GMUVersion gmuVersion = toGMUVersion(version);
-      return new GMUCacheEntryVersion(cacheName, currentViewId, this, gmuVersion.getThisNodeVersionValue(), subVersion, creation, false);
+      return new GMUCacheEntryVersion(cacheName, currentViewId, this, gmuVersion.getThisNodeVersionValue(), subVersion, creation);
    }
 
    @Override

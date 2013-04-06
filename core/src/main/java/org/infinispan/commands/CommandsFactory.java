@@ -55,6 +55,7 @@ import org.infinispan.commands.tx.VersionedPrepareCommand;
 import org.infinispan.commands.write.*;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.context.Flag;
 import org.infinispan.distexec.mapreduce.Mapper;
@@ -401,7 +402,7 @@ public interface CommandsFactory {
     * @return
     */
    GMUPrepareCommand buildSerializablePrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications,
-                                                     boolean onePhaseCommit, DelayedComputation<?>[] computations);
+                                                     boolean onePhaseCommit, DelayedComputation<?>[] computations, GMUDistributedVersion beginVC);
 
    /**
     *

@@ -3,6 +3,8 @@ package org.infinispan.interceptors.gmu;
 import static org.infinispan.transaction.gmu.GMUHelper.calculateCommitVersion;
 import static org.infinispan.transaction.gmu.GMUHelper.convert;
 
+import java.util.Set;
+
 import org.infinispan.CacheException;
 import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.GMUCommitCommand;
@@ -13,6 +15,7 @@ import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.context.impl.TxInvocationContext;
+import org.infinispan.transaction.gmu.GMUHelper;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.jgroups.blocks.RequestHandler;
@@ -41,8 +44,10 @@ public class SSITotalOrderGMUEntryWrappingInterceptor extends TotalOrderGMUEntry
       if (ctx.isOriginLocal()) {
          spc.setVersion(ctx.getTransactionVersion());
          spc.setReadSet(ctx.getReadSet());
+         spc.setBeginVC(GMUHelper.LAST_COMMIT_VC.get());
       } else {
          ctx.setTransactionVersion(spc.getPrepareVersion());
+         ctx.getCacheTransaction().setBeginVC(spc.getBeginVC());
       }
 
       wrapEntriesForPrepare(ctx, command);
@@ -73,12 +78,10 @@ public class SSITotalOrderGMUEntryWrappingInterceptor extends TotalOrderGMUEntry
          gmuCommitCommand.setCommitVersion(ctx.getTransactionVersion());
          gmuCommitCommand.setComputedDepsVersion(ctx.getCacheTransaction().getComputedDepsVersion());
          gmuCommitCommand.setOutgoing(ctx.getCacheTransaction().isHasOutgoingEdge());
-         gmuCommitCommand.setBoostedIndexes(ctx.getCacheTransaction().getBoostedVector());
       } else {
          ctx.setTransactionVersion(gmuCommitCommand.getCommitVersion());
          ctx.getCacheTransaction().setComputedDepsVersion(gmuCommitCommand.getComputedDepsVersion());
          ctx.getCacheTransaction().setHasOutgoingEdge(gmuCommitCommand.isOutgoing());
-         ctx.getCacheTransaction().setBoostVector(gmuCommitCommand.getBoostedIndexes());
       }
 
       transactionCommitManager.commitTransaction(ctx.getCacheTransaction(), gmuCommitCommand.getCommitVersion(), 
@@ -117,16 +120,11 @@ public class SSITotalOrderGMUEntryWrappingInterceptor extends TotalOrderGMUEntry
             }
          }
 
-         cll.performWriteSetValidation(ctx, command);
-
-         long currentPrepVersion = transactionCommitManager.getLastPreparedVersion();
-         cll.performSSIReadSetValidation(ctx, command, currentPrepVersion);
+         Set<Object> readSet = cll.performSSIReadSetValidation(ctx, command);
+         cll.performWriteSetValidation(ctx, command, readSet);
+         
          if (hasToUpdateLocalKeys) {
             transactionCommitManager.prepareTransaction(ctx.getCacheTransaction());
-            long lastPrepVersion = transactionCommitManager.getLastPreparedVersion();
-            if (lastPrepVersion != (currentPrepVersion + 1)) {
-               cll.refreshVisibleReads(command, lastPrepVersion - 1);
-            }
          } else {
             transactionCommitManager.prepareReadOnlyTransaction(ctx.getCacheTransaction());
          }

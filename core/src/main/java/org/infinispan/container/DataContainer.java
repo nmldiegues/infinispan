@@ -27,6 +27,7 @@ import java.util.Set;
 
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.factories.annotations.Stop;
 import org.infinispan.factories.scopes.Scope;
 import org.infinispan.factories.scopes.Scopes;
@@ -54,16 +55,6 @@ public interface DataContainer extends Iterable<InternalCacheEntry> {
    InternalCacheEntry get(Object k, EntryVersion version);
    
    /**
-    * Similar as {@link #get(Object, org.infinispan.container.versioning.EntryVersion)},
-    * but with a possible different implementation for transactions known to be writers.
-    *
-    * @param k key under which entry is stored
-    * @param version the snapshot version to read. if it is null, the most recent version is returned
-    * @return entry, if it exists and has not expired, or null if not
-    */
-   InternalCacheEntry getAsWriteTx(Object k, EntryVersion version);
-   
-   /**
     * Retrieves a cache entry in the same way as {@link #get(Object, org.infinispan.container.versioning.EntryVersion)}}
     * except that it does not update or reorder any of the internal constructs.
     * I.e., expiration does not happen, and in the case of the LRU container,
@@ -78,7 +69,7 @@ public interface DataContainer extends Iterable<InternalCacheEntry> {
     * @param writeTx flag if the current transaction is known to not be read-only
     * @return entry, if it exists, or null if not
     */
-   InternalCacheEntry peek(Object k, EntryVersion version, boolean writeTx);
+   InternalCacheEntry peek(Object k, EntryVersion version, boolean writeTx, GMUVersion lastCommittedVC);
 
    /**
     * Puts an entry in the cache along with a lifespan and a maxIdle time

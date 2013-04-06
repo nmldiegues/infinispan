@@ -5,6 +5,7 @@ import static org.infinispan.transaction.gmu.GMUHelper.convert;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Set;
 
 import org.infinispan.CacheException;
 import org.infinispan.DelayedComputation;
@@ -44,8 +45,10 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
       if (ctx.isOriginLocal()) {
          spc.setVersion(ctx.getTransactionVersion());
          spc.setReadSet(ctx.getReadSet());
+         spc.setBeginVC(GMUHelper.LAST_COMMIT_VC.get());
       } else {
          ctx.setTransactionVersion(spc.getPrepareVersion());
+         ctx.getCacheTransaction().setBeginVC(spc.getBeginVC());
       }
 
       wrapEntriesForPrepare(ctx, command);
@@ -76,13 +79,11 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
          gmuCommitCommand.setCommitVersion(ctx.getTransactionVersion());
          gmuCommitCommand.setComputedDepsVersion(ctx.getCacheTransaction().getComputedDepsVersion());
          gmuCommitCommand.setOutgoing(ctx.getCacheTransaction().isHasOutgoingEdge());
-         gmuCommitCommand.setBoostedIndexes(ctx.getCacheTransaction().getBoostedVector());
          gmuCommitCommand.setDelayedComputations(ctx.getCacheTransaction().getDelayedComputations());
       } else {
          ctx.setTransactionVersion(gmuCommitCommand.getCommitVersion());
          ctx.getCacheTransaction().setComputedDepsVersion(gmuCommitCommand.getComputedDepsVersion());
          ctx.getCacheTransaction().setHasOutgoingEdge(gmuCommitCommand.isOutgoing());
-         ctx.getCacheTransaction().setBoostVector(gmuCommitCommand.getBoostedIndexes());
          ctx.getCacheTransaction().setDelayedComputations(new HashSet<DelayedComputation<?>>(Arrays.asList(gmuCommitCommand.getDelayedComputations())));
       }
 
@@ -123,16 +124,11 @@ public class SSIEntryWrappingInterceptor extends GMUEntryWrappingInterceptor {
          }
       }
 
-      cll.performWriteSetValidation(ctx, command);
+      Set<Object> readSet = cll.performSSIReadSetValidation(ctx, command);
+      cll.performWriteSetValidation(ctx, command, readSet);
       
-      long currentPrepVersion = transactionCommitManager.getLastPreparedVersion();
-      cll.performSSIReadSetValidation(ctx, command, currentPrepVersion);
       if (hasToUpdateLocalKeys) {
          transactionCommitManager.prepareTransaction(ctx.getCacheTransaction());
-         long lastPrepVersion = transactionCommitManager.getLastPreparedVersion();
-         if (lastPrepVersion != (currentPrepVersion + 1)) {
-            cll.refreshVisibleReads(command, lastPrepVersion - 1);
-         }
       } else {
          transactionCommitManager.prepareReadOnlyTransaction(ctx.getCacheTransaction());
       }

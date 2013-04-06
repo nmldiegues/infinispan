@@ -84,7 +84,7 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    private boolean hasOutgoingEdge = false;
    private boolean hasIncomingEdge = false;
    private long[] computedDepsVersion = null;  // only makes sense if hasOutgoingEdge is true
-   private boolean[] boostVector = null;
+   private GMUDistributedVersion beginVC = null;
    protected Set<DelayedComputation<?>> delayedComputations = null;
    
    public AbstractCacheTransaction(GlobalTransaction tx, int viewId) {
@@ -368,15 +368,14 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    }
    
    @Override
-   public boolean[] getBoostedVector() {
-      return this.boostVector;
+   public GMUDistributedVersion getBeginVC() {
+      return this.beginVC;
    }
    
    @Override
-   public void setBoostVector(boolean[] boostIndexes) {
-      this.boostVector = boostIndexes;
+   public void setBeginVC(GMUDistributedVersion vc) {
+      this.beginVC = vc;
    }
-   
    
 
 }

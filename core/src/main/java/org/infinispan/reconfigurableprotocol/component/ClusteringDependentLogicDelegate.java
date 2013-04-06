@@ -13,6 +13,8 @@ import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.xa.CacheTransaction;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Set;
 
 /**
  * Delegates the method invocations for the correct instance depending of the protocol, for the ClusteringDependentLogic
@@ -56,8 +58,9 @@ public class ClusteringDependentLogicDelegate extends AbstractProtocolDependentC
    }
 
    @Override
-   public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+   public Set<Object> performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
       get().performReadSetValidation(context, prepareCommand);
+      return Collections.emptySet();
    }
 
    @Override
@@ -66,8 +69,8 @@ public class ClusteringDependentLogicDelegate extends AbstractProtocolDependentC
    }
 
    @Override
-   public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
-      get().performWriteSetValidation(context, prepareCommand);
+   public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, Set<Object> readSet) {
+      get().performWriteSetValidation(context, prepareCommand, readSet);
    }
 
    @Override
@@ -76,9 +79,8 @@ public class ClusteringDependentLogicDelegate extends AbstractProtocolDependentC
    }
 
    @Override
-   public void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
-         long lastPrepVersion) {
-      get().performSSIReadSetValidation(context, prepareCommand, lastPrepVersion);
+   public Set<Object> performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+      return get().performSSIReadSetValidation(context, prepareCommand);
    }
 
 }

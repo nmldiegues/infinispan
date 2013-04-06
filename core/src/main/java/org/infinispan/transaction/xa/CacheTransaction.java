@@ -33,6 +33,7 @@ import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.EntryVersionsMap;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.FlagsWrapper;
 
@@ -129,9 +130,9 @@ public interface CacheTransaction {
 
    void setComputedDepsVersion(long[] computedDepsVersion);
    
-   boolean[] getBoostedVector();
+   void setBeginVC(GMUDistributedVersion vc);
    
-   void setBoostVector(boolean[] boostIndexes);
+   GMUDistributedVersion getBeginVC();
    
    public DelayedComputation<?>[] getDelayedComputations();
    

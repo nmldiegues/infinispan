@@ -279,7 +279,7 @@ public class SimpleDataContainerTest extends AbstractInfinispanTest {
 
       int i = 0;
       for (Object key : dc.keySet(null)) {
-         dc.peek(key, null, false); // calling get in this situations will result on corruption the iteration.
+         dc.peek(key, null, false, null); // calling get in this situations will result on corruption the iteration.
          i++;
       }
 

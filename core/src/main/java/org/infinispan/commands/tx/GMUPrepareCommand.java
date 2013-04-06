@@ -22,17 +22,17 @@
  */
 package org.infinispan.commands.tx;
 
-import org.infinispan.DelayedComputation;
-import org.infinispan.commands.write.WriteCommand;
-import org.infinispan.container.versioning.EntryVersion;
-import org.infinispan.transaction.xa.GlobalTransaction;
-
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import org.infinispan.DelayedComputation;
+import org.infinispan.commands.write.WriteCommand;
+import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
+import org.infinispan.transaction.xa.GlobalTransaction;
 
 /**
  * @author Pedro Ruivo 
@@ -47,13 +47,14 @@ public class GMUPrepareCommand extends PrepareCommand {
    private Object[] delayedKeys;
    private Object[] readSet;
    private EntryVersion version;
+   private GMUDistributedVersion beginVC;
 
    public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, boolean onePhaseCommit, WriteCommand... modifications) {
       super(cacheName, gtx, onePhaseCommit, modifications);
       delayedKeys = new Object[0];
    }
 
-   public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, List<WriteCommand> commands, boolean onePhaseCommit, DelayedComputation<?>[] computations) {
+   public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, List<WriteCommand> commands, boolean onePhaseCommit, DelayedComputation<?>[] computations, GMUDistributedVersion beginVC) {
       super(cacheName, gtx, commands, onePhaseCommit);
       if (computations == null) {
          delayedKeys = new Object[0];
@@ -64,6 +65,7 @@ public class GMUPrepareCommand extends PrepareCommand {
          }
          delayedKeys = keys.toArray();
       }
+      this.beginVC = beginVC;
    }
 
    public GMUPrepareCommand(String cacheName) {
@@ -103,19 +105,25 @@ public class GMUPrepareCommand extends PrepareCommand {
    public Object[] getParameters() {
       int numMods = modifications == null ? 0 : modifications.length;
       int numReads = readSet == null ? 0 : readSet.length;
+      int delayKeys = delayedKeys == null ? 0 : delayedKeys.length;
       int i = 0;
       final int params = 5;
-      Object[] retVal = new Object[numMods + numReads + params];
+      Object[] retVal = new Object[numMods + numReads + params + delayKeys];
       retVal[i++] = globalTx;
       retVal[i++] = onePhaseCommit;
       retVal[i++] = version;
+      retVal[i++] = beginVC;
       retVal[i++] = numMods;
-      retVal[i] = numReads;
+      retVal[i++] = numReads;
+      retVal[i] = delayKeys;
       if (numMods > 0) {
          System.arraycopy(modifications, 0, retVal, params, numMods);
       }
       if (numReads > 0) {
          System.arraycopy(readSet, 0, retVal, params + numMods, numReads);
+      }
+      if (delayKeys > 0) {
+         System.arraycopy(delayedKeys, 0, retVal, params + numMods + numReads, delayKeys);
       }
       return retVal;
    }
@@ -127,8 +135,10 @@ public class GMUPrepareCommand extends PrepareCommand {
       globalTx = (GlobalTransaction) args[i++];
       onePhaseCommit = (Boolean) args[i++];
       version = (EntryVersion) args[i++];
+      beginVC = (GMUDistributedVersion) args[i++];
       int numMods = (Integer) args[i++];
       int numReads = (Integer) args[i++];
+      int delayKeys = (Integer) args[i++];
       if (numMods > 0) {
          modifications = new WriteCommand[numMods];
          System.arraycopy(args, i, modifications, 0, numMods);
@@ -136,6 +146,10 @@ public class GMUPrepareCommand extends PrepareCommand {
       if(numReads > 0){
          readSet = new Object[numReads];
          System.arraycopy(args, i + numMods, readSet, 0, numReads);
+      }
+      if(delayKeys > 0){
+         delayedKeys = new Object[delayKeys];
+         System.arraycopy(args, i + numMods + numReads, delayedKeys, 0, delayKeys);
       }
    }
 
@@ -146,7 +160,9 @@ public class GMUPrepareCommand extends PrepareCommand {
       copy.modifications = modifications == null ? null : modifications.clone();
       copy.onePhaseCommit = onePhaseCommit;
       copy.readSet = readSet == null ? null : readSet.clone();
+      copy.delayedKeys = delayedKeys == null ? null : delayedKeys.clone();
       copy.version = version;
+      copy.beginVC = beginVC;
       return copy;
    }
 
@@ -176,5 +192,17 @@ public class GMUPrepareCommand extends PrepareCommand {
 
    public EntryVersion getPrepareVersion() {
       return version;
+   }
+   
+   public Object[] getDelayedKeys() {
+      return this.delayedKeys;
+   }
+   
+   public GMUDistributedVersion getBeginVC() {
+      return this.beginVC;
+   }
+   
+   public void setBeginVC(GMUDistributedVersion beginVC) {
+      this.beginVC = beginVC;
    }
 }

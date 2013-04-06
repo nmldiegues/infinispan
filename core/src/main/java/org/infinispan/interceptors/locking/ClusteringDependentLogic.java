@@ -74,10 +74,9 @@ public interface ClusteringDependentLogic {
 
    void refreshVisibleReads(GMUPrepareCommand prepareCommand, long currentPrepVersion);
 
-   void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
-         long lastPrepVersion);
+   Set<Object> performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand);
 
-   void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand);
+   void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, Set<Object> readSet);
 
    boolean localNodeIsPrimaryOwner(Object key);
 
@@ -93,7 +92,7 @@ public interface ClusteringDependentLogic {
     * @param context          the transaction context
     * @param prepareCommand   the prepare command
     */
-   void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand);
+   Set<Object> performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand);
 
    Address getAddress();
 
@@ -169,20 +168,20 @@ public interface ClusteringDependentLogic {
       }
 
       @Override
-      public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+      public Set<Object> performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
          if (rpcManager.getTransport().isCoordinator()) {
             GMUHelper.performReadSetValidation(prepareCommand, dataContainer, this);
          }
+         return Collections.emptySet();
       }
 
       @Override
-      public void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
-            long lastPrepVersion) {
+      public Set<Object> performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
          throw new UnsupportedOperationException("This should not be called in this context");
       }
 
       @Override
-      public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+      public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, Set<Object> readSet) {
          throw new UnsupportedOperationException("This should not be called in this context");
       }
 
@@ -280,8 +279,9 @@ public interface ClusteringDependentLogic {
       }
 
       @Override
-      public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+      public Set<Object> performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
          GMUHelper.performReadSetValidation(prepareCommand, dataContainer, this);
+         return Collections.emptySet();
       }
       
       @Override
@@ -290,13 +290,13 @@ public interface ClusteringDependentLogic {
       }
       
       @Override
-      public void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, long lastPrepVersion) {
-         GMUHelper.performSSIReadSetValidation(context, prepareCommand, dataContainer, this, lastPrepVersion);
+      public Set<Object> performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+         return GMUHelper.performSSIReadSetValidation(context, prepareCommand, dataContainer, this);
       }
       
       @Override
-      public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
-         GMUHelper.performWriteSetValidation(context, prepareCommand, dataContainer, this);
+      public void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, Set<Object> readSet) {
+         GMUHelper.performWriteSetValidation(context, prepareCommand, dataContainer, this, readSet);
       }
 
       @Override
@@ -364,8 +364,9 @@ public interface ClusteringDependentLogic {
       }
 
       @Override
-      public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+      public Set<Object> performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
          GMUHelper.performReadSetValidation(prepareCommand, dataContainer, this);
+         return Collections.emptySet();
       }
    }
 
@@ -414,8 +415,9 @@ public interface ClusteringDependentLogic {
       }
 
       @Override
-      public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+      public Set<Object> performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
          GMUHelper.performReadSetValidation(prepareCommand, dataContainer, this);
+         return Collections.emptySet();
       }
    }
 }

@@ -3,8 +3,10 @@ package org.infinispan.transaction.gmu;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import org.infinispan.CacheException;
 import org.infinispan.DelayedComputation;
@@ -80,17 +82,17 @@ public class GMUHelper {
 
    public static void refreshVisibleReads(GMUPrepareCommand prepareCommand, DataContainer dataContainer, 
          ClusteringDependentLogic keyLogic, long currentPrepVersion) {
-      GMUDataContainer container = (GMUDataContainer) dataContainer;
-      for (Object key : prepareCommand.getReadSet()) {
-         if (keyLogic.localNodeIsOwner(key)) {
-            container.markVisibleRead(key, currentPrepVersion);
-         }
-      }
+//      GMUDataContainer container = (GMUDataContainer) dataContainer;
+//      for (Object key : prepareCommand.getReadSet()) {
+//         if (keyLogic.localNodeIsOwner(key)) {
+//            container.markVisibleRead(key, currentPrepVersion);
+//         }
+//      }
    }
    
    
-   public static void performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
-         DataContainer dataContainer, ClusteringDependentLogic keyLogic, long lastPrepVersion) {
+   public static Set<Object> performSSIReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
+         DataContainer dataContainer, ClusteringDependentLogic keyLogic) {
 
       
       GlobalTransaction gtx = prepareCommand.getGlobalTransaction();
@@ -98,22 +100,28 @@ public class GMUHelper {
          if (log.isDebugEnabled()) {
             log.debugf("Validation of [%s] OK. no read set", gtx.prettyPrint());
          }
-         return;
+         return Collections.emptySet();
       }
 
       CacheTransaction cacheTx = context.getCacheTransaction();
       GMUDataContainer container = (GMUDataContainer) dataContainer;
-      EntryVersion prepareVersion = prepareCommand.getPrepareVersion();
-      GMUVersion gmuVersion = toGMUVersion(prepareVersion);
+      EntryVersion prepareVersion = prepareCommand.getBeginVC();
+      GMUVersion gmuVersion = prepareCommand.getBeginVC();
+      if (gmuVersion == null) {
+         prepareVersion = prepareCommand.getPrepareVersion();
+         gmuVersion = toGMUVersion(prepareVersion);
+      }
       long[] depVersion = new long[gmuVersion.getViewSize()];
       Arrays.fill(depVersion, Long.MAX_VALUE);
       
       // System.out.println(Thread.currentThread().getId() + "] prepare version when read validating prepare: " + prepareVersion + " latestVersion: " + latestVersion);
       
+      Set<Object> readSet = new HashSet<Object>();
       for (Object key : prepareCommand.getReadSet()) {
          if (keyLogic.localNodeIsOwner(key)) {
 
-            container.markVisibleRead(key, lastPrepVersion);
+            readSet.add(key);
+//            container.markVisibleRead(key, lastPrepVersion);
             // System.out.println(Thread.currentThread().getId() + "] marked visible read: " + key + " " +((GMUDistributedVersion)latestVersion).getThisNodeVersionValue());
 
             CommitBody body = container.getMostRecentCommit(key);
@@ -135,6 +143,7 @@ public class GMUHelper {
          }
       }
       cacheTx.setComputedDepsVersion(depVersion);
+      return readSet;
    }
 
    public static void mergeMinVectorClocks(long[] orig, long[] update) {
@@ -151,14 +160,14 @@ public class GMUHelper {
 
 
    public static void performWriteSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand,
-         DataContainer dataContainer, ClusteringDependentLogic distributionLogic) {
+         DataContainer dataContainer, ClusteringDependentLogic distributionLogic, Set<Object> readSet) {
 
       GMUDataContainer container = (GMUDataContainer) dataContainer;
       GMUDistributedVersion snapshotUsed = (GMUDistributedVersion) prepareCommand.getPrepareVersion();
       for (WriteCommand writeCommand : prepareCommand.getModifications()) {
          for (Object key : writeCommand.getAffectedKeys()) {
             if (distributionLogic.localNodeIsOwner(key)) {
-               if (container.wasReadSince(key, snapshotUsed)) {
+               if (container.wasReadSince(key, snapshotUsed, readSet.contains(key))) {
                   // System.out.println(Thread.currentThread().getId() + "] write to " + key + " invalidated read");
                   context.getCacheTransaction().setHasIncomingEdge(true);
                   break;
@@ -240,6 +249,12 @@ public class GMUHelper {
       ctx.setTransactionVersion(commitVersion);
    }
 
+   public static final ThreadLocal<GMUDistributedVersion> LAST_COMMIT_VC = new ThreadLocal<GMUDistributedVersion>() {
+      protected GMUDistributedVersion initialValue() {
+         return null;
+      }
+   };
+   
    public static void joinAndSetTransactionVersionAndFlags(Collection<Response> responses, 
          TxInvocationContext ctx, GMUVersionGenerator versionGenerator, PrepareCommand prepareCommand, DataContainer dataContainer) {
       if (responses.isEmpty()) {
@@ -254,15 +269,13 @@ public class GMUHelper {
          }
 
          long[] computedDeps = cacheTx.getComputedDepsVersion();
-         boolean[] boostedIndexes = new boolean[computedDeps.length];
          GMUDistributedVersion distVersion = (GMUDistributedVersion)cacheTx.getTransactionVersion();
          if (!wasComputed(computedDeps)) {
             cacheTx.setComputedDepsVersion(distVersion.getVersions());
          } else {
-            boostedIndexes[distVersion.getNodeIndex()] = true;
-            cacheTx.setBoostVector(boostedIndexes);
          }
-         
+
+         LAST_COMMIT_VC.set(distVersion);
           // System.out.println(Thread.currentThread().getId() + "] Alone commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
          return;
       }
@@ -274,7 +287,6 @@ public class GMUHelper {
       boolean outFlag = flagsWrapper.isHasOutgoingEdge();
       boolean inFlag = flagsWrapper.isHasIncomingEdge();
       long[] outDep = flagsWrapper.getComputedDepsVersion();
-      boolean[] boostedIndexes = new boolean[outDep.length];
       
       //process all responses
       for (Response r : responses) {
@@ -291,9 +303,6 @@ public class GMUHelper {
             }
             long[] remoteDeps = flagsWrapper.getComputedDepsVersion();
             mergeMinVectorClocks(outDep, remoteDeps);
-            if (wasComputed(remoteDeps)) {
-               boostedIndexes[flagsWrapper.getNodeIndex()] = true;
-            }
          } else if(r instanceof ExceptionResponse) {
             throw new ValidationException(((ExceptionResponse) r).getException());
          } else if(!r.isSuccessful()) {
@@ -323,9 +332,9 @@ public class GMUHelper {
          cacheTx.setComputedDepsVersion(distVersion.getVersions());
       } else {
          cacheTx.setComputedDepsVersion(outDep);
-         cacheTx.setBoostVector(boostedIndexes);
       }
 
+      LAST_COMMIT_VC.set(distVersion);
       // System.out.println(Thread.currentThread().getId() + "] out flag: " + cacheTx.isHasOutgoingEdge() + " 2PC commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
    }
 

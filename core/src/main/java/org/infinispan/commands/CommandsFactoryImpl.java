@@ -61,6 +61,7 @@ import org.infinispan.container.InternalEntryFactory;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContextContainer;
@@ -552,8 +553,8 @@ public class CommandsFactoryImpl implements CommandsFactory {
 
    @Override
    public GMUPrepareCommand buildSerializablePrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications,
-                                                            boolean onePhaseCommit, DelayedComputation<?>[] computations) {
-      return new GMUPrepareCommand(cacheName, gtx, modifications, onePhaseCommit, computations);
+                                                            boolean onePhaseCommit, DelayedComputation<?>[] computations, GMUDistributedVersion beginVC) {
+      return new GMUPrepareCommand(cacheName, gtx, modifications, onePhaseCommit, computations, beginVC);
    }
 
    @Override
