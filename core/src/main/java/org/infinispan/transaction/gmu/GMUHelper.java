@@ -105,12 +105,8 @@ public class GMUHelper {
 
       CacheTransaction cacheTx = context.getCacheTransaction();
       GMUDataContainer container = (GMUDataContainer) dataContainer;
-      EntryVersion prepareVersion = prepareCommand.getBeginVC();
-      GMUVersion gmuVersion = prepareCommand.getBeginVC();
-      if (gmuVersion == null) {
-         prepareVersion = prepareCommand.getPrepareVersion();
-         gmuVersion = toGMUVersion(prepareVersion);
-      }
+      EntryVersion prepareVersion = prepareCommand.getPrepareVersion();
+      GMUVersion gmuVersion = toGMUVersion(prepareVersion);
       long[] depVersion = new long[gmuVersion.getViewSize()];
       Arrays.fill(depVersion, Long.MAX_VALUE);
       
@@ -163,7 +159,7 @@ public class GMUHelper {
          DataContainer dataContainer, ClusteringDependentLogic distributionLogic, Set<Object> readSet) {
 
       GMUDataContainer container = (GMUDataContainer) dataContainer;
-      GMUDistributedVersion snapshotUsed = (GMUDistributedVersion) prepareCommand.getPrepareVersion();
+      GMUDistributedVersion snapshotUsed = prepareCommand.getBeginVC();
       for (WriteCommand writeCommand : prepareCommand.getModifications()) {
          for (Object key : writeCommand.getAffectedKeys()) {
             if (distributionLogic.localNodeIsOwner(key)) {
