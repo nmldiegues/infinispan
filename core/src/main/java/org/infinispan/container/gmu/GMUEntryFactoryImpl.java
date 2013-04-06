@@ -106,10 +106,12 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
       EntryVersion maxVersionToRead = hasAlreadyReadFromThisNode ? versionToRead :
          commitLog.getAvailableVersionLessThan(versionToRead);
 
-//      GMUVersion lastCommittedVC = TransactionCommitManager.singleton.getLastCommittedVC();
       GMUVersion beginVC = context.getBeginVC();
       if (beginVC == null) {
          beginVC = ((TxInvocationContext)context).getCacheTransaction().getBeginVC();
+         if (beginVC == null) {
+            beginVC = TransactionCommitManager.singleton.getLastCommittedVC();
+         }
       }
       EntryVersion mostRecentCommitLogVersion = commitLog.getCurrentVersion();
 
