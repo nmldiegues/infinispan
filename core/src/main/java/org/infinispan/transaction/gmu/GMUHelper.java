@@ -160,6 +160,9 @@ public class GMUHelper {
 
       GMUDataContainer container = (GMUDataContainer) dataContainer;
       GMUDistributedVersion snapshotUsed = prepareCommand.getBeginVC();
+      if (snapshotUsed == null) {
+         snapshotUsed = (GMUDistributedVersion) prepareCommand.getPrepareVersion();
+      }
       for (WriteCommand writeCommand : prepareCommand.getModifications()) {
          for (Object key : writeCommand.getAffectedKeys()) {
             if (distributionLogic.localNodeIsOwner(key)) {
