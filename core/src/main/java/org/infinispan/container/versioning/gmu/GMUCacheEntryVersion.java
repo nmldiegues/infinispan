@@ -87,11 +87,7 @@ public class GMUCacheEntryVersion extends GMUVersion {
             //this is an invalid version. set it higher
             return AFTER;
          }
-         if (readVersion.isReadFromWriteTx()) {
-            return compare(creationVersion[nodeIndex], readVersion.getThisNodeVersionValue());
-         } else {
-            return compare(version, readVersion.getThisNodeVersionValue());
-         }
+         return compare(version, readVersion.getThisNodeVersionValue());
       } else if (other instanceof GMUReplicatedVersion) {
          GMUReplicatedVersion replicatedVersion = (GMUReplicatedVersion) other;
          InequalVersionComparisonResult result = compare(version, replicatedVersion.getThisNodeVersionValue());
@@ -101,7 +97,7 @@ public class GMUCacheEntryVersion extends GMUVersion {
          return result;
       }  else if (other instanceof GMUDistributedVersion) {
          GMUDistributedVersion distributedVersion = (GMUDistributedVersion) other;
-         InequalVersionComparisonResult result = compare(creationVersion[nodeIndex], distributedVersion.getThisNodeVersionValue());
+         InequalVersionComparisonResult result = compare(version, distributedVersion.getThisNodeVersionValue());
          if (result == EQUAL) {
             return compare(viewId, distributedVersion.getViewId());
          }
