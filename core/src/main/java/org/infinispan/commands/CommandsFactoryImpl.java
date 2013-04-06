@@ -567,8 +567,8 @@ public class CommandsFactoryImpl implements CommandsFactory {
    @Override
    public GMUClusteredGetCommand buildGMUClusteredGetCommand(Object key, Set<Flag> flags, boolean acquireRemoteLock,
                                                              GlobalTransaction gtx, GMUVersion txVersion,
-                                                             BitSet alreadyReadFromMask) {
-      return new GMUClusteredGetCommand(key, cacheName, flags, acquireRemoteLock, gtx, txVersion, alreadyReadFromMask);
+                                                             BitSet alreadyReadFromMask, GMUVersion beginVC) {
+      return new GMUClusteredGetCommand(key, cacheName, flags, acquireRemoteLock, gtx, txVersion, alreadyReadFromMask, beginVC);
    }
 
    @Override

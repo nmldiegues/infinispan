@@ -106,7 +106,11 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
       EntryVersion maxVersionToRead = hasAlreadyReadFromThisNode ? versionToRead :
          commitLog.getAvailableVersionLessThan(versionToRead);
 
-      GMUVersion lastCommittedVC = TransactionCommitManager.singleton.getLastCommittedVC(); 
+//      GMUVersion lastCommittedVC = TransactionCommitManager.singleton.getLastCommittedVC();
+      GMUVersion beginVC = context.getBeginVC();
+      if (beginVC == null) {
+         beginVC = ((TxInvocationContext)context).getCacheTransaction().getBeginVC();
+      }
       EntryVersion mostRecentCommitLogVersion = commitLog.getCurrentVersion();
 
       InternalGMUCacheEntry entry = null;
@@ -114,20 +118,20 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
       
       if (localTx != null && localTx.isWriteTx()) {
          // we have local transaction and it is a writer. we are definitely using SSI
-         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsWriteTx(key, maxVersionToRead, lastCommittedVC));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsWriteTx(key, maxVersionToRead, beginVC));
          
       } else if (localTx != null && !localTx.isWriteTx() && configuration.isSSIValidation()) {
          // we have local transaction, it's read only and we are using SSI
-         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastCommittedVC));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, beginVC));
          
       }
       else if (command != null && command.hasFlag(Flag.WRITE_TX)) {
          // remote command with writer transaction, definitely SSI
-         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsWriteTx(key, maxVersionToRead, lastCommittedVC));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsWriteTx(key, maxVersionToRead, beginVC));
          
       } else if (command != null && !command.hasFlag(Flag.WRITE_TX) && configuration.isSSIValidation()) {
          // remote command with read-only and SSI
-         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, lastCommittedVC));
+         entry = toInternalGMUCacheEntry(((GMUDataContainer)container).getAsRO(key, maxVersionToRead, beginVC));
          
       }
       else {

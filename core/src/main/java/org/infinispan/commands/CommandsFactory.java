@@ -418,7 +418,7 @@ public interface CommandsFactory {
     */
    GMUClusteredGetCommand buildGMUClusteredGetCommand(Object key, Set<Flag> flags, boolean acquireRemoteLock,
                                                       GlobalTransaction gtx, GMUVersion txVersion,
-                                                      BitSet alreadyReadFromMask);
+                                                      BitSet alreadyReadFromMask, GMUVersion beginVC);
 
    ReconfigurableProtocolCommand buildReconfigurableProtocolCommand(ReconfigurableProtocolCommand.Type type, String protocolId);
 

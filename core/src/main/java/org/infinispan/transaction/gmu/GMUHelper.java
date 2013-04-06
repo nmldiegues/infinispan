@@ -262,22 +262,24 @@ public class GMUHelper {
          }
 
          CacheTransaction cacheTx = ctx.getCacheTransaction();
+         GMUDistributedVersion distVersion = (GMUDistributedVersion)cacheTx.getTransactionVersion();
+         LAST_COMMIT_VC.set(distVersion);
          if (cacheTx.isHasIncomingEdge() && cacheTx.isHasOutgoingEdge()) {
             // System.out.println(Thread.currentThread().getId() + "] both edges exist");
             throw new ValidationException("Both edges exist", null);
          }
 
          long[] computedDeps = cacheTx.getComputedDepsVersion();
-         GMUDistributedVersion distVersion = (GMUDistributedVersion)cacheTx.getTransactionVersion();
          if (!wasComputed(computedDeps)) {
             cacheTx.setComputedDepsVersion(distVersion.getVersions());
          } else {
          }
 
-         LAST_COMMIT_VC.set(distVersion);
           // System.out.println(Thread.currentThread().getId() + "] Alone commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
          return;
       }
+      
+      LAST_COMMIT_VC.set((GMUDistributedVersion) ctx.getTransactionVersion());
       List<EntryVersion> allPreparedVersions = new LinkedList<EntryVersion>();
       FlagsWrapper flagsWrapper = ctx.getPrepareResult();
       allPreparedVersions.add(flagsWrapper.getCreationVersion());
@@ -309,13 +311,14 @@ public class GMUHelper {
          }
       }
 
+      EntryVersion[] preparedVersionsArray = new EntryVersion[allPreparedVersions.size()];
+      EntryVersion commitVersion = versionGenerator.mergeAndMax(allPreparedVersions.toArray(preparedVersionsArray));
+      LAST_COMMIT_VC.set((GMUDistributedVersion) commitVersion);
       if (outFlag && inFlag) {
 //         System.out.println("Both edges exist");
          throw new ValidationException("Both edges exist", null);
       }
 
-      EntryVersion[] preparedVersionsArray = new EntryVersion[allPreparedVersions.size()];
-      EntryVersion commitVersion = versionGenerator.mergeAndMax(allPreparedVersions.toArray(preparedVersionsArray));
 
       if (log.isTraceEnabled()) {
          log.tracef("Merging transaction [%s] prepare versions %s ==> %s", gtx.prettyPrint(), allPreparedVersions,
@@ -333,7 +336,6 @@ public class GMUHelper {
          cacheTx.setComputedDepsVersion(outDep);
       }
 
-      LAST_COMMIT_VC.set(distVersion);
       // System.out.println(Thread.currentThread().getId() + "] out flag: " + cacheTx.isHasOutgoingEdge() + " 2PC commit time: " + Arrays.toString(((GMUDistributedVersion)cacheTx.getTransactionVersion()).getVersions()) + " computed deps: " + Arrays.toString(cacheTx.getComputedDepsVersion()));
    }
 

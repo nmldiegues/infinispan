@@ -25,6 +25,7 @@ package org.infinispan.context;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.LocalTransaction;
 
@@ -155,6 +156,11 @@ public interface InvocationContext extends EntryLookup, FlagContainer, Cloneable
     */
    void setVersionToRead(EntryVersion entryVersion);
 
+   
+   void setBeginVC(GMUVersion beginVC);
+   
+   GMUVersion getBeginVC();
+   
    /**
     * @return true if it has already read from this node
     */

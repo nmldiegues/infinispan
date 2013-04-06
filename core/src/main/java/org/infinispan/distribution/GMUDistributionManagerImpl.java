@@ -44,6 +44,7 @@ import org.infinispan.remoting.rpc.ResponseMode;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.gmu.CommitLog;
+import org.infinispan.transaction.gmu.GMUHelper;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -127,8 +128,11 @@ public class GMUDistributionManagerImpl extends DistributionManagerImpl {
       if (tx != null) {
          isWriteTx = tx.isWriteTx();
       }
+      if (txInvocationContext.getCacheTransaction().getBeginVC() == null) {
+         txInvocationContext.getCacheTransaction().setBeginVC(GMUHelper.LAST_COMMIT_VC.get());
+      }
       ClusteredGetCommand get = cf.buildGMUClusteredGetCommand(key, txInvocationContext.getFlags(), acquireRemoteLock,
-                                                               gtx, transactionVersion, alreadyReadFromMask);
+                                                               gtx, transactionVersion, alreadyReadFromMask, txInvocationContext.getCacheTransaction().getBeginVC());
       if (isWriteTx) {
          Set<Flag> flags = get.getFlags();
          if (flags == null) {
@@ -185,7 +189,7 @@ public class GMUDistributionManagerImpl extends DistributionManagerImpl {
       targets.retainAll(rpcManager.getTransport().getMembers());
 
       ClusteredGetCommand get = cf.buildGMUClusteredGetCommand(key, ctx.getFlags(), false, null,
-                                                               toGMUVersion(commitLog.getCurrentVersion()), null);
+                                                               toGMUVersion(commitLog.getCurrentVersion()), null, null);
 
       if(log.isDebugEnabled()) {
          log.debugf("Perform a single remote get. %s", get);

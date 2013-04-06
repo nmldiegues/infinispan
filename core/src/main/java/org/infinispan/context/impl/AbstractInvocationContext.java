@@ -30,6 +30,7 @@ import java.util.Set;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.remoting.transport.Address;
@@ -62,6 +63,8 @@ public abstract class AbstractInvocationContext implements InvocationContext {
    private Map<Object, InternalGMUCacheEntry> keysRead = null;
 
    private EntryVersion versionToRead;
+   
+   private GMUVersion beginVC;
 
    private boolean alreadyReadOnThisNode;
 
@@ -239,6 +242,14 @@ public abstract class AbstractInvocationContext implements InvocationContext {
    @Override
    public void setVersionToRead(EntryVersion entryVersion) {
       versionToRead = entryVersion;
+   }
+   
+   public void setBeginVC(GMUVersion beginVC) {
+      this.beginVC = beginVC;
+   }
+   
+   public GMUVersion getBeginVC() {
+      return this.beginVC;
    }
 
    @Override

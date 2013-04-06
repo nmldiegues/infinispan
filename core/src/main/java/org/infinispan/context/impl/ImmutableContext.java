@@ -24,6 +24,7 @@ import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.remoting.transport.Address;
@@ -222,6 +223,16 @@ public final class ImmutableContext implements InvocationContext {
    
    @Override
    public LocalTransaction getLocalTransaction() {
+      throw newUnsupportedMethod();
+   }
+
+   @Override
+   public void setBeginVC(GMUVersion beginVC) {
+      throw newUnsupportedMethod();
+   }
+
+   @Override
+   public GMUVersion getBeginVC() {
       throw newUnsupportedMethod();
    }
 }

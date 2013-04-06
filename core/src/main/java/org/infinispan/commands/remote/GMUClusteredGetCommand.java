@@ -58,6 +58,7 @@ import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersionGenerator;
 public class GMUClusteredGetCommand extends ClusteredGetCommand implements ConditionalRunnable {
 
    public static final byte COMMAND_ID = 32;
+   private GMUVersion beginVC;
    //the transaction version. from this version and with the bit set, it calculates the max and min version to read
    private GMUVersion transactionVersion;
    private BitSet alreadyReadFrom;
@@ -76,10 +77,11 @@ public class GMUClusteredGetCommand extends ClusteredGetCommand implements Condi
    }
 
    public GMUClusteredGetCommand(Object key, String cacheName, Set<Flag> flags, boolean acquireRemoteLock,
-                                 GlobalTransaction globalTransaction, GMUVersion txVersion, BitSet alreadyReadFrom) {
+                                 GlobalTransaction globalTransaction, GMUVersion txVersion, BitSet alreadyReadFrom, GMUVersion beginVersion) {
       super(key, cacheName, flags, acquireRemoteLock, globalTransaction);
       this.transactionVersion = txVersion;
       this.alreadyReadFrom = alreadyReadFrom == null || alreadyReadFrom.isEmpty() ? null : alreadyReadFrom;
+      this.beginVC = beginVersion;
    }
 
    public void initializeGMUComponents(CommitLog commitLog, ConditionalExecutorService executorService,
@@ -119,20 +121,22 @@ public class GMUClusteredGetCommand extends ClusteredGetCommand implements Condi
    @Override
    public Object[] getParameters() {
       Object[] original = super.getParameters();
-      Object[] retVal = new Object[original.length + 3];
+      Object[] retVal = new Object[original.length + 4];
       System.arraycopy(original, 0, retVal, 0, original.length);
       int index = original.length;
       retVal[index++] = transactionVersion;
-      retVal[index] = alreadyReadFrom;
+      retVal[index++] = alreadyReadFrom;
+      retVal[index] = beginVC;
       return retVal;
    }
 
    @Override
    public void setParameters(int commandId, Object[] args) {
-      int index = args.length - 3;
+      int index = args.length - 4;
       super.setParameters(commandId, args);
       transactionVersion = (GMUVersion) args[index++];
-      alreadyReadFrom = (BitSet) args[index];
+      alreadyReadFrom = (BitSet) args[index++];
+      beginVC = (GMUVersion) args[index];
    }
 
    @Override
@@ -148,6 +152,7 @@ public class GMUClusteredGetCommand extends ClusteredGetCommand implements Condi
       InvocationContext context = super.createInvocationContext(command);
       context.setAlreadyReadOnThisNode(alreadyReadOnThisNode);
       context.setVersionToRead(commitLog.getAvailableVersionLessThan(maxGMUVersion));
+      context.setBeginVC(beginVC);
       return context;
    }
 

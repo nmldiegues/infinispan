@@ -27,6 +27,7 @@ import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.LocalTransaction;
 
@@ -240,5 +241,15 @@ public class InvocationContextFlagsOverride implements InvocationContext {
    @Override
    public LocalTransaction getLocalTransaction() {
       return delegate.getLocalTransaction();
+   }
+
+   @Override
+   public void setBeginVC(GMUVersion beginVC) {
+      delegate.setBeginVC(beginVC);
+   }
+
+   @Override
+   public GMUVersion getBeginVC() {
+      return delegate.getBeginVC();
    }
 }
