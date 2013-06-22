@@ -286,6 +286,10 @@ public abstract class LocalTransaction extends AbstractCacheTransaction {
       }
       return readFrom;
    }
+   
+   public void forceReadFrom(Set<Address> readFrom) {
+       this.readFrom = readFrom;
+   }
 
    @Override
    public void addReadFrom(Address address) {

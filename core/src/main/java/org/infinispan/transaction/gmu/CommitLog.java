@@ -35,6 +35,7 @@ import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
+import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.gmu.manager.CommittedTransaction;
 import org.infinispan.util.Util;
@@ -92,10 +93,21 @@ public class CommitLog {
 
    }
 
+   public final static ThreadLocal<EntryVersion> forcedRemoteVersion = new ThreadLocal<EntryVersion>();
+   public final static ThreadLocal<Set<Address>> forcedReadFrom = new ThreadLocal<Set<Address>>();
+   
    public final void initLocalTransaction(LocalTransaction localTransaction) {
       if (!enabled) {
          return;
       }
+      // nmld: This forces a remote transaction, that used a DEFTask to this node, to have the correct vector clock
+      EntryVersion version = forcedRemoteVersion.get();
+      if (version != null) {
+	  localTransaction.setTransactionVersion(version);
+	  localTransaction.forceReadFrom(forcedReadFrom.get());
+	  return;
+      }
+      
       GMUVersion transactionVersion;
       synchronized (this) {
          transactionVersion = versionGenerator.updatedVersion(mostRecentVersion);
