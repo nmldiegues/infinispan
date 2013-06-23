@@ -76,6 +76,8 @@ public interface AdvancedCache<K, V> extends Cache<K, V> {
     */
    AdvancedCache<K, V> withFlags(Flag... flags);
 
+   org.infinispan.transaction.TransactionTable getTxTable();
+   
    /**
     * Adds a custom interceptor to the interceptor chain, at specified position, where the first interceptor in the
     * chain is at position 0 and the last one at NUM_INTERCEPTORS - 1.

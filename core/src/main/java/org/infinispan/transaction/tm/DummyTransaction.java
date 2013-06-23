@@ -93,6 +93,19 @@ public class DummyTransaction implements Transaction {
          tm_.setTransaction(null);
       }
    }
+   
+   public void prepareOrder() throws RollbackException, HeuristicMixedException, HeuristicRollbackException, SecurityException, SystemException {
+       runPrepare();
+       if (status == Status.STATUS_MARKED_ROLLBACK || status == Status.STATUS_ROLLING_BACK) {
+	   runRollback();
+	   throw new RollbackException("Exception rolled back, status is: " + status);
+       }
+   }
+   
+   public void commitOrder() throws RollbackException, HeuristicMixedException, HeuristicRollbackException, SecurityException, SystemException {
+       runCommitTx();
+       tm_.setTransaction(null);
+   }
 
    /**
     * Rolls back this transaction.

@@ -31,6 +31,7 @@ import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.Configurations;
 import org.infinispan.context.InvocationContextContainer;
 import org.infinispan.context.impl.LocalTxInvocationContext;
+import org.infinispan.distexec.DefaultExecutorService;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
@@ -44,7 +45,11 @@ import org.infinispan.util.logging.LogFactory;
 
 import javax.transaction.Transaction;
 import javax.transaction.xa.XAException;
+
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Future;
 
 import static javax.transaction.xa.XAResource.XA_OK;
 import static javax.transaction.xa.XAResource.XA_RDONLY;
@@ -145,6 +150,8 @@ public class TransactionCoordinator {
       return prepare(localTransaction, false);
    }
 
+   public static DefaultExecutorService des;
+   
    public final int prepare(LocalTransaction localTransaction, boolean replayEntryWrapping) throws XAException {
       validateNotMarkedForRollback(localTransaction);
 
@@ -167,20 +174,38 @@ public class TransactionCoordinator {
       PrepareCommand prepareCommand = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), modificationsList, false);
       if (trace) log.tracef("Sending prepare command through the chain: %s", prepareCommand);
 
+      // potential cool place to send asynch prepares to remote txs, and check them out after doing the local prepare
+      Map<Object, GlobalTransaction> remoteDEFs = localTransaction.getRemoteDEFs();
+      List<Future> defAnswers = null;
+      if (remoteDEFs != null) {
+	  defAnswers = new ArrayList<Future>(remoteDEFs.size());
+	  for (Map.Entry<Object, GlobalTransaction> entry : remoteDEFs.entrySet()) {
+	      defAnswers.add(des.submit(new DEFPrepare(entry.getValue()), entry.getKey()));
+	  }
+      }
+      
       LocalTxInvocationContext ctx = icc.createTxInvocationContext();
       prepareCommand.setReplayEntryWrapping(replayEntryWrapping);
       ctx.setLocalTransaction(localTransaction);
       try {
          invoker.invoke(ctx, prepareCommand);
-         if (localTransaction.isReadOnly()) {
-            if (trace) log.tracef("Readonly transaction: %s", localTransaction.getGlobalTransaction());
-            // force a cleanup to release any objects held.  Some TMs don't call commit if it is a READ ONLY tx.  See ISPN-845
-            commit(localTransaction, false);
-            return XA_RDONLY;
-         } else {
+         
+         if (defAnswers != null) {
+             for (Future fut : defAnswers) {
+        	 Object res = fut.get();
+        	 // TODO deal with possible exception on prepare
+             }
+         }
+         
+//         if (localTransaction.isReadOnly()) {
+//            if (trace) log.tracef("Readonly transaction: %s", localTransaction.getGlobalTransaction());
+//            // force a cleanup to release any objects held.  Some TMs don't call commit if it is a READ ONLY tx.  See ISPN-845
+//            commit(localTransaction, false);
+//            return XA_RDONLY;
+//         } else {
             txTable.localTransactionPrepared(localTransaction);
             return XA_OK;
-         }
+//         }
       } catch (Throwable e) {
          if (shuttingDown)
             log.trace("Exception while preparing back, probably because we're shutting down.");
@@ -233,10 +258,29 @@ public class TransactionCoordinator {
             protocolTable.remove(localTransaction.getTransaction());
          }
       } else {
+	  
+	  // potential cool place to send asynch prepares to remote txs, and check them out after doing the local prepare
+	  Map<Object, GlobalTransaction> remoteDEFs = localTransaction.getRemoteDEFs();
+	  List<Future> defAnswers = null;
+	  if (remoteDEFs != null) {
+	      defAnswers = new ArrayList<Future>(remoteDEFs.size());
+	      for (Map.Entry<Object, GlobalTransaction> entry : remoteDEFs.entrySet()) {
+		  defAnswers.add(des.submit(new DEFCommit(entry.getValue()), entry.getKey()));
+	      }
+	  }
+	  
          CommitCommand commitCommand = commandCreator.createCommitCommand(localTransaction.getGlobalTransaction());
          try {
             invoker.invoke(ctx, commitCommand);
             txTable.removeLocalTransaction(localTransaction);
+            
+            if (defAnswers != null) {
+                for (Future fut : defAnswers) {
+           	 Object res = fut.get();
+           	 // TODO deal with possible exception on prepare
+                }
+            }
+            
          } catch (Throwable e) {
             handleCommitFailure(e, localTransaction, false);
          } finally {
@@ -246,7 +290,17 @@ public class TransactionCoordinator {
    }
 
    public void rollback(LocalTransaction localTransaction) throws XAException {
+       List<Future> defAnswers = null;
       try {
+	  // potential cool place to send asynch rollback to remote txs, and check them out after doing the local prepare
+	  Map<Object, GlobalTransaction> remoteDEFs = localTransaction.getRemoteDEFs();
+	  if (remoteDEFs != null) {
+	      defAnswers = new ArrayList<Future>(remoteDEFs.size());
+	      for (Map.Entry<Object, GlobalTransaction> entry : remoteDEFs.entrySet()) {
+		  defAnswers.add(des.submit(new DEFRollback(entry.getValue()), entry.getKey()));
+	      }
+	  }
+	  
          rollbackInternal(localTransaction);
       } catch (Throwable e) {
          if (shuttingDown)
@@ -261,6 +315,15 @@ public class TransactionCoordinator {
          }
          throw new XAException(XAException.XAER_RMERR);
       }  finally {
+	  
+	  if (defAnswers != null) {
+	      for (Future fut : defAnswers) {
+		  try {
+		  fut.get();
+		  } catch(Exception e) {}
+	      }
+	  }
+	  
          protocolTable.remove(localTransaction.getTransaction());
       }
    }

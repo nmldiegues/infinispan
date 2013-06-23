@@ -105,6 +105,27 @@ public class DummyBaseTransactionManager implements TransactionManager, Serializ
       // Disassociate tx from thread.
       setTransaction(null);
    }
+   
+   public void prepareRequest() throws RollbackException, HeuristicMixedException,
+   HeuristicRollbackException, SecurityException,
+   IllegalStateException, SystemException {
+       DummyTransaction tx = getTransaction();
+       int status = tx.getStatus();
+       if (status == Status.STATUS_MARKED_ROLLBACK) {
+	   tx.setStatus(Status.STATUS_ROLLEDBACK);
+	   rollback();
+	   throw new RollbackException("Transaction status is Status.STATUS_MARKED_ROLLBACK");
+       } else {
+	   tx.prepareOrder();
+       }
+   }
+   
+   public void commitOrder() throws RollbackException, HeuristicMixedException,
+   HeuristicRollbackException, SecurityException,
+   IllegalStateException, SystemException{
+       DummyTransaction tx = getTransaction();
+       tx.commitOrder();
+   }
 
    /**
     * Rolls back the transaction associated with the calling thread.
