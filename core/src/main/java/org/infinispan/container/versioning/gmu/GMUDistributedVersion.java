@@ -70,6 +70,10 @@ public class GMUDistributedVersion extends GMUVersion {
       return getVersionValue(clusterSnapshot.indexOf(address));
    }
 
+   public void setVersionValue(Address address, long val) {
+       this.versions[clusterSnapshot.indexOf(address)] = val;
+   }
+   
    @Override
    public long getVersionValue(int addressIndex) {
       return validIndex(addressIndex) ? versions[addressIndex] : NON_EXISTING;
