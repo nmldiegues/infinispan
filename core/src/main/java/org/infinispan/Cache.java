@@ -29,6 +29,7 @@ import org.infinispan.loaders.CacheStore;
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.notifications.Listenable;
+import org.infinispan.transaction.CacheCallable;
 import org.infinispan.util.concurrent.NotifyingFuture;
 
 import java.util.Collection;
@@ -236,4 +237,6 @@ public interface Cache<K, V> extends BasicCache<K, V>, Listenable {
     */
    @Override
    Set<Map.Entry<K, V>> entrySet();
+   
+   public <T> T executeDEF(CacheCallable<T> task, K key) throws Exception;
 }

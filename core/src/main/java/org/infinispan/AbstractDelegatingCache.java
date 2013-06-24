@@ -376,4 +376,8 @@ public abstract class AbstractDelegatingCache<K, V> implements Cache<K, V> {
    public Cache<K, V> getDelegate() {
       return cache;
    }
+   
+   public <T> T executeDEF(org.infinispan.transaction.CacheCallable<T> task, K key) throws Exception {
+      return cache.executeDEF(task, key);
+   }
 }

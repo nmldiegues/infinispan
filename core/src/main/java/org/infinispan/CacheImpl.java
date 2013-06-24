@@ -48,6 +48,8 @@ import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
+import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextContainer;
@@ -73,10 +75,16 @@ import org.infinispan.marshall.StreamingMarshaller;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.remoting.responses.ResponseGenerator;
 import org.infinispan.remoting.rpc.RpcManager;
+import org.infinispan.remoting.transport.Address;
 import org.infinispan.stats.Stats;
 import org.infinispan.stats.StatsImpl;
+import org.infinispan.transaction.CacheCallable;
+import org.infinispan.transaction.DEFResult;
+import org.infinispan.transaction.DEFTask;
+import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.TransactionCoordinator;
 import org.infinispan.transaction.TransactionTable;
+import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.transaction.xa.TransactionXaAdapter;
 import org.infinispan.transaction.xa.recovery.RecoveryManager;
 import org.infinispan.util.Util;
@@ -153,23 +161,23 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
 
    @Inject
    public void injectDependencies(EvictionManager evictionManager,
-                                  InvocationContextContainer icc,
-                                  CommandsFactory commandsFactory,
-                                  InterceptorChain interceptorChain,
-                                  Configuration configuration,
-                                  CacheNotifier notifier,
-                                  ComponentRegistry componentRegistry,
-                                  TransactionManager transactionManager,
-                                  BatchContainer batchContainer,
-                                  RpcManager rpcManager, DataContainer dataContainer,
-                                  @ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller,
-                                  ResponseGenerator responseGenerator,
-                                  DistributionManager distributionManager,
-                                  EmbeddedCacheManager cacheManager,
-                                  @ComponentName(ASYNC_TRANSPORT_EXECUTOR) ExecutorService asyncExecutor,
-                                  TransactionTable txTable, RecoveryManager recoveryManager, TransactionCoordinator txCoordinator,
-                                  LockManager lockManager,
-                                  GlobalConfiguration globalCfg) {
+         InvocationContextContainer icc,
+         CommandsFactory commandsFactory,
+         InterceptorChain interceptorChain,
+         Configuration configuration,
+         CacheNotifier notifier,
+         ComponentRegistry componentRegistry,
+         TransactionManager transactionManager,
+         BatchContainer batchContainer,
+         RpcManager rpcManager, DataContainer dataContainer,
+         @ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller,
+         ResponseGenerator responseGenerator,
+         DistributionManager distributionManager,
+         EmbeddedCacheManager cacheManager,
+         @ComponentName(ASYNC_TRANSPORT_EXECUTOR) ExecutorService asyncExecutor,
+         TransactionTable txTable, RecoveryManager recoveryManager, TransactionCoordinator txCoordinator,
+         LockManager lockManager,
+         GlobalConfiguration globalCfg) {
       this.commandsFactory = commandsFactory;
       this.invoker = interceptorChain;
       this.config = configuration;
@@ -319,7 +327,7 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
    @ManagedOperation(
          description = "Clears the cache",
          displayName = "Clears the cache", name = "clear"
-   )
+         )
    public final void clearOperation() {
       //if we have a TM then this cache is transactional.
       // We shouldn't rely on the auto-commit option as it might be disabled, so always start a tm.
@@ -465,7 +473,7 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
    private InvocationContext getInvocationContextForWrite(ClassLoader explicitClassLoader, int keyCount, boolean isPutForExternalRead) {
       InvocationContext ctx = isPutForExternalRead ?
             icc.createSingleKeyNonTxInvocationContext() : icc.createInvocationContext(true, keyCount);
-      return setInvocationContextClassLoader(ctx, explicitClassLoader);
+            return setInvocationContextClassLoader(ctx, explicitClassLoader);
    }
 
    private InvocationContext getInvocationContextForRead(Transaction tx, ClassLoader explicitClassLoader, int keyCount) {
@@ -578,7 +586,7 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
    @ManagedOperation(
          description = "Starts the cache.",
          displayName = "Starts cache."
-   )
+         )
    public void start() {
       componentRegistry.start();
       defaultLifespan = config.expiration().lifespan();
@@ -595,7 +603,7 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
    @ManagedOperation(
          description = "Stops the cache.",
          displayName = "Stops cache."
-   )
+         )
    public void stop() {
       stop(null);
    }
@@ -664,7 +672,7 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
          displayName = "Cache status",
          dataType = DataType.TRAIT,
          displayType = DisplayType.SUMMARY
-   )
+         )
    public String getCacheStatus() {
       return getStatus().toString();
    }
@@ -698,7 +706,7 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
          displayName = "Cache name",
          dataType = DataType.TRAIT,
          displayType = DisplayType.SUMMARY
-   )
+         )
    public String getCacheName() {
       String name = getName().equals(CacheContainer.DEFAULT_CACHE_NAME) ? "Default Cache" : getName();
       return name + "(" + getConfiguration().getCacheModeString().toLowerCase() + ")";
@@ -712,7 +720,7 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
          displayName = "Cache configuration (XML)",
          dataType = DataType.TRAIT,
          displayType = DisplayType.SUMMARY
-   )
+         )
    public String getConfigurationAsXmlString() {
       return getConfiguration().toXmlString();
    }
@@ -1238,7 +1246,7 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
    @Override
    protected void set(K key, V value) {
       withFlags(Flag.IGNORE_RETURN_VALUES)
-            .put(key, value, defaultLifespan, MILLISECONDS, defaultMaxIdleTime, MILLISECONDS);
+      .put(key, value, defaultLifespan, MILLISECONDS, defaultMaxIdleTime, MILLISECONDS);
    }
 
    private void associateImplicitTransactionWithCurrentThread(InvocationContext ctx) throws InvalidTransactionException, SystemException {
@@ -1249,14 +1257,43 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
          transactionManager.resume(transaction);
       }
    }
-    public void setClass(String transactionalClass){
+   public void setClass(String transactionalClass){
       SetClassCommand command = commandsFactory.buildSetClassCommand(transactionalClass);
       InvocationContext ctx = getInvocationContextForRead(null, null, 1);
       invoker.invoke(ctx, command);
    }
 
-    @Override
-    public TransactionTable getTxTable() {
-	return this.txTable;
-    }
+   @Override
+   public TransactionTable getTxTable() {
+      return this.txTable;
+   }
+   
+   public <T> T executeDEF(CacheCallable<T> task, K key) throws Exception {
+      DEFResult<T> res = null;
+      LocalTransaction localTx = txTable.getLocalTransaction(getOngoingTransaction());
+      GMUDistributedVersion version = (GMUDistributedVersion) localTx.getTransactionVersion();
+      Set<Address> readFrom = localTx.getReadFrom();
+      DEFTask<K, V, T> defTask = new DEFTask<K, V, T>(task, version, readFrom);
+      try {
+         res = TransactionCoordinator.des.submit(defTask, key).get();
+         long updatedVersion = res.getUpdatedVersion();
+         Address remoteNode = res.getNode();
+         version.setVersionValue(remoteNode, updatedVersion);
+         localTx.addReadFrom(remoteNode);
+         localTx.addRemoteDEFTx(key, res.getGlobalTx());
+      } catch (InterruptedException e) {
+         e.printStackTrace();
+         System.exit(-1);
+      } catch (ExecutionException e) {
+         Throwable t = e.getCause();
+         if (t instanceof Exception) {
+            throw (Exception)t;
+         } else {
+            t.printStackTrace();
+            System.exit(-1);
+         }
+      }
+      
+      return res.getData();
+   }
 }
