@@ -23,6 +23,7 @@
 package org.infinispan.interceptors.gmu;
 
 import org.infinispan.CacheException;
+import org.infinispan.commands.AbstractFlagAffectedCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.GMUCommitCommand;
@@ -42,6 +43,7 @@ import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.container.versioning.gmu.GMUCacheEntryVersion;
 import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
+import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextContainer;
 import org.infinispan.context.SingleKeyNonTxInvocationContext;
@@ -221,7 +223,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
    public Object visitGetKeyValueCommand(InvocationContext ctx, GetKeyValueCommand command) throws Throwable {
       ctx.clearKeyReadInCommand();
       Object retVal = super.visitGetKeyValueCommand(ctx, command);
-      updateTransactionVersion(ctx);
+      updateTransactionVersion(ctx, command);
       return retVal;
    }
 
@@ -229,7 +231,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
    public Object visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
       ctx.clearKeyReadInCommand();
       Object retVal = super.visitPutKeyValueCommand(ctx, command);
-      updateTransactionVersion(ctx);
+      updateTransactionVersion(ctx, command);
       return retVal;
    }
 
@@ -237,7 +239,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
    public Object visitRemoveCommand(InvocationContext ctx, RemoveCommand command) throws Throwable {
       ctx.clearKeyReadInCommand();
       Object retVal = super.visitRemoveCommand(ctx, command);
-      updateTransactionVersion(ctx);
+      updateTransactionVersion(ctx, command);
       return retVal;
    }
 
@@ -245,7 +247,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
    public Object visitReplaceCommand(InvocationContext ctx, ReplaceCommand command) throws Throwable {
       ctx.clearKeyReadInCommand();
       Object retVal = super.visitReplaceCommand(ctx, command);
-      updateTransactionVersion(ctx);
+      updateTransactionVersion(ctx, command);
       return retVal;
    }
 
@@ -300,7 +302,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       }
    }
 
-   private void updateTransactionVersion(InvocationContext context) {
+   private void updateTransactionVersion(InvocationContext context, AbstractFlagAffectedCommand command) {
       if (!context.isInTxScope() && !context.isOriginLocal()) {
          return;
       }
@@ -329,7 +331,9 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          if (internalGMUCacheEntry.getMaximumTransactionVersion() != null) {
             entryVersionList.add(internalGMUCacheEntry.getMaximumTransactionVersion());
          }
-         txInvocationContext.getCacheTransaction().addReadKey(internalGMUCacheEntry.getKey());
+         if (!command.hasFlag(Flag.READ_WITHOUT_REGISTERING)) {
+            txInvocationContext.getCacheTransaction().addReadKey(internalGMUCacheEntry.getKey());
+         } 
          if (cdl.localNodeIsOwner(internalGMUCacheEntry.getKey())) {
             txInvocationContext.setAlreadyReadOnThisNode(true);
             txInvocationContext.addReadFrom(cdl.getAddress());
