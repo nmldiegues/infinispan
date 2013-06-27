@@ -22,6 +22,33 @@
  */
 package org.infinispan;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.infinispan.context.Flag.FAIL_SILENTLY;
+import static org.infinispan.context.Flag.FORCE_ASYNCHRONOUS;
+import static org.infinispan.context.Flag.PUT_FOR_EXTERNAL_READ;
+import static org.infinispan.context.Flag.ZERO_LOCK_ACQUISITION_TIMEOUT;
+import static org.infinispan.context.InvocationContextContainer.UNBOUNDED;
+import static org.infinispan.factories.KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR;
+import static org.infinispan.factories.KnownComponentNames.CACHE_MARSHALLER;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import javax.transaction.InvalidTransactionException;
+import javax.transaction.SystemException;
+import javax.transaction.Transaction;
+import javax.transaction.TransactionManager;
+import javax.transaction.xa.XAResource;
+
 import org.infinispan.atomic.Delta;
 import org.infinispan.batch.BatchContainer;
 import org.infinispan.commands.CommandsFactory;
@@ -41,14 +68,13 @@ import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commands.write.PutMapCommand;
 import org.infinispan.commands.write.RemoveCommand;
 import org.infinispan.commands.write.ReplaceCommand;
+import org.infinispan.config.ConfigurationException;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.LegacyConfigurationAdaptor;
-import org.infinispan.config.ConfigurationException;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
-import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
@@ -84,7 +110,6 @@ import org.infinispan.transaction.DEFTask;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.TransactionCoordinator;
 import org.infinispan.transaction.TransactionTable;
-import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.transaction.xa.TransactionXaAdapter;
 import org.infinispan.transaction.xa.recovery.RecoveryManager;
 import org.infinispan.util.Util;
@@ -94,28 +119,6 @@ import org.infinispan.util.concurrent.NotifyingFutureAdaptor;
 import org.infinispan.util.concurrent.locks.LockManager;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
-
-import javax.transaction.InvalidTransactionException;
-import javax.transaction.SystemException;
-import javax.transaction.Transaction;
-import javax.transaction.TransactionManager;
-import javax.transaction.xa.XAResource;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.infinispan.context.Flag.*;
-import static org.infinispan.context.InvocationContextContainer.*;
-import static org.infinispan.factories.KnownComponentNames.*;
 
 /**
  * @author Mircea.Markus@jboss.com
@@ -1296,4 +1299,5 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
       
       return res.getData();
    }
+   
 }

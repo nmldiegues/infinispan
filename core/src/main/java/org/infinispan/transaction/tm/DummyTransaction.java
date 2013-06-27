@@ -23,8 +23,17 @@
 package org.infinispan.transaction.tm;
 
 
-import org.infinispan.util.logging.Log;
-import org.infinispan.util.logging.LogFactory;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
 
 import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
@@ -36,11 +45,9 @@ import javax.transaction.Transaction;
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+
+import org.infinispan.util.logging.Log;
+import org.infinispan.util.logging.LogFactory;
 
 /**
  * @author bela
@@ -250,6 +257,15 @@ public class DummyTransaction implements Transaction {
       return retval;
    }
 
+   public static final ExecutorService es = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2, new ThreadFactory() {
+      @Override
+      public Thread newThread(Runnable arg0) {
+         Thread t = new Thread(arg0);
+         t.setDaemon(true);
+         return t;
+      }
+   });
+   
    public boolean runPrepare() throws SystemException {
 
       boolean successfulInit = notifyBeforeCompletion();
@@ -260,19 +276,70 @@ public class DummyTransaction implements Transaction {
          status = Status.STATUS_ROLLING_BACK;
       }
 
-      DummyTransaction transaction = tm_.getTransaction();
+      final DummyTransaction transaction = tm_.getTransaction();
       Collection<XAResource> resources = transaction.getEnlistedResources();
-      for (XAResource res : resources) {
+      List<Future<Exception>> results = resources.size() == 1 ? null : new ArrayList<Future<Exception>>(resources.size() - 1);
+      Iterator<XAResource> it = resources.iterator();
+      while (it.hasNext()) {
+         final XAResource res = it.next();
+         Callable<Exception> callable = new Callable<Exception>() {
+            @Override
+            public Exception call() throws Exception {
+               try {
+                  int prepareStatus = res.prepare(xid);
+                  transaction.setPrepareStatus(prepareStatus);
+                  return null;
+               } catch (XAException e) {
+                  return e;
+               } catch (Throwable th) {
+                  return new SystemException(th.getMessage());
+               }               
+            }
+         };
+         
+         if (it.hasNext()) {
+            results.add(es.submit(callable));
+         } else {
+            Exception result = null;
+            try {
+               result = callable.call();
+            } catch (Exception e) {
+               e.printStackTrace();
+               System.exit(1);
+            }
+            if (result != null) {
+               if (result instanceof XAException) {
+                  log.trace("The resource wants to rollback!", result);
+                  status = Status.STATUS_ROLLING_BACK;
+                  for (Future<?> fut : results) fut.cancel(false);
+                  return false;
+               } else {
+                  throw (SystemException) result;
+               }
+            }
+         }
+      }
+      
+      for (int i = 0; i < results.size(); i++) {
+         Future<Exception> fut = results.get(i);
+         Exception result = null;
          try {
-            int prepareStatus = res.prepare(xid);
-            transaction.setPrepareStatus(prepareStatus);
-         } catch (XAException e) {
-            log.trace("The resource wants to rollback!", e);
-            status = Status.STATUS_ROLLING_BACK;
-            return false;
-         } catch (Throwable th) {
-            log.unexpectedErrorFromResourceManager(th);
-            throw new SystemException(th.getMessage());
+            result = fut.get();
+         } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1);
+         }
+         if (result != null) {
+            if (result instanceof XAException) {
+               log.trace("The resource wants to rollback!", result);
+               status = Status.STATUS_ROLLING_BACK;
+               for (int j = i + 1; j < results.size(); j++) {
+                  results.get(j).cancel(false);
+               }
+               return false;
+            } else {
+               throw (SystemException) result;
+            }
          }
       }
 
@@ -310,12 +377,27 @@ public class DummyTransaction implements Transaction {
    public void runRollback() {
       DummyTransaction transaction = tm_.getTransaction();
       Collection<XAResource> resources = transaction.getEnlistedResources();
-      for (XAResource res : resources) {
-         try {
-            res.rollback(xid);
-         } catch (XAException e) {
-            log.errorRollingBack(e);
+      int i = 0;
+      for(final XAResource res : resources) {
+         if (i == 0) {
+            try {
+               res.rollback(xid);
+            } catch (XAException e) {
+               log.errorRollingBack(e);
+            }            
+         } else {
+            es.submit(new Runnable() {
+               @Override
+               public void run() {
+                  try {
+                     res.rollback(xid);
+                  } catch (XAException e) {
+                     log.errorRollingBack(e);
+                  }
+               }
+            });
          }
+         i++;
       }
    }
 
@@ -328,13 +410,45 @@ public class DummyTransaction implements Transaction {
             log.debug("This is a read-only tx");
          } else {
             Collection<XAResource> resources = transaction.getEnlistedResources();
-            for (XAResource res : resources) {
+            List<Future<Exception>> results = resources.size() == 1 ? null : new ArrayList<Future<Exception>>(resources.size() - 1);
+            Iterator<XAResource> it = resources.iterator();
+            while (it.hasNext()) {
+               final XAResource res = it.next();
+               results.add(es.submit(new Callable<Exception>() {
+                  @Override
+                  public Exception call() throws Exception {
+                     try {
+                        //we only do 2-phase commits
+                        res.commit(xid, false);
+                        return null;
+                     } catch (XAException e) {
+                        log.errorCommittingTx(e);
+                        return new HeuristicMixedException(e.getMessage());
+                     }        
+                  }
+               }));
+               if (!it.hasNext()) {
+                  try {
+                     //we only do 2-phase commits
+                     res.commit(xid, false);
+                  } catch (XAException e) {
+                     for (Future<?> fut : results) fut.cancel(false);
+                     log.errorCommittingTx(e);
+                     throw new HeuristicMixedException(e.getMessage());
+                  }                  
+               }
+            }
+            for (int i = 0; i < results.size(); i++) {
+               Future<Exception> fut = results.get(i);
+               Exception result = null;
                try {
-                  //we only do 2-phase commits
-                  res.commit(xid, false);
-               } catch (XAException e) {
-                  log.errorCommittingTx(e);
-                  throw new HeuristicMixedException(e.getMessage());
+                  result = fut.get();
+               } catch (Exception e) {
+                  e.printStackTrace();
+                  System.exit(1);
+               }
+               if (result != null) {
+                  throw (HeuristicMixedException) result;
                }
             }
          }
