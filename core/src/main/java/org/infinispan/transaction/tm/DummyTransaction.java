@@ -320,25 +320,27 @@ public class DummyTransaction implements Transaction {
          }
       }
       
-      for (int i = 0; i < results.size(); i++) {
-         Future<Exception> fut = results.get(i);
-         Exception result = null;
-         try {
-            result = fut.get();
-         } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(1);
-         }
-         if (result != null) {
-            if (result instanceof XAException) {
-               log.trace("The resource wants to rollback!", result);
-               status = Status.STATUS_ROLLING_BACK;
-               for (int j = i + 1; j < results.size(); j++) {
-                  results.get(j).cancel(false);
+      if (results != null) {
+         for (int i = 0; i < results.size(); i++) {
+            Future<Exception> fut = results.get(i);
+            Exception result = null;
+            try {
+               result = fut.get();
+            } catch (Exception e) {
+               e.printStackTrace();
+               System.exit(1);
+            }
+            if (result != null) {
+               if (result instanceof XAException) {
+                  log.trace("The resource wants to rollback!", result);
+                  status = Status.STATUS_ROLLING_BACK;
+                  for (int j = i + 1; j < results.size(); j++) {
+                     results.get(j).cancel(false);
+                  }
+                  return false;
+               } else {
+                  throw (SystemException) result;
                }
-               return false;
-            } else {
-               throw (SystemException) result;
             }
          }
       }
@@ -414,41 +416,46 @@ public class DummyTransaction implements Transaction {
             Iterator<XAResource> it = resources.iterator();
             while (it.hasNext()) {
                final XAResource res = it.next();
-               results.add(es.submit(new Callable<Exception>() {
-                  @Override
-                  public Exception call() throws Exception {
-                     try {
-                        //we only do 2-phase commits
-                        res.commit(xid, false);
-                        return null;
-                     } catch (XAException e) {
-                        log.errorCommittingTx(e);
-                        return new HeuristicMixedException(e.getMessage());
-                     }        
-                  }
-               }));
-               if (!it.hasNext()) {
+               if (it.hasNext()) {
+                  results.add(es.submit(new Callable<Exception>() {
+                     @Override
+                     public Exception call() throws Exception {
+                        try {
+                           //we only do 2-phase commits
+                           res.commit(xid, false);
+                           return null;
+                        } catch (XAException e) {
+                           log.errorCommittingTx(e);
+                           return new HeuristicMixedException(e.getMessage());
+                        }        
+                     }
+                  }));
+               } else {
                   try {
                      //we only do 2-phase commits
                      res.commit(xid, false);
                   } catch (XAException e) {
-                     for (Future<?> fut : results) fut.cancel(false);
+                     if (results != null) {
+                        for (Future<?> fut : results) fut.cancel(false);
+                     }
                      log.errorCommittingTx(e);
                      throw new HeuristicMixedException(e.getMessage());
                   }                  
                }
             }
-            for (int i = 0; i < results.size(); i++) {
-               Future<Exception> fut = results.get(i);
-               Exception result = null;
-               try {
-                  result = fut.get();
-               } catch (Exception e) {
-                  e.printStackTrace();
-                  System.exit(1);
-               }
-               if (result != null) {
-                  throw (HeuristicMixedException) result;
+            if (results != null) {
+               for (int i = 0; i < results.size(); i++) {
+                  Future<Exception> fut = results.get(i);
+                  Exception result = null;
+                  try {
+                     result = fut.get();
+                  } catch (Exception e) {
+                     e.printStackTrace();
+                     System.exit(1);
+                  }
+                  if (result != null) {
+                     throw (HeuristicMixedException) result;
+                  }
                }
             }
          }
