@@ -103,17 +103,11 @@ public class GroupingConsistentHash implements ConsistentHash {
 
    @Override
    public Set<Address> locateAllOwners(Collection<Object> keys) {
-      // We have to duplicate the work in DefaultConsistentHash.locateAllOwners
-      // because there's no way to call back from DCH to our getSegment(key) method.
-      HashSet<Integer> segments = new HashSet<Integer>();
+      HashSet<Address> result = new HashSet<Address>();
       for (Object key : keys) {
-         segments.add(getSegment(key));
+          result.addAll(this.locateOwners(getGroupKey(key)));
       }
-      HashSet<Address> owners = new HashSet<Address>();
-      for (Integer segment : segments) {
-         owners.addAll(locateOwnersForSegment(segment));
-      }
-      return owners;
+      return result;
    }
 
    @Override
