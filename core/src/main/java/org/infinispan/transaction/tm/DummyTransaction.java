@@ -311,7 +311,9 @@ public class DummyTransaction implements Transaction {
                if (result instanceof XAException) {
                   log.trace("The resource wants to rollback!", result);
                   status = Status.STATUS_ROLLING_BACK;
-                  for (Future<?> fut : results) fut.cancel(false);
+                  if (results != null) {
+                      for (Future<?> fut : results) fut.cancel(false);
+                  }
                   return false;
                } else {
                   throw (SystemException) result;
