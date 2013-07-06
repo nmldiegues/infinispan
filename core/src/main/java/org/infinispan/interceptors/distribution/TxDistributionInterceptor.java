@@ -31,6 +31,7 @@ import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commands.write.RemoveCommand;
 import org.infinispan.commands.write.ReplaceCommand;
 import org.infinispan.commands.write.WriteCommand;
+import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
@@ -305,6 +306,8 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
             else
                ctx.putLookedUpEntry(key, ice);
          }
+         CacheEntry entry = ctx.lookupEntry(key);
+         if (entry != null && entry.isRemoved()) return null;
          return command instanceof GetCacheEntryCommand ? ice : ice.getValue();
       }
       return null;
