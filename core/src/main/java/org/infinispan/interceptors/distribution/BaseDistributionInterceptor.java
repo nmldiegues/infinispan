@@ -108,23 +108,23 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
    public Object visitPutMapCommand(InvocationContext ctx, PutMapCommand command) throws Throwable {
       // don't bother with a remote get for the PutMapCommand!
       return handleWriteCommand(ctx, command,
-                                new MultipleKeysRecipientGenerator(command.getMap().keySet()), true, false);
+                                new MultipleKeysRecipientGenerator(command.getMap().keySet()), true, false, false);
    }
 
    @Override
    public Object visitRemoveCommand(InvocationContext ctx, RemoveCommand command) throws Throwable {
 
       return handleWriteCommand(ctx, command,
-                                new SingleKeyRecipientGenerator(command.getKey()), false, false);
+                                new SingleKeyRecipientGenerator(command.getKey()), false, false, true);
    }
 
    @Override
    public Object visitReplaceCommand(InvocationContext ctx, ReplaceCommand command) throws Throwable {
       return handleWriteCommand(ctx, command,
-                                new SingleKeyRecipientGenerator(command.getKey()), false, false);
+                                new SingleKeyRecipientGenerator(command.getKey()), false, false, false);
    }
 
-   protected abstract Object handleWriteCommand(InvocationContext ctx, WriteCommand command, RecipientGenerator recipientGenerator, boolean skipRemoteGet, boolean skipL1Invalidation) throws Throwable;
+   protected abstract Object handleWriteCommand(InvocationContext ctx, WriteCommand command, RecipientGenerator recipientGenerator, boolean skipRemoteGet, boolean skipL1Invalidation, boolean remove) throws Throwable;
 
    /**
     * If a single owner has been configured and the target for the key is the local address, it returns true.

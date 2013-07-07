@@ -134,7 +134,7 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
    @Override
    public Object visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
       SingleKeyRecipientGenerator skrg = new SingleKeyRecipientGenerator(command.getKey());
-      Object returnValue = handleWriteCommand(ctx, command, skrg, command.hasFlag(Flag.PUT_FOR_STATE_TRANSFER), false);
+      Object returnValue = handleWriteCommand(ctx, command, skrg, command.hasFlag(Flag.PUT_FOR_STATE_TRANSFER), false, false);
       if (ignorePreviousValueOnBackup(command, ctx)) {
          command.setPutIfAbsent(false);
       }
@@ -147,7 +147,7 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
 
    @Override
    public Object visitClearCommand(InvocationContext ctx, ClearCommand command) throws Throwable {
-      return handleWriteCommand(ctx, command, CLEAR_COMMAND_GENERATOR, false, true);
+      return handleWriteCommand(ctx, command, CLEAR_COMMAND_GENERATOR, false, true, false);
    }
 
 
@@ -168,7 +168,7 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
                returnValue = remoteGetAndStoreInL1(ctx, key, false, command);
             }
             if (returnValue == null) {
-               returnValue = localGet(ctx, key, false, command);
+               returnValue = localGet(ctx, key, false, command, false);
             }
          }
          return returnValue;
@@ -178,11 +178,16 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
       }
    }
 
-   protected void lockAndWrap(InvocationContext ctx, Object key, InternalCacheEntry ice, FlagAffectedCommand command) throws InterruptedException {
+   protected void lockAndWrap(InvocationContext ctx, Object key, InternalCacheEntry ice, FlagAffectedCommand command, boolean remove) throws InterruptedException {
       boolean skipLocking = hasSkipLocking(command);
       long lockTimeout = getLockAcquisitionTimeout(command, skipLocking);
       lockManager.acquireLock(ctx, key, lockTimeout, skipLocking, false);
-      entryFactory.wrapEntryForPut(ctx, key, ice, false, command);
+      if (remove) {
+	  entryFactory.wrapEntryForRemove(ctx, key);
+      }
+      else {
+	  entryFactory.wrapEntryForPut(ctx, key, ice, false, command);
+      }
    }
 
    @Override
@@ -285,16 +290,17 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
     * If we are within one transaction we won't do any replication as replication would only be performed at commit
     * time. If the operation didn't originate locally we won't do any replication either.
     */
-   protected Object handleWriteCommand(InvocationContext ctx, WriteCommand command, RecipientGenerator recipientGenerator, boolean skipRemoteGet, boolean skipL1Invalidation) throws Throwable {
+   protected Object handleWriteCommand(InvocationContext ctx, WriteCommand command, RecipientGenerator recipientGenerator, boolean skipRemoteGet, boolean skipL1Invalidation, boolean remove) throws Throwable {
       // see if we need to load values from remote sources first
-      if (ctx.isOriginLocal() && !skipRemoteGet || command.isConditional() || shouldFetchRemoteValuesForWriteSkewCheck(ctx, command))
-         remoteGetBeforeWrite(ctx, command, recipientGenerator);
+      if (ctx.isOriginLocal() && !skipRemoteGet || command.isConditional() || shouldFetchRemoteValuesForWriteSkewCheck(ctx, command)) {
+         remoteGetBeforeWrite(ctx, command, recipientGenerator, remove);
+      }
 
       // FIRST pass this call up the chain.  Only if it succeeds (no exceptions) locally do we attempt to distribute.
       return invokeNextInterceptor(ctx, command);
    }
 
-   private Object localGet(InvocationContext ctx, Object key, boolean isWrite, FlagAffectedCommand command) throws Throwable {
+   private Object localGet(InvocationContext ctx, Object key, boolean isWrite, FlagAffectedCommand command, boolean remove) throws Throwable {
       InternalCacheEntry ice = dataContainer.get(key, null);
       if (ice != null) {
          if (isWrite && isPessimisticCache && ctx.isInTxScope()) {
@@ -302,18 +308,20 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
          }
          if (!ctx.replaceValue(key, ice)) {
             if (isWrite)
-               lockAndWrap(ctx, key, ice, command);
+               lockAndWrap(ctx, key, ice, command, remove);
             else
                ctx.putLookedUpEntry(key, ice);
          }
-         CacheEntry entry = ctx.lookupEntry(key);
-         if (entry != null && entry.isRemoved()) return null;
+         if (remove) {
+             CacheEntry entry = ctx.lookupEntry(key);
+             if (entry != null && entry.isRemoved()) return null;
+         }
          return command instanceof GetCacheEntryCommand ? ice : ice.getValue();
       }
       return null;
    }
 
-   private void remoteGetBeforeWrite(InvocationContext ctx, WriteCommand command, KeyGenerator keygen) throws Throwable {
+   private void remoteGetBeforeWrite(InvocationContext ctx, WriteCommand command, KeyGenerator keygen, boolean remove) throws Throwable {
       // this should only happen if:
       //   a) unsafeUnreliableReturnValues is false
       //   b) unsafeUnreliableReturnValues is true, we are in a TX and the command is conditional
@@ -321,12 +329,12 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
          for (Object k : keygen.getKeys()) {
             Object returnValue = remoteGetAndStoreInL1(ctx, k, true, command);
             if (returnValue == null) {
-               localGet(ctx, k, true, command);
+               localGet(ctx, k, true, command, remove);
             }
          }
       }
    }
-
+   
    private boolean isNotInL1(Object key) {
       return !isL1CacheEnabled || !dataContainer.containsKey(key, null);
    }
@@ -336,7 +344,7 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
          long l1Lifespan = cacheConfiguration.clustering().l1().lifespan();
          long lifespan = ice.getLifespan() < 0 ? l1Lifespan : Math.min(ice.getLifespan(), l1Lifespan);
          PutKeyValueCommand put = cf.buildPutKeyValueCommand(ice.getKey(), ice.getValue(), lifespan, -1, command.getFlags());
-         lockAndWrap(ctx, key, ice, command);
+         lockAndWrap(ctx, key, ice, command, false);
          invokeNextInterceptor(ctx, put);
       } catch (Exception e) {
          // Couldn't store in L1 for some reason.  But don't fail the transaction!
@@ -389,7 +397,7 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
             } else {
                if (!ctx.replaceValue(key, ice)) {
                   if (isWrite)
-                     lockAndWrap(ctx, key, ice, command);
+                     lockAndWrap(ctx, key, ice, command, false);
                   else
                      ctx.putLookedUpEntry(key, ice);
                }

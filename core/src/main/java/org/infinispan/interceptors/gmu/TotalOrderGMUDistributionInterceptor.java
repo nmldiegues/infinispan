@@ -117,7 +117,7 @@ public class TotalOrderGMUDistributionInterceptor extends GMUDistributionInterce
    }
 
    @Override
-   protected void lockAndWrap(InvocationContext ctx, Object key, InternalCacheEntry ice, FlagAffectedCommand command) throws InterruptedException {
+   protected void lockAndWrap(InvocationContext ctx, Object key, InternalCacheEntry ice, FlagAffectedCommand command, boolean remove) throws InterruptedException {
       entryFactory.wrapEntryForPut(ctx, key, ice, false, command);
    }
 }

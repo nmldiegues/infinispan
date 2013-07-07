@@ -82,7 +82,7 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
    @Override
    public Object visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
       SingleKeyRecipientGenerator skrg = new SingleKeyRecipientGenerator(command.getKey());
-      return handleWriteCommand(ctx, command, skrg, command.hasFlag(Flag.PUT_FOR_STATE_TRANSFER), false);
+      return handleWriteCommand(ctx, command, skrg, command.hasFlag(Flag.PUT_FOR_STATE_TRANSFER), false, false);
    }
 
    /**
@@ -96,7 +96,7 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
       return invokeNextInterceptor(ctx, command);
    }
 
-   protected Object handleWriteCommand(InvocationContext ctx, WriteCommand command, RecipientGenerator recipientGenerator, boolean skipRemoteGet, boolean skipL1Invalidation) throws Throwable {
+   protected Object handleWriteCommand(InvocationContext ctx, WriteCommand command, RecipientGenerator recipientGenerator, boolean skipRemoteGet, boolean skipL1Invalidation, boolean remove) throws Throwable {
       // see if we need to load values from remote sources first
       remoteGetBeforeWrite(ctx, command, recipientGenerator);
 
