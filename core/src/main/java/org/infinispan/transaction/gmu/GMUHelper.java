@@ -126,7 +126,7 @@ public class GMUHelper {
 
    public static void joinAndSetTransactionVersion(Collection<Response> responses, TxInvocationContext ctx,
                                                    GMUVersionGenerator versionGenerator, EntryVersion[] remotePrepares) {
-      if (responses.isEmpty()) {
+      if (responses.isEmpty() && remotePrepares == null) {
          if (log.isDebugEnabled()) {
             log.debugf("Versions received are empty!");
          }

@@ -45,9 +45,10 @@ public class DEFTask<K, V, T> implements DistributedCallable<K, V, DEFResult<T>>
             tm.rollback();
          } catch (Exception e1) {}
          throw e;
+      } finally {
+         CommitLog.forcedRemoteVersion.set(null);
+         CommitLog.forcedReadFrom.set(null);
       }
-      CommitLog.forcedRemoteVersion.set(null);
-      CommitLog.forcedReadFrom.set(null);
       TransactionXaAdapter adapter = (TransactionXaAdapter) ((DummyTransaction) tm.getTransaction()).getEnlistedResources().iterator().next();
       EntryVersion newVersion = adapter.getLocalTransaction().getTransactionVersion();
       Address myAddr = cache.getCacheManager().getTransport().getAddress();
