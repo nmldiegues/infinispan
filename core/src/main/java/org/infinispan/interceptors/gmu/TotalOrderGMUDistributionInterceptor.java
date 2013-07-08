@@ -110,7 +110,7 @@ public class TotalOrderGMUDistributionInterceptor extends GMUDistributionInterce
                new KeysValidateFilter(rpcManager.getAddress(), affectedKeys);
 
          Map<Address, Response> responseMap = totalOrderAnycastPrepare(recipients, command, responseFilter);
-         joinAndSetTransactionVersion(responseMap.values(), ctx, versionGenerator);
+         joinAndSetTransactionVersion(responseMap.values(), ctx, versionGenerator, null);
       } finally {
          totalOrderTxPrepare(ctx);
       }

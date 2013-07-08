@@ -55,7 +55,7 @@ public class TotalOrderGMUReplicationInterceptor extends GMUReplicationIntercept
 
       try {
          Map<Address, Response> responseMap = totalOrderBroadcastPrepare(command, null);
-         joinAndSetTransactionVersion(responseMap.values(), context, versionGenerator);
+         joinAndSetTransactionVersion(responseMap.values(), context, versionGenerator, null);
       } finally {
          totalOrderTxPrepare(context);
       }
