@@ -20,6 +20,9 @@ public class DEFRollback implements DistributedCallable, Serializable {
    @Override
    public Object call() throws Exception {
       LocalTransaction local = this.cache.getAdvancedCache().getTxTable().getLocalTransaction(tx);
+      if (local == null) {
+	  return null;
+      }
       DummyTransactionManager tm = (DummyTransactionManager) this.cache.getAdvancedCache().getTransactionManager();
       javax.transaction.Transaction jpaTx = local.getTransaction();
       tm.resume(jpaTx);
