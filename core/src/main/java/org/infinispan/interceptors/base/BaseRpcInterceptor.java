@@ -94,7 +94,7 @@ public abstract class BaseRpcInterceptor extends CommandInterceptor {
       // just testing for empty modifications isn't enough - the Lock API may acquire locks on keys but won't
       // register a Modification.  See ISPN-711.
       LocalTxInvocationContext localCtx = (LocalTxInvocationContext) ctx;
-      boolean shouldInvokeRemotely = ctx.hasModifications() || !localCtx.getRemoteLocksAcquired().isEmpty() ||
+      boolean shouldInvokeRemotely = ctx.hasModifications() || !localCtx.getRemoteLocksAcquired().isEmpty() || ((LocalTransaction)localCtx.getCacheTransaction()).getRemoteDEFs() != null ||
          localCtx.getCacheTransaction().getTopologyId() != rpcManager.getTopologyId();
 
       if (getLog().isTraceEnabled()) {
