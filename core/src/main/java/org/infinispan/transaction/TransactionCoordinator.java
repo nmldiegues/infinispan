@@ -29,6 +29,7 @@ import org.infinispan.commands.tx.RollbackCommand;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.Configurations;
+import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.context.InvocationContextContainer;
 import org.infinispan.context.impl.LocalTxInvocationContext;
 import org.infinispan.distexec.DefaultExecutorService;
@@ -174,27 +175,11 @@ public class TransactionCoordinator {
       PrepareCommand prepareCommand = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), modificationsList, false);
       if (trace) log.tracef("Sending prepare command through the chain: %s", prepareCommand);
 
-      // potential cool place to send asynch prepares to remote txs, and check them out after doing the local prepare
-      Map<Object, GlobalTransaction> remoteDEFs = localTransaction.getRemoteDEFs();
-      List<Future> defAnswers = null;
-      if (remoteDEFs != null) {
-         defAnswers = new ArrayList<Future>(remoteDEFs.size());
-         for (Map.Entry<Object, GlobalTransaction> entry : remoteDEFs.entrySet()) {
-            defAnswers.add(des.submit(new DEFPrepare(entry.getValue()), entry.getKey()));
-         }
-      }
-
       LocalTxInvocationContext ctx = icc.createTxInvocationContext();
       prepareCommand.setReplayEntryWrapping(replayEntryWrapping);
       ctx.setLocalTransaction(localTransaction);
       try {
          invoker.invoke(ctx, prepareCommand);
-
-         if (defAnswers != null) {
-            for (Future fut : defAnswers) {
-               Object res = fut.get();
-            }
-         }
 
          //         if (localTransaction.isReadOnly()) {
          //            if (trace) log.tracef("Readonly transaction: %s", localTransaction.getGlobalTransaction());
@@ -262,9 +247,10 @@ public class TransactionCoordinator {
          Map<Object, GlobalTransaction> remoteDEFs = localTransaction.getRemoteDEFs();
          List<Future> defAnswers = null;
          if (remoteDEFs != null) {
+            EntryVersion commitVersion = localTransaction.getTransactionVersion();
             defAnswers = new ArrayList<Future>(remoteDEFs.size());
             for (Map.Entry<Object, GlobalTransaction> entry : remoteDEFs.entrySet()) {
-               defAnswers.add(des.submit(new DEFCommit(entry.getValue()), entry.getKey()));
+               defAnswers.add(des.submit(new DEFCommit(entry.getValue(), commitVersion), entry.getKey()));
             }
          }
 

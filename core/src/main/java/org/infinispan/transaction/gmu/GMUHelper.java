@@ -125,8 +125,8 @@ public class GMUHelper {
    }
 
    public static void joinAndSetTransactionVersion(Collection<Response> responses, TxInvocationContext ctx,
-                                                   GMUVersionGenerator versionGenerator) {
-      if (responses.isEmpty()) {
+                                                   GMUVersionGenerator versionGenerator, EntryVersion[] remotePrepares) {
+      if (responses.isEmpty() && remotePrepares == null) {
          if (log.isDebugEnabled()) {
             log.debugf("Versions received are empty!");
          }
@@ -150,6 +150,13 @@ public class GMUHelper {
          }
       }
 
+      // merge remote prepares
+      if (remotePrepares != null) {
+         for (EntryVersion ev : remotePrepares) {
+            allPreparedVersions.add(ev);
+         }
+      }
+      
       EntryVersion[] preparedVersionsArray = new EntryVersion[allPreparedVersions.size()];
       EntryVersion commitVersion = versionGenerator.mergeAndMax(allPreparedVersions.toArray(preparedVersionsArray));
 

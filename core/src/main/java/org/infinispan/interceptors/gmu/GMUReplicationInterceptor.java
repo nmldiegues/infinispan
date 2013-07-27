@@ -60,6 +60,6 @@ public class GMUReplicationInterceptor extends ReplicationInterceptor {
       log.debugf("broadcast prepare command for transaction %s. responses are: %s",
                  command.getGlobalTransaction().globalId(), responses.toString());
 
-      joinAndSetTransactionVersion(responses.values(), context, versionGenerator);
+      joinAndSetTransactionVersion(responses.values(), context, versionGenerator, null);
    }
 }

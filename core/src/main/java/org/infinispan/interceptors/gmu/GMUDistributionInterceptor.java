@@ -30,11 +30,13 @@ import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMUCacheValue;
 import org.infinispan.container.gmu.L1GMUContainer;
+import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.SingleKeyNonTxInvocationContext;
+import org.infinispan.context.impl.LocalTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.dataplacement.ClusterSnapshot;
 import org.infinispan.factories.annotations.Inject;
@@ -45,7 +47,11 @@ import org.infinispan.remoting.responses.SuccessfulResponse;
 import org.infinispan.remoting.rpc.ResponseFilter;
 import org.infinispan.remoting.rpc.ResponseMode;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.transaction.DEFPrepare;
+import org.infinispan.transaction.LocalTransaction;
+import org.infinispan.transaction.TransactionCoordinator;
 import org.infinispan.transaction.gmu.CommitLog;
+import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -55,6 +61,8 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 import static org.infinispan.transaction.gmu.GMUHelper.*;
 import static org.infinispan.transaction.gmu.GMUHelper.convert;
@@ -82,11 +90,50 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
 
    @Override
    protected void prepareOnAffectedNodes(TxInvocationContext ctx, PrepareCommand command, Collection<Address> recipients, boolean sync) {
+      LocalTransaction localTx = (LocalTransaction)ctx.getCacheTransaction();
+      // potential cool place to send asynch prepares to remote txs, and check them out after doing the local prepare
+      Map<Object, GlobalTransaction> remoteDEFs = localTx.getRemoteDEFs();
+      List<Future> defAnswers = null;
+      if (remoteDEFs != null) {
+         defAnswers = new ArrayList<Future>(remoteDEFs.size());
+         for (Map.Entry<Object, GlobalTransaction> entry : remoteDEFs.entrySet()) {
+            defAnswers.add(TransactionCoordinator.des.submit(new DEFPrepare(entry.getValue()), entry.getKey()));
+         }
+      }
+      
+      // invoke the locally known prepares
       Map<Address, Response> responses = rpcManager.invokeRemotely(recipients, command, true, true, false);
       log.debugf("prepare command for transaction %s is sent. responses are: %s",
                  command.getGlobalTransaction().globalId(), responses.toString());
 
-      joinAndSetTransactionVersion(responses.values(), ctx, versionGenerator);
+      EntryVersion[] remotePrepares = null;
+      // synchronize with remote prepares
+      if (defAnswers != null) {
+         remotePrepares = new EntryVersion[defAnswers.size()];
+         int i = 0;
+         for (Future fut : defAnswers) {
+            try {
+               remotePrepares[i] = (EntryVersion) fut.get();
+               i++;
+            } catch (InterruptedException e) {
+               e.printStackTrace();
+               System.err.println("Interrupted Exception in DEF 2PC");
+               System.exit(-1);
+            } catch (ExecutionException e) {
+               Throwable t = e.getCause();
+               if (t instanceof RuntimeException) {
+                  throw (RuntimeException) t;
+               } else {
+                  t.printStackTrace();
+                  System.err.println("Checked Exception in DEF 2PC");
+                  System.exit(-1);
+               }
+            }
+         }
+      }
+      
+      // merge all vectors
+      joinAndSetTransactionVersion(responses.values(), ctx, versionGenerator, remotePrepares);
    }
 
    @Override

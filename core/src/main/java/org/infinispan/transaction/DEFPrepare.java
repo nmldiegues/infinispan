@@ -28,7 +28,7 @@ public class DEFPrepare implements DistributedCallable, Serializable {
       } finally {
          tm.suspend();
       }
-      return null;
+      return local.getTransactionVersion();
    }
 
    @Override

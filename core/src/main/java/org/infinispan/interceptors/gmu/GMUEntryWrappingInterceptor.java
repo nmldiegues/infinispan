@@ -324,9 +324,9 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       }
 
       for (InternalGMUCacheEntry internalGMUCacheEntry : txInvocationContext.getKeysReadInCommand().values()) {
-         if (txInvocationContext.hasModifications() && !internalGMUCacheEntry.isMostRecent()) {
-            throw new CacheException("Read-Write transaction read an old value and should rollback");
-         }
+//         if (txInvocationContext.hasModifications() && !internalGMUCacheEntry.isMostRecent()) {
+//            throw new CacheException("Read-Write transaction read an old value and should rollback");
+//         }
 
          if (internalGMUCacheEntry.getMaximumTransactionVersion() != null) {
             entryVersionList.add(internalGMUCacheEntry.getMaximumTransactionVersion());
