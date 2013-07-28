@@ -278,7 +278,7 @@ public class DummyTransaction implements Transaction {
 
       final DummyTransaction transaction = tm_.getTransaction();
       Collection<XAResource> resources = transaction.getEnlistedResources();
-      List<Future<Exception>> results = resources.size() == 1 ? null : new ArrayList<Future<Exception>>(resources.size() - 1);
+      List<Future<Exception>> results = resources.size() <= 1 ? null : new ArrayList<Future<Exception>>(resources.size() - 1);
       Iterator<XAResource> it = resources.iterator();
       while (it.hasNext()) {
          final XAResource res = it.next();
@@ -414,7 +414,7 @@ public class DummyTransaction implements Transaction {
             log.debug("This is a read-only tx");
          } else {
             Collection<XAResource> resources = transaction.getEnlistedResources();
-            List<Future<Exception>> results = resources.size() == 1 ? null : new ArrayList<Future<Exception>>(resources.size() - 1);
+            List<Future<Exception>> results = resources.size() <= 1 ? null : new ArrayList<Future<Exception>>(resources.size() - 1);
             Iterator<XAResource> it = resources.iterator();
             while (it.hasNext()) {
                final XAResource res = it.next();

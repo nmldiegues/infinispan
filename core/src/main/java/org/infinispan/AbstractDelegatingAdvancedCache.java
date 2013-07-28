@@ -210,4 +210,7 @@ public class AbstractDelegatingAdvancedCache<K, V> extends AbstractDelegatingCac
        return cache.getTxTable();
    }
 
+   public final void registerGet(Object key) {
+       cache.registerGet(key);
+   }
 }

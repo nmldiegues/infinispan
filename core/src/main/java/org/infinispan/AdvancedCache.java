@@ -305,4 +305,6 @@ public interface AdvancedCache<K, V> extends Cache<K, V> {
     * @return
     */
    CacheEntry getCacheEntry(Object key, EnumSet<Flag> explicitFlags, ClassLoader explicitClassLoader);
+   
+   void registerGet(Object key);
 }

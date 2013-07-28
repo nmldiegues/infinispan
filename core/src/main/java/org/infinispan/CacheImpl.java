@@ -1300,4 +1300,19 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
       return res.getData();
    }
    
+   public final void registerGet(Object key) {
+       try {
+	   javax.transaction.Transaction jpaTx = transactionManager.getTransaction();
+	   if (jpaTx != null) {
+	       LocalTransaction tx = txTable.getLocalTransaction(jpaTx);
+	       if (tx != null) {
+		   tx.addReadKey(key);
+	       }
+	   }
+       } catch (javax.transaction.SystemException e) {
+	   e.printStackTrace();
+	   throw new RuntimeException(e);
+       }
+   }
+   
 }

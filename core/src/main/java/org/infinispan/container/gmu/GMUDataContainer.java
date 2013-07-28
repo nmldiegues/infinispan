@@ -118,7 +118,10 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
          }
          return wrap(k, null, true, version, null, null);
       }
-      VersionEntry<InternalCacheEntry> entry = chain.get(getReadVersion(version));
+      
+      EntryVersion toRead = getReadVersion(version);
+      VersionEntry<InternalCacheEntry> entry = chain.get(toRead);
+      // System.out.println(Thread.currentThread().getId() + " key " + k + "\tversion: " + version + " toRead: " + toRead + "\tentry: " + entry.getEntry() + "\tlastversion? " + entry.isMostRecent());
 
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.peek(%s,%s) => %s", k, version, entry);
@@ -138,6 +141,8 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
       GMUCacheEntryVersion cacheEntryVersion = assertGMUCacheEntryVersion(version);
       DataContainerVersionChain chain = entries.get(k);
+      
+      // System.out.println(Thread.currentThread().getId() + " ==> PUT key " + k + "\tversion: " + version + "\tvalue: " + v);
 
       if (chain == null) {
          if (log.isTraceEnabled()) {
