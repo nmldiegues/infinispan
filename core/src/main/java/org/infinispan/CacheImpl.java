@@ -1284,6 +1284,9 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
          version.setVersionValue(remoteNode, updatedVersion);
          localTx.addReadFrom(remoteNode);
          localTx.addRemoteDEFTx(key, res.getGlobalTx());
+         if (res.wroteSomething()) {
+             localTx.wroteInRemoteDEF();
+         }
       } catch (InterruptedException e) {
          e.printStackTrace();
          System.exit(-1);

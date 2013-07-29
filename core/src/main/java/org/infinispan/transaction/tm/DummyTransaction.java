@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -46,8 +47,15 @@ import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
 
+import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.transaction.DEFCommit;
+import org.infinispan.transaction.LocalTransaction;
+import org.infinispan.transaction.xa.GlobalTransaction;
+import org.infinispan.transaction.xa.TransactionXaAdapter;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+
+import org.infinispan.transaction.TransactionCoordinator;
 
 /**
  * @author bela
@@ -462,10 +470,23 @@ public class DummyTransaction implements Transaction {
             }
          }
          status = Status.STATUS_COMMITTED;
+         
+         Collection<XAResource> resources = transaction.getEnlistedResources();
+         TransactionXaAdapter adapter = (TransactionXaAdapter) resources.iterator().next();
+         LocalTransaction localTx = adapter.getLocalTransaction();
+         if (localTx.getRemoteDEFs() != null && !localTx.sentDEFCommits) {
+             EntryVersion commitVersion = localTx.getTransactionVersion();
+             for (Map.Entry<Object, GlobalTransaction> entry : localTx.getRemoteDEFs().entrySet()) {
+        	 TransactionCoordinator.des.submit(new DEFCommit(entry.getValue(), commitVersion), entry.getKey());
+             }
+             localTx.sentDEFCommits = true;
+         }
+         
       } catch (HeuristicMixedException e) {
          status = Status.STATUS_UNKNOWN;
          throw e;
       } finally {
+	  
          //notify synchronizations
          notifyAfterCompletion(status);
          tm_.setTransaction(null);

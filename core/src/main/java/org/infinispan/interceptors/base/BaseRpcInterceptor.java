@@ -38,6 +38,7 @@ import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.statetransfer.StateConsumer;
 import org.infinispan.transaction.LocalTransaction;
+import org.infinispan.transaction.xa.CacheTransaction;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -94,7 +95,8 @@ public abstract class BaseRpcInterceptor extends CommandInterceptor {
       // just testing for empty modifications isn't enough - the Lock API may acquire locks on keys but won't
       // register a Modification.  See ISPN-711.
       LocalTxInvocationContext localCtx = (LocalTxInvocationContext) ctx;
-      boolean shouldInvokeRemotely = ctx.hasModifications() || !localCtx.getRemoteLocksAcquired().isEmpty() || ((LocalTransaction)localCtx.getCacheTransaction()).getRemoteDEFs() != null ||
+      LocalTransaction cacheTx = ((LocalTransaction)localCtx.getCacheTransaction());
+      boolean shouldInvokeRemotely = ctx.hasModifications() || !localCtx.getRemoteLocksAcquired().isEmpty() || (cacheTx.getRemoteDEFs() != null && cacheTx.wroteInRemoteDEF()) ||
          localCtx.getCacheTransaction().getTopologyId() != rpcManager.getTopologyId();
 
       if (getLog().isTraceEnabled()) {

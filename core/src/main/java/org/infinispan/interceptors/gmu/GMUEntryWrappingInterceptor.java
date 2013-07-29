@@ -269,7 +269,8 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
     */
    protected void performValidation(TxInvocationContext ctx, GMUPrepareCommand command) throws InterruptedException {
       boolean hasToUpdateLocalKeys = hasLocalKeysToUpdate(command.getModifications());
-      boolean isReadOnly = command.getModifications().length == 0;
+      LocalTransaction localTx = (LocalTransaction) ctx.getCacheTransaction();
+      boolean isReadOnly = command.getModifications().length == 0 && (localTx.getRemoteDEFs() == null || !localTx.wroteInRemoteDEF());
 
       for (Object key : command.getAffectedKeys()) {
          if (cdl.localNodeIsOwner(key)) {

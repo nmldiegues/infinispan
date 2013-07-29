@@ -1,12 +1,11 @@
 package org.infinispan.transaction;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Set;
 
-import javax.transaction.Transaction;
-import javax.transaction.TransactionManager;
-
 import org.infinispan.Cache;
+import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.distexec.DistributedCallable;
@@ -15,7 +14,7 @@ import org.infinispan.transaction.gmu.CommitLog;
 import org.infinispan.transaction.tm.DummyTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.transaction.xa.TransactionXaAdapter;
-
+import javax.transaction.*;
 
 public class DEFTask<K, V, T> implements DistributedCallable<K, V, DEFResult<T>>, Serializable {
 
@@ -50,11 +49,13 @@ public class DEFTask<K, V, T> implements DistributedCallable<K, V, DEFResult<T>>
          CommitLog.forcedReadFrom.set(null);
       }
       TransactionXaAdapter adapter = (TransactionXaAdapter) ((DummyTransaction) tm.getTransaction()).getEnlistedResources().iterator().next();
-      EntryVersion newVersion = adapter.getLocalTransaction().getTransactionVersion();
+      LocalTransaction localTx = adapter.getLocalTransaction();
+      EntryVersion newVersion = localTx.getTransactionVersion();
       Address myAddr = cache.getCacheManager().getTransport().getAddress();
-      GlobalTransaction global = adapter.getLocalTransaction().getGlobalTransaction();
+      GlobalTransaction global = localTx.getGlobalTransaction();
+      List<WriteCommand> modifications = localTx.getModifications();
       Transaction tx = tm.suspend();
-      return new DEFResult<T>(((GMUDistributedVersion) newVersion).getVersionValue(myAddr), myAddr, global, result);
+      return new DEFResult<T>(((GMUDistributedVersion) newVersion).getVersionValue(myAddr), modifications != null && !modifications.isEmpty(), myAddr, global, result);
    }
 
    @Override

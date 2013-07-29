@@ -72,6 +72,8 @@ public abstract class LocalTransaction extends AbstractCacheTransaction {
    private boolean alreadyReadOnThisNode;
    private Set<Address> readFrom;
    private Map<Object, GlobalTransaction> remoteDEFs;
+   private boolean wroteInRemoteDEF;
+   public boolean sentDEFCommits;
 
    public LocalTransaction(Transaction transaction, GlobalTransaction tx, boolean implicitTransaction, int topologyId) {
       super(tx, topologyId);
@@ -84,6 +86,14 @@ public abstract class LocalTransaction extends AbstractCacheTransaction {
 	   remoteDEFs = new HashMap<Object, GlobalTransaction>();
        }
        remoteDEFs.put(key, tx);
+   }
+   
+   public boolean wroteInRemoteDEF() {
+       return this.wroteInRemoteDEF;
+   }
+   
+   public void setWroteRemote() {
+       this.wroteInRemoteDEF = true;
    }
    
    public Map<Object, GlobalTransaction> getRemoteDEFs() {

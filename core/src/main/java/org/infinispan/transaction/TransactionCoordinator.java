@@ -252,6 +252,7 @@ public class TransactionCoordinator {
             for (Map.Entry<Object, GlobalTransaction> entry : remoteDEFs.entrySet()) {
                defAnswers.add(des.submit(new DEFCommit(entry.getValue(), commitVersion), entry.getKey()));
             }
+            localTransaction.sentDEFCommits = true;
          }
 
          CommitCommand commitCommand = commandCreator.createCommitCommand(localTransaction.getGlobalTransaction());
@@ -259,7 +260,7 @@ public class TransactionCoordinator {
             invoker.invoke(ctx, commitCommand);
             txTable.removeLocalTransaction(localTransaction);
 
-            if (defAnswers != null) {
+            if (defAnswers != null && localTransaction.wroteInRemoteDEF()) {
                for (Future fut : defAnswers) {
                   Object res = fut.get();
                }
