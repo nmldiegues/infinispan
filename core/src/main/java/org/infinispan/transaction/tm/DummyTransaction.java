@@ -477,7 +477,7 @@ public class DummyTransaction implements Transaction {
          if (localTx.getRemoteDEFs() != null && !localTx.sentDEFCommits) {
              EntryVersion commitVersion = localTx.getTransactionVersion();
              for (Map.Entry<Object, GlobalTransaction> entry : localTx.getRemoteDEFs().entrySet()) {
-        	 TransactionCoordinator.des.submit(new DEFCommit(entry.getValue(), commitVersion), entry.getKey());
+                TransactionCoordinator.des.submit(new DEFCommit(entry.getValue(), commitVersion), entry.getKey(), true);
              }
              localTx.sentDEFCommits = true;
          }

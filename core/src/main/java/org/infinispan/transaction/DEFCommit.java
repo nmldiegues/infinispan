@@ -14,8 +14,15 @@ public class DEFCommit implements DistributedCallable, Serializable {
    private GlobalTransaction tx;
    private Cache cache;
    private EntryVersion commitVersion;
+   private boolean roCommit;
 
    public DEFCommit(GlobalTransaction tx, EntryVersion commitVersion) {
+      this.tx = tx;
+      this.commitVersion = commitVersion;
+   }
+   
+   public DEFCommit(GlobalTransaction tx, EntryVersion commitVersion, boolean roCommit) {
+      this.roCommit = true;
       this.tx = tx;
       this.commitVersion = commitVersion;
    }
@@ -28,7 +35,11 @@ public class DEFCommit implements DistributedCallable, Serializable {
       tm.resume(jpaTx);
       local.setTransactionVersion(commitVersion);
       try {
-         tm.commitOrder();
+         if (this.roCommit) {
+            tm.commit();
+         } else {
+            tm.commitOrder();
+         }
       } finally {
          tm.suspend();
       }
