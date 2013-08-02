@@ -1285,7 +1285,7 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
          localTx.addReadFrom(remoteNode);
          localTx.addRemoteDEFTx(key, res.getGlobalTx());
          if (res.wroteSomething()) {
-             localTx.wroteInRemoteDEF();
+             localTx.setWroteRemote();
          }
       } catch (InterruptedException e) {
          e.printStackTrace();

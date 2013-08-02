@@ -240,7 +240,7 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
          boolean affectsAllNodes = ctx.getCacheTransaction().hasModification(ClearCommand.class);
          Collection<Address> recipients = affectsAllNodes ? dm.getWriteConsistentHash().getMembers() : dm.getAffectedNodes(ctx.getAffectedKeys());
          prepareOnAffectedNodes(ctx, command, recipients, defaultSynchronous);
-
+         
          ((LocalTxInvocationContext) ctx).remoteLocksAcquired(recipients);
       } else if (isL1CacheEnabled && command.isOnePhaseCommit() && !ctx.isOriginLocal() && !ctx.getLockedKeys().isEmpty()) {
          // We fall into this block if we are a remote node, happen to be the primary data owner and have locked keys.
