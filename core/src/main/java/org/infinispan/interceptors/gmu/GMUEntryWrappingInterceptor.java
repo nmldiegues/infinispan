@@ -85,7 +85,6 @@ import java.util.List;
 
 import static org.infinispan.stats.ExposedStatistic.*;
 import static org.infinispan.transaction.gmu.GMUHelper.*;
-import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersion;
 import static org.infinispan.transaction.gmu.manager.SortedTransactionQueue.TransactionEntry;
 
 /**
@@ -334,12 +333,14 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       return gmuExecutor.size();
    }
 
-   @ManagedOperation
+   @ManagedOperation(description = "Prints the commit queue state",
+                     displayName = "Commit Queue")
    public final List<String> printCommitQueue() {
       return transactionCommitManager.printQueue();
    }
 
-   @ManagedOperation
+   @ManagedOperation(description = "Prints the executor service queue state",
+                     displayName = "Executor Service Queue")
    public final List<String> printExecutorQueue() {
       return gmuExecutor.printQueue();
    }
@@ -355,7 +356,6 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
 
    /**
     * validates the read set and returns the prepare version from the commit queue
-    *
     *
     * @param ctx     the context
     * @param command the prepare command

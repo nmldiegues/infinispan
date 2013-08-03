@@ -82,7 +82,9 @@ public class SynchronizationAdapter extends AbstractEnlistmentAdapter implements
          } catch (XAException e) {
             throw new CacheException("Could not commit.", e);
          }
-         releaseLocksForCompletedTransaction(localTransaction);
+         if (!isGMU) {
+            releaseLocksForCompletedTransaction(localTransaction);
+         }
       } else if (status == Status.STATUS_ROLLEDBACK) {
          try {
             txCoordinator.rollback(localTransaction);

@@ -253,7 +253,7 @@ public class TransactionXaAdapter extends AbstractEnlistmentAdapter implements X
       if (recoveryEnabled) {
          recoveryManager.removeRecoveryInformationFromCluster(localTransaction.getRemoteLocksAcquired(), xid, false, gtx);
          txTable.removeLocalTransaction(localTransaction);
-      } else {
+      } else if (!isGMU) {
          releaseLocksForCompletedTransaction(localTransaction);
       }
    }

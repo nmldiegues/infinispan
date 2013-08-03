@@ -23,11 +23,13 @@ import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.remote.recovery.TxCompletionNotificationCommand;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.Configurations;
+import org.infinispan.configuration.cache.VersioningScheme;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
+import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -51,6 +53,7 @@ public abstract class AbstractEnlistmentAdapter {
    private final boolean isSecondPhaseAsync;
    private final boolean isPessimisticLocking;
    private final boolean isTotalOrder;
+   protected final boolean isGMU;
 
    public AbstractEnlistmentAdapter(CacheTransaction cacheTransaction,
             CommandsFactory commandsFactory, RpcManager rpcManager,
@@ -63,6 +66,8 @@ public abstract class AbstractEnlistmentAdapter {
       this.isSecondPhaseAsync = Configurations.isSecondPhaseAsync(configuration);
       this.isPessimisticLocking = configuration.transaction().lockingMode() == LockingMode.PESSIMISTIC;
       this.isTotalOrder = configuration.transaction().transactionProtocol().isTotalOrder();
+      this.isGMU = configuration.locking().isolationLevel() == IsolationLevel.SERIALIZABLE &&
+            configuration.versioning().scheme() == VersioningScheme.GMU;
       hashCode = preComputeHashCode(cacheTransaction);
    }
 
@@ -76,6 +81,8 @@ public abstract class AbstractEnlistmentAdapter {
       this.isSecondPhaseAsync = Configurations.isSecondPhaseAsync(configuration);
       this.isPessimisticLocking = configuration.transaction().lockingMode() == LockingMode.PESSIMISTIC;
       this.isTotalOrder = configuration.transaction().transactionProtocol().isTotalOrder();
+      this.isGMU = configuration.locking().isolationLevel() == IsolationLevel.SERIALIZABLE &&
+            configuration.versioning().scheme() == VersioningScheme.GMU;
       hashCode = 31;
    }
 

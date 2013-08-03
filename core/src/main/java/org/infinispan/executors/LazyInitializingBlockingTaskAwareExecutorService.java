@@ -25,6 +25,7 @@ import org.infinispan.util.concurrent.BlockingTaskAwareExecutorService;
 import org.infinispan.util.concurrent.BlockingTaskAwareExecutorServiceImpl;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
@@ -65,12 +66,12 @@ public final class LazyInitializingBlockingTaskAwareExecutorService implements B
 
    @Override
    public int size() {
-      return delegate.size();
+      return delegate == null ? 0 : delegate.size();
    }
 
    @Override
    public List<String> printQueue() {
-      return delegate.printQueue();
+      return delegate == null ? Collections.<String>emptyList() : delegate.printQueue();
    }
 
    @Override
