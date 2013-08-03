@@ -22,13 +22,24 @@
  */
 package org.infinispan.tx.gmu;
 
+import org.infinispan.Cache;
+import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.context.impl.TxInvocationContext;
+import org.infinispan.interceptors.InterceptorChain;
+import org.infinispan.interceptors.base.BaseCustomInterceptor;
+import org.infinispan.interceptors.base.CommandInterceptor;
+import org.infinispan.test.TestingUtil;
+import org.infinispan.util.concurrent.locks.LockManager;
 import org.testng.annotations.Test;
 
+import javax.transaction.RollbackException;
 import javax.transaction.Transaction;
+import java.util.concurrent.CountDownLatch;
 
 import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.fail;
 
 /**
  * // TODO: Document this
@@ -117,7 +128,7 @@ public class ConsistencyTest extends AbstractGMUTest {
 
       tm(0).resume(tx0);
       txPut(0, cache0Key, VALUE_3, VALUE_1);
-      try{
+      try {
          cache(0).get(cache1Key);
          assert false : "Expected to abort read write transaction";
       } catch (Exception e) {
@@ -157,7 +168,7 @@ public class ConsistencyTest extends AbstractGMUTest {
       tm(1).commit();
 
       tm(0).resume(tx0);
-      try{
+      try {
          txPut(0, cache0Key, VALUE_3, VALUE_1);
          txPut(0, cache1Key, VALUE_3, VALUE_1);
          tm(0).commit();
@@ -170,7 +181,34 @@ public class ConsistencyTest extends AbstractGMUTest {
       assertNoTransactions();
    }
 
+   public void testTimeoutCleanup() throws Exception {
+      assertAtLeastCaches(2);
+      final CountDownLatch block = new CountDownLatch(1);
+      final CommandInterceptor interceptor = new BaseCustomInterceptor() {
+         @Override
+         public Object visitPrepareCommand(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
+            block.await();
+            return invokeNextInterceptor(ctx, command);
+         }
+      };
+      final InterceptorChain chain = TestingUtil.extractComponent(cache(1), InterceptorChain.class);
+      final Object key = newKey(1);
+      try {
+         chain.addInterceptor(interceptor, 0);
+         tm(0).begin();
+         cache(0).put(key, "v");
+         tm(0).commit();
+         fail("Rollback expected!");
+      } catch (RollbackException e) {
+         //expected
+      } finally {
+         block.countDown();
+         chain.removeInterceptor(0);
+      }
 
+      assertNoTransactions();
+      assertNoLocks();
+   }
 
    @Override
    protected void decorate(ConfigurationBuilder builder) {
@@ -190,5 +228,20 @@ public class ConsistencyTest extends AbstractGMUTest {
    @Override
    protected CacheMode cacheMode() {
       return CacheMode.REPL_SYNC;
+   }
+
+   protected void assertNoLocks() {
+      eventually(new Condition() {
+         @Override
+         public boolean isSatisfied() throws Exception {
+            for (Cache cache : caches()) {
+               LockManager lockManager = TestingUtil.extractLockManager(cache);
+               if (lockManager.getNumberOfLocksHeld() != 0) {
+                  return false;
+               }
+            }
+            return true;
+         }
+      });
    }
 }

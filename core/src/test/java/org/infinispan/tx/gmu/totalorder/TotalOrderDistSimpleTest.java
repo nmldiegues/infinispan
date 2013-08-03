@@ -25,7 +25,6 @@ package org.infinispan.tx.gmu.totalorder;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.transaction.TransactionProtocol;
 import org.infinispan.tx.gmu.DistSimpleTest;
-import org.infinispan.tx.gmu.SimpleTest;
 import org.testng.annotations.Test;
 
 /**

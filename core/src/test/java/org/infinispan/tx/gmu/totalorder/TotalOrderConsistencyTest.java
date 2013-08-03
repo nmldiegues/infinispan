@@ -22,8 +22,11 @@
  */
 package org.infinispan.tx.gmu.totalorder;
 
+import org.infinispan.Cache;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.test.TestingUtil;
 import org.infinispan.transaction.TransactionProtocol;
+import org.infinispan.transaction.totalorder.TotalOrderManager;
 import org.infinispan.tx.gmu.ConsistencyTest;
 import org.testng.annotations.Test;
 
@@ -41,5 +44,20 @@ public class TotalOrderConsistencyTest extends ConsistencyTest {
       super.decorate(builder);
       builder.transaction().transactionProtocol(TransactionProtocol.TOTAL_ORDER)
             .recovery().disable();
+   }
+
+   @Override
+   protected final void assertNoLocks() {
+      eventually(new Condition() {
+         @Override
+         public boolean isSatisfied() throws Exception {
+            for (Cache cache : caches()) {
+               if (TestingUtil.extractComponent(cache, TotalOrderManager.class).hasAnyLockAcquired()) {
+                  return false;
+               }
+            }
+            return true;
+         }
+      });
    }
 }
