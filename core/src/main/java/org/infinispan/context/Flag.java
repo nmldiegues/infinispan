@@ -106,6 +106,14 @@ public enum Flag {
    READ_WITHOUT_REGISTERING, 
    
    FORCE_SYNCHRONOUS,
+      
+   /**
+    * Indicates that a read in the context of a transaction should not be used for validating it. The 
+    * read should still reflect a consistent snapshot, but it can never cause a transaction to abort.
+    * This application assumes responsability of guaranteeing consistency if using this.
+    */
+   READ_WITHOUT_REGISTERING, 
+    
    /**
     * Skips storing an entry to any configured {@link CacheStore}s.
     */

@@ -75,6 +75,8 @@ public interface AdvancedCache<K, V> extends Cache<K, V> {
     * to be applied.
     */
    AdvancedCache<K, V> withFlags(Flag... flags);
+   
+   org.infinispan.transaction.TransactionTable getTxTable();
 
    org.infinispan.transaction.TransactionTable getTxTable();
    

@@ -42,11 +42,13 @@ import org.infinispan.reconfigurableprotocol.protocol.TotalOrderCommitProtocol;
 import org.infinispan.reconfigurableprotocol.protocol.TwoPhaseCommitProtocol;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.remoting.transport.jgroups.JGroupsAddress;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.Util;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+import org.jgroups.stack.IpAddress;
 
 import javax.transaction.Transaction;
 import java.util.Collection;
@@ -159,9 +161,7 @@ public class ReconfigurableReplicationManager {
     * notifies the protocol to a new local transaction that wants to commit. sets the epoch and the protocol to use for
     * this transaction. it blocks if a switch between protocols is in progress.
     *
-    *
     * @param globalTransaction the global transaction
-    * @param affectedKeys
     * @throws InterruptedException if interrupted while waiting for the switch to finish
     */
    public final void notifyLocalTransaction(GlobalTransaction globalTransaction, Object[] affectedKeys,
@@ -448,7 +448,7 @@ public class ReconfigurableReplicationManager {
          ReconfigurableProtocolCommand command = commandsFactory.buildReconfigurableProtocolCommand(Type.SWITCH_REQ, protocolId);
          command.setForceStop(forceStopTheWorld);
          command.setAbortOnStop(abortOnStop);
-         rpcManager.invokeRemotely(Collections.singleton(rpcManager.getTransport().getCoordinator()), command, true, false);
+         rpcManager.invokeRemotely(Collections.singleton(getCoordinator()), command, true, false);
          return;
       }
 
@@ -504,11 +504,24 @@ public class ReconfigurableReplicationManager {
       return protocolManager.getCurrent().getUniqueProtocolName();
    }
 
-    @ManagedAttribute(description = "Returns the current replication protocol state", writable = false,
-            displayName = "Current state")
-    public final String getCurrentState() {
-        return protocolManager.getState().toString();
-    }
+   @ManagedAttribute(description = "Returns the current replication protocol state", writable = false,
+                     displayName = "Current state")
+   public final String getCurrentState() {
+      return protocolManager.getState().toString();
+   }
+
+   @ManagedAttribute(description = "Returns the coordinator IP address.",
+                     displayName = "Coordinator Host Name")
+   public final String getCoordinatorHostName() {
+      Address coordinator = getCoordinator();
+      if (coordinator instanceof JGroupsAddress) {
+         org.jgroups.Address jgroupsAddress = ((JGroupsAddress) coordinator).getJGroupsAddress();
+         if (jgroupsAddress instanceof IpAddress) {
+            return ((IpAddress) jgroupsAddress).getIpAddress().getHostName();
+         }
+      }
+      return coordinator.toString();
+   }
 
    @ManagedAttribute(description = "Returns the current replication protocol information, namely the protocol ID and " +
          "the class name", writable = false, displayName = "Current protocol information")
@@ -627,6 +640,10 @@ public class ReconfigurableReplicationManager {
                      displayName = "Allow Switch?")
    public final boolean getAllowProtocolSwitch() {
       return allowSwitch;
+   }
+
+   private Address getCoordinator() {
+      return rpcManager.getTransport().getCoordinator();
    }
 
    /**

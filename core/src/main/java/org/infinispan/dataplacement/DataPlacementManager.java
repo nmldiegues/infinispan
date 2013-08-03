@@ -30,7 +30,6 @@ import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.dataplacement.lookup.ObjectLookup;
 import org.infinispan.dataplacement.lookup.ObjectLookupFactory;
 import org.infinispan.dataplacement.stats.AccessesMessageSizeTask;
-import org.infinispan.dataplacement.stats.CheckKeysMovedTask;
 import org.infinispan.dataplacement.stats.SaveStatsTask;
 import org.infinispan.dataplacement.stats.Stats;
 import org.infinispan.distribution.DistributionManager;
@@ -48,11 +47,13 @@ import org.infinispan.notifications.cachelistener.annotation.DataRehashed;
 import org.infinispan.notifications.cachelistener.event.DataRehashedEvent;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.remoting.transport.jgroups.JGroupsAddress;
 import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.stats.topK.StreamLibContainer;
 import org.infinispan.topology.RebalancePolicy;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+import org.jgroups.stack.IpAddress;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -75,8 +76,8 @@ import java.util.concurrent.Executors;
 @Listener
 public class DataPlacementManager {
 
-   private static final Log log = LogFactory.getLog(DataPlacementManager.class);
    public static final int INITIAL_COOL_DOWN_TIME = 30000; //30 seconds
+   private static final Log log = LogFactory.getLog(DataPlacementManager.class);
    private final AccessesManager accessesManager;
    private final ObjectPlacementManager objectPlacementManager;
    private final ObjectLookupManager objectLookupManager;
@@ -244,7 +245,7 @@ public class DataPlacementManager {
                                                                                      roundManager.getCurrentRoundId());
             command.setObjectLookup(segmentObjectLookup);
 
-            rpcManager.invokeRemotely(Collections.singleton(rpcManager.getTransport().getCoordinator()), command, false, false);
+            rpcManager.invokeRemotely(Collections.singleton(getCoordinator()), command, false, false);
          }
       }
    }
@@ -321,7 +322,7 @@ public class DataPlacementManager {
    }
 
    @ManagedOperation(description = "Start the data placement algorithm in order to optimize the system performance",
-   displayName = "Trigger Data Placement")
+                     displayName = "Trigger Data Placement")
    public final void dataPlacementRequest() throws Exception {
       if (!rpcManager.getTransport().isCoordinator()) {
          if (log.isTraceEnabled()) {
@@ -329,7 +330,7 @@ public class DataPlacementManager {
          }
          DataPlacementCommand command = commandsFactory.buildDataPlacementCommand(DataPlacementCommand.Type.DATA_PLACEMENT_REQUEST,
                                                                                   roundManager.getCurrentRoundId());
-         rpcManager.invokeRemotely(Collections.singleton(rpcManager.getTransport().getCoordinator()),
+         rpcManager.invokeRemotely(Collections.singleton(getCoordinator()),
                                    command, false, false);
          return;
       }
@@ -364,13 +365,13 @@ public class DataPlacementManager {
    }
 
    @ManagedAttribute(description = "The current cool down time between rounds", writable = false,
-   displayName = "Cool Down Time")
+                     displayName = "Cool Down Time")
    public final long getCoolDownTime() {
       return roundManager.getCoolDownTime();
    }
 
    @ManagedOperation(description = "Updates the cool down time between two or more data placement requests",
-   displayName = "Set cool down time")
+                     displayName = "Set cool down time")
    public final void setCoolDownTime(@Parameter(name = "Cool Down Time") int milliseconds) {
       if (log.isTraceEnabled()) {
          log.tracef("Setting new cool down period to %s milliseconds", milliseconds);
@@ -399,23 +400,36 @@ public class DataPlacementManager {
    }
 
    @ManagedAttribute(description = "The Object Lookup Factory class name", writable = false,
-   displayName = "Object lookup factory class name")
+                     displayName = "Object lookup factory class name")
    public final String getObjectLookupFactoryClassName() {
       return objectLookupFactory == null ? "N/A" : objectLookupFactory.getClass().getCanonicalName();
    }
 
    @ManagedAttribute(description = "The max number of keys to request in each round", writable = false,
-   displayName = "Maximum number of keys to request")
+                     displayName = "Maximum number of keys to request")
    public final int getMaxNumberOfKeysToRequest() {
       return accessesManager == null ? 0 : accessesManager.getMaxNumberOfKeysToRequest();
    }
 
    @ManagedOperation(description = "Sets a new value (if higher than zero) for the max number of keys to request in " +
          "each round", displayName = "Set maximum number of keys to request")
-   public final void setMaxNumberOfKeysToRequest(@Parameter(name = "Keys to request")int value) {
+   public final void setMaxNumberOfKeysToRequest(@Parameter(name = "Keys to request") int value) {
       if (accessesManager != null) {
          accessesManager.setMaxNumberOfKeysToRequest(value);
       }
+   }
+
+   @ManagedAttribute(description = "Returns the coordinator IP address.",
+                     displayName = "Coordinator Host Name")
+   public final String getCoordinatorHostName() {
+      Address coordinator = getCoordinator();
+      if (coordinator instanceof JGroupsAddress) {
+         org.jgroups.Address jgroupsAddress = ((JGroupsAddress) coordinator).getJGroupsAddress();
+         if (jgroupsAddress instanceof IpAddress) {
+            return ((IpAddress) jgroupsAddress).getIpAddress().getHostName();
+         }
+      }
+      return coordinator.toString();
    }
 
    @ManagedOperation(description = "Triggers the replication degree optimizer",
@@ -429,12 +443,16 @@ public class DataPlacementManager {
          DataPlacementCommand command = commandsFactory.buildDataPlacementCommand(DataPlacementCommand.Type.REPLICATION_DEGREE,
                                                                                   -1);
          command.setIntValue(replicationDegree);
-         rpcManager.invokeRemotely(Collections.singleton(rpcManager.getTransport().getCoordinator()), command, false, 
+         rpcManager.invokeRemotely(Collections.singleton(getCoordinator()), command, false,
                                    false);
          return;
       }
       roundManager.replicationDegreeRequest();
       handleNewReplicationDegree(replicationDegree);
+   }
+
+   private Address getCoordinator() {
+      return rpcManager.getTransport().getCoordinator();
    }
 
    /**
