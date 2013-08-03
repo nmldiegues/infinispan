@@ -18,8 +18,8 @@
 
 package org.infinispan.remoting.responses;
 
-import org.infinispan.remoting.rpc.ResponseFilter;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.util.concurrent.TimeoutException;
 
 /**
  * Used in Total Order based protocol.
@@ -31,7 +31,7 @@ import org.infinispan.remoting.transport.Address;
  * @author Pedro Ruivo
  * @since 5.3
  */
-public class SelfDeliverFilter implements ResponseFilter {
+public class SelfDeliverFilter implements TotalOrderResponseFilter {
 
    private final Address localAddress;
    private boolean selfDelivered;
@@ -52,5 +52,12 @@ public class SelfDeliverFilter implements ResponseFilter {
    @Override
    public boolean needMoreResponses() {
       return !selfDelivered;
+   }
+
+   @Override
+   public void validate() throws TimeoutException {
+      if (!selfDelivered) {
+         throw new TimeoutException("Timeout waiting for member " + localAddress);
+      }
    }
 }

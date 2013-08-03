@@ -21,6 +21,7 @@ package org.infinispan.remoting.responses;
 import org.infinispan.container.versioning.EntryVersionsMap;
 import org.infinispan.remoting.rpc.ResponseFilter;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.util.concurrent.TimeoutException;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -37,7 +38,7 @@ import java.util.Set;
  * @author Pedro Ruivo
  * @since 5.3
  */
-public class KeysValidateFilter implements ResponseFilter {
+public class KeysValidateFilter implements TotalOrderResponseFilter {
 
    private static final Log log = LogFactory.getLog(KeysValidateFilter.class);
    private final Address localAddress;
@@ -81,7 +82,12 @@ public class KeysValidateFilter implements ResponseFilter {
       return !selfDelivered || !keysAwaitingValidation.isEmpty();
    }
 
-   public synchronized final boolean isAllKeysValidated() {
-      return keysAwaitingValidation.isEmpty();
+   @Override
+   public synchronized void validate() throws TimeoutException {
+      if (!selfDelivered) {
+         throw new TimeoutException("Timeout waiting for member " + localAddress);
+      } else if (!keysAwaitingValidation.isEmpty()) {
+         throw new TimeoutException("Timeout waiting for the validation result of " + keysAwaitingValidation);
+      }
    }
 }
