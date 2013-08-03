@@ -30,6 +30,7 @@ import javax.transaction.Status;
 import javax.transaction.SystemException;
 import javax.transaction.Transaction;
 
+import org.infinispan.commands.SetTransactionClassCommand;
 import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.control.LockControlCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
@@ -282,6 +283,11 @@ public class TxInterceptor extends CommandInterceptor {
 
    @Override
    public Object visitGetKeyValueCommand(InvocationContext ctx, GetKeyValueCommand command) throws Throwable {
+      return enlistReadAndInvokeNext(ctx, command);
+   }
+
+   @Override
+   public Object visitSetTransactionClassCommand(InvocationContext ctx, SetTransactionClassCommand command) throws Throwable {
       return enlistReadAndInvokeNext(ctx, command);
    }
 

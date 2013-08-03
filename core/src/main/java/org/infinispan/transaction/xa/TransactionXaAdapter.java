@@ -31,7 +31,6 @@ import org.infinispan.transaction.TransactionCoordinator;
 import org.infinispan.transaction.TransactionTable;
 import org.infinispan.transaction.xa.recovery.RecoveryManager;
 import org.infinispan.transaction.xa.recovery.SerializableXid;
-import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -73,8 +72,6 @@ public class TransactionXaAdapter extends AbstractEnlistmentAdapter implements X
    private volatile RecoveryManager.RecoveryIterator recoveryIterator;
    private boolean recoveryEnabled;
    private String cacheName;
-   private boolean onePhaseTotalOrder;
-   private boolean onePhasePassiveReplication;
 
    public TransactionXaAdapter(LocalXaTransaction localTransaction, TransactionTable txTable,
                                RecoveryManager rm, TransactionCoordinator txCoordinator,
@@ -89,8 +86,6 @@ public class TransactionXaAdapter extends AbstractEnlistmentAdapter implements X
       this.cacheName = cacheName;
       recoveryEnabled = configuration.transaction().recovery().enabled();
       //in distributed mode with write skew check, we only allow 2 phases!!
-      this.onePhaseTotalOrder = configuration.transaction().transactionProtocol().isTotalOrder() &&
-            !(configuration.clustering().cacheMode().isDistributed() && configuration.locking().writeSkewCheck());
    }
    public TransactionXaAdapter(TransactionTable txTable,
                                RecoveryManager rm, TransactionCoordinator txCoordinator,
@@ -105,11 +100,6 @@ public class TransactionXaAdapter extends AbstractEnlistmentAdapter implements X
       this.cacheName = cacheName;
       recoveryEnabled = configuration.transaction().recovery().enabled();
       //in distributed mode, we only allow 2 phases!!
-      this.onePhaseTotalOrder = configuration.transaction().transactionProtocol().isTotalOrder() &&
-            !configuration.clustering().cacheMode().isDistributed() &&
-            configuration.locking().isolationLevel() != IsolationLevel.SERIALIZABLE;
-      this.onePhasePassiveReplication = configuration.transaction().transactionProtocol().isPassiveReplication() &&
-            configuration.locking().isolationLevel() != IsolationLevel.SERIALIZABLE;
    }
 
    /**
@@ -129,9 +119,7 @@ public class TransactionXaAdapter extends AbstractEnlistmentAdapter implements X
    public void commit(Xid externalXid, boolean isOnePhase) throws XAException {
       Xid xid = convertXid(externalXid);
       LocalXaTransaction localTransaction = getLocalTransactionAndValidate(xid);
-      if (isOnePhase && (onePhaseTotalOrder || onePhasePassiveReplication)) {
-         txCoordinator.commit(localTransaction, true);
-      } else if (isOnePhase) {
+      if (isOnePhase) {
          //isOnePhase being true means that we're the only participant in the distributed transaction and TM does the
          //1PC optimization. We run a 2PC though, as running only 1PC has a high chance of leaving the cluster in
          //inconsistent state.

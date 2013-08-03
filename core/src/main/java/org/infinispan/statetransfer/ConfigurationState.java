@@ -51,7 +51,7 @@ public class ConfigurationState implements Serializable {
    @Override
    public String toString() {
       return "ConfigurationState{" +
-            ", protocolName='" + protocolName + '\'' +
+            "protocolName='" + protocolName + '\'' +
             ", epoch=" + epoch +
             '}';
    }

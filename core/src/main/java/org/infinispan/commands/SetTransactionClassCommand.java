@@ -26,47 +26,32 @@ package org.infinispan.commands;
 
 import org.infinispan.commands.read.AbstractLocalCommand;
 import org.infinispan.context.InvocationContext;
-import org.infinispan.lifecycle.ComponentStatus;
 
 /**
  * User: Fabio Mariotti Date: 30/04/12
  */
-public class SetClassCommand extends AbstractLocalCommand implements VisitableCommand {
+public class SetTransactionClassCommand extends AbstractLocalCommand implements VisitableCommand {
 
    private String transactionalClass;
 
-   public SetClassCommand(String transactionalClass) {
+   public SetTransactionClassCommand(String transactionalClass) {
       this.transactionalClass = transactionalClass;
    }
 
-   public SetClassCommand() {}
+   public SetTransactionClassCommand() {
+   }
 
    public String getTransactionalClass() {
       return transactionalClass;
    }
 
    @Override
-   public Object perform(InvocationContext ctx) throws Throwable {
-      return null;
-   }
-
-   @Override
-   public boolean isReturnValueExpected() {
-      return false;
-   }
-
-   @Override
    public Object acceptVisitor(InvocationContext ctx, Visitor visitor) throws Throwable {
-      return visitor.visitSetClassCommand(ctx, this);
+      return visitor.visitSetTransactionClassCommand(ctx, this);
    }
 
    @Override
-   public boolean shouldInvoke(InvocationContext ctx) {
-      return true;
-   }
-
-   @Override
-   public boolean ignoreCommandOnStatus(ComponentStatus status) {
-      return false;
+   public Object perform(InvocationContext ctx) throws Throwable {
+      return null; //no-op
    }
 }

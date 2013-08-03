@@ -52,7 +52,7 @@ import javax.transaction.xa.XAResource;
 import org.infinispan.atomic.Delta;
 import org.infinispan.batch.BatchContainer;
 import org.infinispan.commands.CommandsFactory;
-import org.infinispan.commands.SetClassCommand;
+import org.infinispan.commands.SetTransactionClassCommand;
 import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.control.LockControlCommand;
 import org.infinispan.commands.read.EntrySetCommand;
@@ -1283,17 +1283,19 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
          transactionManager.resume(transaction);
       }
    }
-   public void setClass(String transactionalClass){
-      SetClassCommand command = commandsFactory.buildSetClassCommand(transactionalClass);
-      InvocationContext ctx = getInvocationContextForRead(null, null, 1);
-      invoker.invoke(ctx, command);
-   }
 
    @Override
    public TransactionTable getTxTable() {
       return this.txTable;
    }
    
+   @Override
+   public boolean setTransactionClass(String transactionClass) {
+      SetTransactionClassCommand command = commandsFactory.buildSetClassCommand(transactionClass);
+      InvocationContext ctx = getInvocationContextForRead(null, null, 1);
+      return (Boolean) invoker.invoke(ctx, command);
+   }
+  
    public <T> T executeDEF(CacheCallable<T> task, K key) throws Exception {
       DEFResult<T> res = null;
       LocalTransaction localTx = txTable.getLocalTransaction(getOngoingTransaction());
@@ -1340,5 +1342,4 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
 	   throw new RuntimeException(e);
        }
    }
-   
 }

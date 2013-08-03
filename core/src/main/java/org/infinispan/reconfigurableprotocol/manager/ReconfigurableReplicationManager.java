@@ -81,12 +81,14 @@ public class ReconfigurableReplicationManager {
    private Configuration configuration;
    private ComponentRegistry componentRegistry;
    private volatile boolean allowSwitch = false;
+   private boolean defaultProtocolsRegistered;
 
    public ReconfigurableReplicationManager() {
       statisticManager = new StatisticManager();
       registry = new ReconfigurableProtocolRegistry();
       protocolManager = new ProtocolManager(statisticManager);
       coolDownTimeManager = new CoolDownTimeManager();
+      this.defaultProtocolsRegistered = false;
    }
 
    @Inject
@@ -98,6 +100,13 @@ public class ReconfigurableReplicationManager {
       this.commandsFactory = commandsFactory;
       this.configuration = configuration;
       this.componentRegistry = componentRegistry;
+
+      synchronized (this) {
+         if (defaultProtocolsRegistered) {
+            return;
+         }
+         defaultProtocolsRegistered = true;
+      }
 
       ReconfigurableProtocol protocol = new TwoPhaseCommitProtocol();
       try {

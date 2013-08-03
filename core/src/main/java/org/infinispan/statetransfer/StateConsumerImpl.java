@@ -537,6 +537,7 @@ public class StateConsumerImpl implements StateConsumer {
             } finally {
                if (ctx.isInTxScope()) {
                   if (success) {
+                     interceptorChain.invoke(ctx, commandsFactory.buildSetClassCommand("NBST_CLASS"));
                      ((LocalTransaction)((TxInvocationContext)ctx).getCacheTransaction()).setFromStateTransfer(true);
                      try {
                         transactionManager.commit();

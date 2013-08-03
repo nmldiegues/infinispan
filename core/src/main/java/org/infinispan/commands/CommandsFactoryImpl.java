@@ -634,8 +634,8 @@ public class CommandsFactoryImpl implements CommandsFactory {
    }
 
    @Override
-   public SetClassCommand buildSetClassCommand(String transactionalClass) {
-      return new SetClassCommand(transactionalClass);
+   public SetTransactionClassCommand buildSetClassCommand(String transactionalClass) {
+      return new SetTransactionClassCommand(transactionalClass);
    }
 
    @Override

@@ -104,7 +104,7 @@ public class LocalTopologyManagerImpl implements LocalTopologyManager {
       long endTime = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeout);
       while (true) {
          try {
-            ConfigurationState state = getConfigurationState(cacheName, timeout / 10);
+            ConfigurationState state = getConfigurationState(cacheName, 5000);
             if (state != null) {
                manager.initialProtocol(state.getProtocolName(), state.getEpoch());
             }

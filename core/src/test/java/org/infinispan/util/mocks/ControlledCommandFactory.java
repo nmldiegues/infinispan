@@ -25,7 +25,7 @@ import org.infinispan.commands.CancelCommand;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.CreateCacheCommand;
 import org.infinispan.commands.ReplicableCommand;
-import org.infinispan.commands.SetClassCommand;
+import org.infinispan.commands.SetTransactionClassCommand;
 import org.infinispan.commands.control.LockControlCommand;
 import org.infinispan.commands.read.DistributedExecuteCommand;
 import org.infinispan.commands.read.EntrySetCommand;
@@ -385,7 +385,7 @@ public class ControlledCommandFactory implements CommandsFactory {
    }
 
    @Override
-   public SetClassCommand buildSetClassCommand(String transactionalClass) {
+   public SetTransactionClassCommand buildSetClassCommand(String transactionalClass) {
       return actual.buildSetClassCommand(transactionalClass);
    }
 }

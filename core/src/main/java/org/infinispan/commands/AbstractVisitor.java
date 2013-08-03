@@ -188,7 +188,7 @@ public abstract class AbstractVisitor implements Visitor {
    }
 
     @Override
-    public Object visitSetClassCommand(InvocationContext ctx, SetClassCommand command) throws Throwable {
+    public Object visitSetTransactionClassCommand(InvocationContext ctx, SetTransactionClassCommand command) throws Throwable {
       return handleDefault(ctx, command);
     }
 }

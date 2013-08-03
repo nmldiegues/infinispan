@@ -409,9 +409,9 @@ public interface CommandsFactory {
    CancelCommand buildCancelCommandCommand(UUID commandUUID);
 
    /**
-    * Builds a SetClassCommand used to apply a specific transactional class to a transaction
+    * Builds a SetTransactionClassCommand used to apply a specific transactional class to a transaction
     */
-    SetClassCommand buildSetClassCommand(String transactionalClass);
+    SetTransactionClassCommand buildSetClassCommand(String transactionalClass);
 
    /**
     * builds the data placement command

@@ -28,12 +28,12 @@ import org.infinispan.stats.container.LocalTransactionStatistics;
 import org.infinispan.stats.container.RemoteTransactionStatistics;
 import org.infinispan.stats.container.TransactionStatistics;
 import org.infinispan.transaction.xa.GlobalTransaction;
+import org.infinispan.util.concurrent.ConcurrentMapFactory;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,10 +51,10 @@ public final class TransactionsStatisticsRegistry {
    public static final String DEFAULT_ISPN_CLASS = "DEFAULT_ISPN_CLASS";
    private static final Log log = LogFactory.getLog(TransactionsStatisticsRegistry.class);
    //Now it is unbounded, we can define a MAX_NO_CLASSES
-   private static final Map<String, NodeScopeStatisticCollector> transactionalClassesStatsMap
-         = new HashMap<String, NodeScopeStatisticCollector>();
+   private static final ConcurrentMap<String, NodeScopeStatisticCollector> transactionalClassesStatsMap
+         = ConcurrentMapFactory.makeConcurrentMap();
    private static final ConcurrentMap<GlobalTransaction, RemoteTransactionStatistics> remoteTransactionStatistics =
-         new ConcurrentHashMap<GlobalTransaction, RemoteTransactionStatistics>();
+         ConcurrentMapFactory.makeConcurrentMap();
    //Comment for reviewers: do we really need threadLocal? If I have the global id of the transaction, I can
    //retrieve the transactionStatistics
    private static final ThreadLocal<TransactionStatistics> thread = new ThreadLocal<TransactionStatistics>();
@@ -181,7 +181,7 @@ public final class TransactionsStatisticsRegistry {
       }
    }
 
-   /*public static Object getPercentile(ExposedStatistic param, int percentile, String className) {
+   public static Object getPercentile(ExposedStatistic param, int percentile, String className) {
       if (configuration == null) {
          return null;
       }
@@ -193,7 +193,7 @@ public final class TransactionsStatisticsRegistry {
          else
             return null;
       }
-   }*/
+   }
 
    public static Object getAttribute(ExposedStatistic param) {
       Object ret = transactionalClassesStatsMap.get(DEFAULT_ISPN_CLASS).getAttribute(param);
@@ -239,6 +239,11 @@ public final class TransactionsStatisticsRegistry {
          }
          rts = new RemoteTransactionStatistics(configuration);
          remoteTransactionStatistics.put(globalTransaction, rts);
+         final String transactionClass = globalTransaction.getTransactionClass();
+         if (transactionClass != null) {
+            rts.setTransactionalClass(transactionClass);
+            registerTransactionalClassIfNeeded(transactionClass);
+         }
       } else if (configuration == null) {
          if (log.isDebugEnabled()) {
             log.debugf("Trying to create a remote transaction statistics in a not initialized Transaction Statistics Registry");
@@ -278,17 +283,17 @@ public final class TransactionsStatisticsRegistry {
       }
    }
 
-   public static void setTransactionalClass(String className) {
+   public static void setTransactionalClass(String className, TransactionStatistics transactionStatistics) {
       if (!active) {
          return;
       }
-      TransactionStatistics txs = thread.get();
+      TransactionStatistics txs = transactionStatistics == null ? thread.get() : transactionStatistics;
       if (txs == null) {
          log.debug("Trying to invoke setUpdateTransaction() but no transaction is associated to the thread");
          return;
       }
       txs.setTransactionalClass(className);
-      registerTransactionalClass(className);
+      registerTransactionalClassIfNeeded(className);
    }
 
    public static boolean isGmuWaitingActive() {
@@ -324,10 +329,8 @@ public final class TransactionsStatisticsRegistry {
       addValueAndFlushIfNeeded(ExposedStatistic.NUM_HELD_LOCKS, size, false);
    }
 
-   private static synchronized void registerTransactionalClass(String className) {
-      if (transactionalClassesStatsMap.get(className) == null) {
-         transactionalClassesStatsMap.put(className, new NodeScopeStatisticCollector());
-      }
+   private static void registerTransactionalClassIfNeeded(String className) {
+      transactionalClassesStatsMap.putIfAbsent(className, new NodeScopeStatisticCollector());
    }
 
    private static TransactionStatistics initLocalTransaction() {

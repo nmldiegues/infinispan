@@ -24,11 +24,14 @@ package org.infinispan.distribution.wrappers;
 
 import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.remote.ClusteredGetCommand;
+import org.infinispan.commands.remote.GMUClusteredGetCommand;
 import org.infinispan.commands.remote.recovery.TxCompletionNotificationCommand;
 import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.tx.RollbackCommand;
+import org.infinispan.commands.tx.totalorder.TotalOrderGMUPrepareCommand;
 import org.infinispan.remoting.RpcException;
+import org.infinispan.remoting.responses.AbstractResponse;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.rpc.ResponseFilter;
 import org.infinispan.remoting.rpc.ResponseMode;
@@ -37,6 +40,7 @@ import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
 import org.infinispan.stats.ExposedStatistic;
+import org.infinispan.stats.PiggyBackStat;
 import org.infinispan.stats.TransactionsStatisticsRegistry;
 import org.infinispan.stats.container.TransactionStatistics;
 import org.infinispan.util.concurrent.NotifyingNotifiableFuture;
@@ -49,6 +53,7 @@ import org.jgroups.util.Buffer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.infinispan.stats.ExposedStatistic.*;
 
@@ -81,7 +86,7 @@ public class RpcManagerWrapper implements RpcManager {
                                                 ResponseFilter responseFilter, boolean totalOrder) {
       long currentTime = System.nanoTime();
       Map<Address, Response> ret = actual.invokeRemotely(recipients, rpcCommand, mode, timeout, usePriorityQueue, responseFilter, totalOrder);
-      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients, null);
+      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients, null, ret);
       return ret;
    }
 
@@ -90,7 +95,7 @@ public class RpcManagerWrapper implements RpcManager {
                                                 ResponseMode mode, long timeout, boolean usePriorityQueue, boolean totalOrder) {
       long currentTime = System.nanoTime();
       Map<Address, Response> ret = actual.invokeRemotely(recipients, rpcCommand, mode, timeout, usePriorityQueue, totalOrder);
-      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients, null);
+      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients, null, ret);
       return ret;
    }
 
@@ -98,7 +103,7 @@ public class RpcManagerWrapper implements RpcManager {
    public Map<Address, Response> invokeRemotely(Collection<Address> recipients, ReplicableCommand rpcCommand, ResponseMode mode, long timeout, boolean totalOrder) {
       long currentTime = System.nanoTime();
       Map<Address, Response> ret = actual.invokeRemotely(recipients, rpcCommand, mode, timeout, totalOrder);
-      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients, null);
+      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients, null, ret);
       return ret;
    }
 
@@ -106,21 +111,21 @@ public class RpcManagerWrapper implements RpcManager {
    public void broadcastRpcCommand(ReplicableCommand rpc, boolean sync, boolean totalOrder) throws RpcException {
       long currentTime = System.nanoTime();
       actual.broadcastRpcCommand(rpc, sync, totalOrder);
-      updateStats(rpc, sync, currentTime, null, null);
+      updateStats(rpc, sync, currentTime, null, null, null);
    }
 
    @Override
    public void broadcastRpcCommand(ReplicableCommand rpc, boolean sync, boolean usePriorityQueue, boolean totalOrder) throws RpcException {
       long currentTime = System.nanoTime();
       actual.broadcastRpcCommand(rpc, sync, usePriorityQueue, totalOrder);
-      updateStats(rpc, sync, currentTime, null, null);
+      updateStats(rpc, sync, currentTime, null, null, null);
    }
 
    @Override
    public void broadcastRpcCommandInFuture(ReplicableCommand rpc, NotifyingNotifiableFuture<Object> future) {
       long currentTime = System.nanoTime();
       actual.broadcastRpcCommandInFuture(rpc, future);
-      updateStats(rpc, false, currentTime, null, null);
+      updateStats(rpc, false, currentTime, null, null, null);
    }
 
    @Override
@@ -128,14 +133,14 @@ public class RpcManagerWrapper implements RpcManager {
                                            NotifyingNotifiableFuture<Object> future) {
       long currentTime = System.nanoTime();
       actual.broadcastRpcCommandInFuture(rpc, usePriorityQueue, future);
-      updateStats(rpc, false, currentTime, null, null);
+      updateStats(rpc, false, currentTime, null, null, null);
    }
 
    @Override
    public Map<Address, Response> invokeRemotely(Collection<Address> recipients, ReplicableCommand rpc, boolean sync, boolean totalOrder) throws RpcException {
       long currentTime = System.nanoTime();
       Map<Address, Response> ret = actual.invokeRemotely(recipients, rpc, sync, totalOrder);
-      updateStats(rpc, sync, currentTime, recipients, null);
+      updateStats(rpc, sync, currentTime, recipients, null, ret);
       return ret;
    }
 
@@ -145,31 +150,23 @@ public class RpcManagerWrapper implements RpcManager {
                                                 boolean usePriorityQueue, boolean totalOrder) throws RpcException {
       boolean isPrepareCmd = rpc instanceof PrepareCommand;
       final TransactionStatistics transactionStatistics = TransactionsStatisticsRegistry.getTransactionStatistics();
-      //try {
+
       long currentTime = System.nanoTime();
       if (isPrepareCmd && transactionStatistics != null) {
          transactionStatistics.markPrepareSent();
       }
       Map<Address, Response> ret = actual.invokeRemotely(recipients, rpc, sync, usePriorityQueue, totalOrder);
       if (transactionStatistics != null) {
-         updateStats(rpc, sync, currentTime, recipients, null);
+         updateStats(rpc, sync, currentTime, recipients, null, ret);
       }
       return ret;
-      //}
-      /*catch (RpcException e) {
-         if (isPrepareCmd && sample) {
-            TransactionsStatisticsRegistry.incrementValue(IspnStats.NUM_REMOTELY_ABORTED);
-         }
-         throw e;
-      }
-      */
    }
 
    @Override
    public ResponseFuture invokeRemotelyWithFuture(Collection<Address> recipients, ReplicableCommand rpc, boolean usePriorityQueue, boolean totalOrder) {
       long currentTime = System.nanoTime();
       ResponseFuture ret = actual.invokeRemotelyWithFuture(recipients, rpc, usePriorityQueue, totalOrder);
-      updateStats(rpc, true, currentTime, recipients, ret);
+      updateStats(rpc, true, currentTime, recipients, ret, null);
       return ret;
    }
 
@@ -178,7 +175,7 @@ public class RpcManagerWrapper implements RpcManager {
                                       NotifyingNotifiableFuture<Object> future) {
       long currentTime = System.nanoTime();
       actual.invokeRemotelyInFuture(recipients, rpc, future);
-      updateStats(rpc, false, currentTime, recipients, null);
+      updateStats(rpc, false, currentTime, recipients, null, null);
    }
 
    @Override
@@ -186,7 +183,7 @@ public class RpcManagerWrapper implements RpcManager {
                                       NotifyingNotifiableFuture<Object> future) {
       long currentTime = System.nanoTime();
       actual.invokeRemotelyInFuture(recipients, rpc, usePriorityQueue, future);
-      updateStats(rpc, false, currentTime, recipients, null);
+      updateStats(rpc, false, currentTime, recipients, null, null);
    }
 
    @Override
@@ -194,7 +191,7 @@ public class RpcManagerWrapper implements RpcManager {
                                       NotifyingNotifiableFuture<Object> future, long timeout) {
       long currentTime = System.nanoTime();
       actual.invokeRemotelyInFuture(recipients, rpc, usePriorityQueue, future, timeout);
-      updateStats(rpc, false, currentTime, recipients, null);
+      updateStats(rpc, false, currentTime, recipients, null, null);
    }
 
    @Override
@@ -202,7 +199,7 @@ public class RpcManagerWrapper implements RpcManager {
                                       NotifyingNotifiableFuture<Object> future, long timeout, boolean ignoreLeavers) {
       long currentTime = System.nanoTime();
       actual.invokeRemotelyInFuture(recipients, rpc, usePriorityQueue, future, timeout, ignoreLeavers);
-      updateStats(rpc, false, currentTime, recipients, null);
+      updateStats(rpc, false, currentTime, recipients, null, null);
    }
 
    @Override
@@ -225,12 +222,17 @@ public class RpcManagerWrapper implements RpcManager {
       return actual.getTopologyId();
    }
 
-   private void updateStats(ReplicableCommand command, boolean sync, long init, Collection<Address> recipients, ResponseFuture future) {
+   private void updateStats(ReplicableCommand command, boolean sync, long init, Collection<Address> recipients, ResponseFuture future, Map<Address, Response> responseMap) {
       final TransactionStatistics transactionStatistics = TransactionsStatisticsRegistry.getTransactionStatistics();
       if (!TransactionsStatisticsRegistry.isActive() || transactionStatistics == null &&
             !(command instanceof TxCompletionNotificationCommand)) {
          if (log.isTraceEnabled()) {
             log.tracef("Does not update stats for command %s. No statistic collector found", command);
+         }
+         return;
+      } else if (transactionStatistics != null && !transactionStatistics.isLocal()) {
+         if (log.isTraceEnabled()) {
+            log.tracef("Does not update stats for command %s. The command is remote!", command);
          }
          return;
       }
@@ -239,6 +241,7 @@ public class RpcManagerWrapper implements RpcManager {
       ExposedStatistic recipientSizeStat;
       ExposedStatistic commandSizeStat = null;
       long contactedNodesMinusMe = recipientListSize(recipients) - (isCurrentNodeInvolved(recipients) ? 1 : 0);
+      long wallClockTimeTaken = System.nanoTime() - init;
       if (command instanceof PrepareCommand) {
          if (sync) {
             durationStat = RTT_PREPARE;
@@ -249,6 +252,25 @@ public class RpcManagerWrapper implements RpcManager {
          }
          recipientSizeStat = NUM_NODES_PREPARE;
          commandSizeStat = PREPARE_COMMAND_SIZE;
+
+         if (command instanceof TotalOrderGMUPrepareCommand) {
+            WaitStats w = new WaitStats(responseMap);
+            long maxW = w.maxConditionalWaitTime;
+            long avgW = w.avgUnconditionalWaitTime;
+            long condAvg = w.avgConditionalWaitTime;
+            long waits = w.numWaitedNodes;
+            transactionStatistics.addValue(TO_GMU_PREPARE_COMMAND_RTT_MINUS_MAX, wallClockTimeTaken - maxW);
+            transactionStatistics.addValue(TO_GMU_PREPARE_COMMAND_RTT_MINUS_AVG, wallClockTimeTaken - avgW);
+            if (waits > 0) {
+               transactionStatistics.incrementValue(NUM_TO_GMU_PREPARE_COMMAND_AT_LEAST_ONE_WAIT);
+               transactionStatistics.addValue(TO_GMU_PREPARE_COMMAND_NODES_WAITED, waits);
+               transactionStatistics.addValue(TO_GMU_PREPARE_COMMAND_AVG_WAIT_TIME, condAvg);
+               transactionStatistics.addValue(TO_GMU_PREPARE_COMMAND_MAX_WAIT_TIME, maxW);
+            } else {
+               transactionStatistics.incrementValue(NUM_TO_GMU_PREPARE_COMMAND_RTT_NO_WAITED);//NB this could be obtained by taking the total number of prepare-the ones that waited
+               transactionStatistics.addValue(TO_GMU_PREPARE_COMMAND_RTT_NO_WAIT, wallClockTimeTaken);
+            }
+         }
       } else if (command instanceof RollbackCommand) {
          if (sync) {
             durationStat = RTT_ROLLBACK;
@@ -271,13 +293,18 @@ public class RpcManagerWrapper implements RpcManager {
          }
          recipientSizeStat = NUM_NODES_COMMIT;
          commandSizeStat = COMMIT_COMMAND_SIZE;
-
-
       } else if (command instanceof ClusteredGetCommand) {
          durationStat = RTT_GET;
          counterStat = NUM_RTTS_GET;
          recipientSizeStat = NUM_NODES_GET;
          commandSizeStat = CLUSTERED_GET_COMMAND_SIZE;
+         //Take rtt sample if the remote read has not waited
+         if (command instanceof GMUClusteredGetCommand) {
+            if (pickGmuRemoteGetWaitingTime(responseMap) == 0) {
+               transactionStatistics.incrementValue(NUM_RTT_GET_NO_WAIT);
+               transactionStatistics.addValue(RTT_GET_NO_WAIT, wallClockTimeTaken);
+            }
+         }
       } else if (command instanceof TxCompletionNotificationCommand) {
          durationStat = ASYNC_COMPLETE_NOTIFY;
          counterStat = NUM_ASYNC_COMPLETE_NOTIFY;
@@ -298,14 +325,14 @@ public class RpcManagerWrapper implements RpcManager {
          future.setUpdateStats(transactionStatistics, init, durationStat, counterStat, recipientSizeStat, commandSizeStat,
                                getCommandSize(command), recipientListSize(recipients));
       } else if (transactionStatistics != null) {
-         transactionStatistics.addValue(durationStat, System.nanoTime() - init);
+         transactionStatistics.addValue(durationStat, wallClockTimeTaken);
          transactionStatistics.incrementValue(counterStat);
          transactionStatistics.addValue(recipientSizeStat, recipientListSize(recipients));
          if (commandSizeStat != null) {
             transactionStatistics.addValue(commandSizeStat, getCommandSize(command));
          }
       } else {
-         TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(durationStat, System.nanoTime() - init, true);
+         TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(durationStat, wallClockTimeTaken, true);
          TransactionsStatisticsRegistry.incrementValueAndFlushIfNeeded(counterStat, true);
          TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(recipientSizeStat, recipientListSize(recipients), true);
       }
@@ -328,4 +355,63 @@ public class RpcManagerWrapper implements RpcManager {
          return 0;
       }
    }
+
+   private long pickGmuRemoteGetWaitingTime(Map<Address, Response> map) {
+      if (map == null || map.size() == 0) {
+         if (log.isDebugEnabled())
+            log.debug("GmuClusteredGetCommand reply is empty");
+         return -1;
+      }
+      AbstractResponse r;
+      long w;
+      PiggyBackStat pbs;
+      for (Map.Entry<Address, Response> e : map.entrySet()) {
+         if (e != null && (r = (AbstractResponse) e.getValue()) != null) {
+            pbs = r.getPiggyBackStat();
+            if (pbs != null) {
+               if ((w = pbs.getWaitTime()) > 0) {
+                  return w;
+               }
+            }
+         }
+      }
+      return 0;
+   }
+
+   private class WaitStats {
+      private long numWaitedNodes;
+      private long avgConditionalWaitTime;
+      private long maxConditionalWaitTime;
+      private long avgUnconditionalWaitTime;
+
+
+      WaitStats(Map<Address, Response> map) {
+         if (map == null || map.size() == 0)
+            return;
+         long max = 0, sum = 0, temp;
+         long waited = 0;
+         AbstractResponse r;
+         Set<Map.Entry<Address, Response>> set = map.entrySet();
+         for (Map.Entry<Address, Response> e : set) {
+            r = (AbstractResponse) e.getValue();
+            temp = r.getPiggyBackStat().getWaitTime();
+            if (temp > 0) {
+               waited++;
+               if (temp > max) {
+                  temp = max;
+               }
+               sum += temp;
+            }
+         }
+         long unAvg = (sum / set.size());
+         long coAvg = waited != 0 ? (sum / waited) : 0;
+
+         this.maxConditionalWaitTime = max;
+         this.avgUnconditionalWaitTime = unAvg;
+         this.avgConditionalWaitTime = coAvg;
+         this.numWaitedNodes = waited;
+      }
+   }
+
+
 }

@@ -122,7 +122,9 @@ public class DataPlacementManager {
       }
 
       objectLookupFactory = configuration.dataPlacement().objectLookupFactory();
-      objectLookupFactory.setConfiguration(configuration);
+      if (objectLookupFactory != null) {
+         objectLookupFactory.setConfiguration(configuration);
+      }
 
       roundManager.init(configuration.dataPlacement().coolDownTime());
 
@@ -345,6 +347,11 @@ public class DataPlacementManager {
       if (rebalancePolicy == null) {
          log.error("Cannot start Data Placement protocol. No Rebalance Policy set!");
          throw new Exception("Cannot start Data Placement protocol. No Rebalance Policy set!");
+      }
+
+      if (objectLookupFactory == null) {
+         log.error("Cannot start Data Placement protocol. No Object Lookup Factory set!");
+         throw new Exception("Cannot start Data Placement protocol. No Object Lookup Factory set!");
       }
 
       if (log.isTraceEnabled()) {

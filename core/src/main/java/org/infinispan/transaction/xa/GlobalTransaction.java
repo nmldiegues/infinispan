@@ -57,6 +57,7 @@ public class GlobalTransaction implements Cloneable {
    private boolean remote = false;
 
    private String protocolId;
+   private String transactionClass;
    private long epochId;
    private transient ReconfigurableProtocol reconfigurableProtocol;
 
@@ -145,6 +146,14 @@ public class GlobalTransaction implements Cloneable {
       this.reconfigurableProtocol = globalTx.reconfigurableProtocol;
    }
 
+   public final String getTransactionClass() {
+      return transactionClass;
+   }
+
+   public final void setTransactionClass(String transactionClass) {
+      this.transactionClass = transactionClass;
+   }
+
    protected abstract static class AbstractGlobalTxExternalizer<T extends GlobalTransaction> extends AbstractExternalizer<T> {
       @Override
       public void writeObject(ObjectOutput output, T gtx) throws IOException {
@@ -152,6 +161,12 @@ public class GlobalTransaction implements Cloneable {
          output.writeObject(gtx.addr);
          output.writeLong(gtx.epochId);
          output.writeUTF(gtx.protocolId);
+         if (gtx.transactionClass == null) {
+            output.writeBoolean(false);
+         } else {
+            output.writeBoolean(true);
+            output.writeUTF(gtx.transactionClass);
+         }
       }
 
       /**
@@ -167,6 +182,9 @@ public class GlobalTransaction implements Cloneable {
          gtx.addr = (Address) input.readObject();
          gtx.epochId = input.readLong();
          gtx.protocolId = input.readUTF();
+         if (input.readBoolean()) {
+            gtx.transactionClass = input.readUTF();
+         }
          return gtx;
       }
    }

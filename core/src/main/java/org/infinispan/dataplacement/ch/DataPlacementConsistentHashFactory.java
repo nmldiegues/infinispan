@@ -71,6 +71,9 @@ public class DataPlacementConsistentHashFactory<CH extends ConsistentHash>
          if (customData != null && customData instanceof ConsistentHashChanges) {
             ConsistentHashChanges consistentHashChanges = (ConsistentHashChanges) customData;
             ClusterObjectLookup clusterObjectLookup = consistentHashChanges.getNewMappings();
+            if (clusterObjectLookup == null && baseCH.getClusterObjectLookupList().isEmpty()) {
+               return baseCH;
+            }
             if (baseCH.getClusterObjectLookupList().size() == 1 && baseCH.getClusterObjectLookupList().get(0).equals(clusterObjectLookup)) {
                //same CH and same ClusterObjectLookup
                return baseCH;

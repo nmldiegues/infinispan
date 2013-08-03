@@ -37,6 +37,7 @@ import org.infinispan.transaction.TransactionTable;
 import org.infinispan.util.concurrent.locks.LockManager;
 import org.infinispan.stats.Stats;
 
+import org.infinispan.transaction.TransactionTable;
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAResource;
 import java.util.Collection;
@@ -214,4 +215,8 @@ public class AbstractDelegatingAdvancedCache<K, V> extends AbstractDelegatingCac
        cache.registerGet(key);
    }
 
+   @Override
+   public boolean setTransactionClass(String transactionClass) {
+      return cache.setTransactionClass(transactionClass);
+   }
 }

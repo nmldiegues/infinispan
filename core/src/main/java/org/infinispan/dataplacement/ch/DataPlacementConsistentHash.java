@@ -64,7 +64,11 @@ public class DataPlacementConsistentHash<CH extends ConsistentHash> implements C
 
    public DataPlacementConsistentHash(CH consistentHash, ClusterObjectLookup clusterObjectLookup) {
       this.consistentHash = consistentHash;
-      this.clusterObjectLookupList = Collections.singletonList(clusterObjectLookup);
+      if (clusterObjectLookup == null) {
+         this.clusterObjectLookupList = Collections.emptyList();
+      } else {
+         this.clusterObjectLookupList = Collections.singletonList(clusterObjectLookup);
+      }
       this.union = false;
    }
 
