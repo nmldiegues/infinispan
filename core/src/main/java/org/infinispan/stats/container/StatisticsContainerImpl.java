@@ -20,38 +20,42 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
-package org.infinispan.stats.translations;
 
-import java.util.EnumMap;
-import java.util.Map;
-
-import static org.infinispan.stats.translations.ExposedStatistics.IspnStats;
+package org.infinispan.stats.container;
 
 /**
- * Websiste: www.cloudtm.eu Date: 01/05/12
+ * Websiste: www.cloudtm.eu
+ * Date: 01/05/12
  * @author Diego Didona <didona@gsd.inesc-id.pt>
- * @author Pedro Ruivo
  * @since 5.2
  */
-public class LocalStatistics {
-   public static final int NOT_FOUND = -1;
-   private static final Map<IspnStats, Integer> translationMap = new EnumMap<IspnStats, Integer>(IspnStats.class);
+public class StatisticsContainerImpl implements StatisticsContainer{
 
-   static {
-      int i = 0;
-      for (IspnStats stat : IspnStats.values()) {
-         if (stat.isLocal()) {
-            translationMap.put(stat, i++);
-         }
+   private final long[] stats;
+
+   public StatisticsContainerImpl(int size){
+      this.stats = new long[size];
+   }
+
+   public final void addValue(int param, double value){
+      this.stats[param]+=value;
+   }
+
+   public final long getValue(int param){
+      return this.stats[param];
+   }
+
+   public final void mergeTo(ConcurrentGlobalContainer globalContainer, boolean local){
+      globalContainer.merge(stats, local);
+   }
+
+   public final int size(){
+      return this.stats.length;
+   }
+
+   public final void dump(){
+      for(int i=0; i<this.stats.length;i++){
+         System.out.println("** "+i+" : "+stats[i]+" **");
       }
-   }
-
-   public static int getIndex(IspnStats stat) {
-      Integer idx = translationMap.get(stat);
-      return idx == null ? NOT_FOUND : idx;
-   }
-
-   public static int getSize() {
-      return translationMap.size();
    }
 }

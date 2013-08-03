@@ -21,11 +21,16 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.infinispan.stats;
+package org.infinispan.stats.container;
 
 import org.infinispan.configuration.cache.Configuration;
-import org.infinispan.stats.translations.ExposedStatistics;
-import org.infinispan.stats.translations.RemoteStatistics;
+import org.infinispan.stats.ExposedStatistic;
+import org.infinispan.stats.NoIspnStatException;
+import org.infinispan.util.logging.Log;
+import org.infinispan.util.logging.LogFactory;
+
+import static org.infinispan.stats.ExposedStatistic.NO_INDEX;
+import static org.infinispan.stats.ExposedStatistic.getRemoteStatsSize;
 
 /**
  * Websiste: www.cloudtm.eu Date: 20/04/12
@@ -35,8 +40,21 @@ import org.infinispan.stats.translations.RemoteStatistics;
  */
 public class RemoteTransactionStatistics extends TransactionStatistics {
 
+   private static final Log log = LogFactory.getLog(LocalTransactionStatistics.class);
+   private static final int SIZE = getRemoteStatsSize();
+
    public RemoteTransactionStatistics(Configuration configuration) {
-      super(RemoteStatistics.getSize(), configuration);
+      super(SIZE, configuration);
+   }
+
+   @Override
+   public final void onPrepareCommand() {
+      //nop
+   }
+
+   @Override
+   public final boolean isLocal() {
+      return false;
    }
 
    @Override
@@ -44,8 +62,26 @@ public class RemoteTransactionStatistics extends TransactionStatistics {
       return "RemoteTransactionStatistics{" + super.toString();
    }
 
-   protected final void onPrepareCommand() {
-      //nop
+   @Override
+   public final boolean stillLocalExecution() {
+      return false;
+   }
+
+   protected void immediateLockingTimeSampling(int heldLocks, boolean isCommit) {
+      double cumulativeLockHoldTime = this.computeCumulativeLockHoldTime(heldLocks, System.nanoTime());
+      this.addValue(ExposedStatistic.NUM_HELD_LOCKS, heldLocks);
+      this.addValue(ExposedStatistic.LOCK_HOLD_TIME, cumulativeLockHoldTime);
+      ExposedStatistic counter, type;
+      if (isCommit) {
+         counter = ExposedStatistic.NUM_SUX_LOCKS;
+         type = ExposedStatistic.SUX_LOCK_HOLD_TIME;
+      } else {
+         counter = ExposedStatistic.NUM_REMOTE_ABORTED_LOCKS;
+         type = ExposedStatistic.REMOTE_ABORT_LOCK_HOLD_TIME;
+
+      }
+      addValue(counter, heldLocks);
+      addValue(type, cumulativeLockHoldTime);
    }
 
    @Override
@@ -53,26 +89,14 @@ public class RemoteTransactionStatistics extends TransactionStatistics {
       //nop
    }
 
-   protected void immediateLockingTimeSampling(int heldLocks, boolean isCommit) {
-      double cumulativeLockHoldTime = this.computeCumulativeLockHoldTime(heldLocks, System.nanoTime());
-      this.addValue(ExposedStatistics.IspnStats.NUM_HELD_LOCKS, heldLocks);
-      this.addValue(ExposedStatistics.IspnStats.LOCK_HOLD_TIME, cumulativeLockHoldTime);
-      ExposedStatistics.IspnStats counter, type;
-      if (isCommit) {
-         counter = ExposedStatistics.IspnStats.NUM_SUX_LOCKS;
-         type = ExposedStatistics.IspnStats.SUX_LOCK_HOLD_TIME;
-      } else {
-         counter = ExposedStatistics.IspnStats.NUM_REMOTE_ABORTED_LOCKS;
-         type = ExposedStatistics.IspnStats.REMOTE_ABORT_LOCK_HOLD_TIME;
-
-      }
-      addValue(counter, heldLocks);
-      addValue(type, cumulativeLockHoldTime);
+   @Override
+   protected final Log getLog() {
+      return log;
    }
 
-   protected final int getIndex(ExposedStatistics.IspnStats stat) throws NoIspnStatException {
-      int ret = RemoteStatistics.getIndex(stat);
-      if (ret == RemoteStatistics.NOT_FOUND) {
+   protected final int getIndex(ExposedStatistic stat) throws NoIspnStatException {
+      int ret = stat.getRemoteIndex();
+      if (ret == NO_INDEX) {
          throw new NoIspnStatException("Statistic " + stat + " is not available!");
       }
       return ret;

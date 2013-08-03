@@ -20,19 +20,23 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
-package org.infinispan.stats;
+package org.infinispan.stats.container;
 
 import org.infinispan.configuration.cache.Configuration;
-import org.infinispan.stats.translations.ExposedStatistics.IspnStats;
+import org.infinispan.configuration.cache.VersioningScheme;
+import org.infinispan.stats.ExposedStatistic;
+import org.infinispan.stats.InfinispanStat;
+import org.infinispan.stats.LockRelatedStatsHelper;
+import org.infinispan.stats.NoIspnStatException;
+import org.infinispan.stats.TransactionsStatisticsRegistry;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
-import org.infinispan.util.logging.LogFactory;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
+import static org.infinispan.stats.ExposedStatistic.*;
 
 
 /**
@@ -42,14 +46,14 @@ import java.util.Set;
  */
 public abstract class TransactionStatistics implements InfinispanStat {
 
-   protected final Log log = LogFactory.getLog(getClass());
-
+   private final StatisticsContainer statisticsContainer;
    //Here the elements which are common for local and remote transactions
    protected long initTime;
    protected long initCpuTime;
    protected long endLocalTime;
    protected long endLocalCpuTime;
-   protected static boolean sampleServiceTime;
+   protected Configuration configuration;
+   protected String id;
    private boolean isReadOnly;
    private boolean isCommit;
    private String transactionalClass;
@@ -59,26 +63,6 @@ public abstract class TransactionStatistics implements InfinispanStat {
    protected long readsBeforeFirstWrite = -1;
    private boolean prepareSent = false;
 
-   private final StatisticsContainer statisticsContainer;
-
-   protected Configuration configuration;
-   protected static ThreadMXBean threadMXBean;
-
-   protected String id;
-
-   public static void init(Configuration configuration) {
-      sampleServiceTime = configuration.customStatsConfiguration().isSampleServiceTimes();
-      if (sampleServiceTime)
-         threadMXBean = ManagementFactory.getThreadMXBean();
-   }
-
-   public Map<Object, Long> getTakenLocks() {
-      return takenLocks;
-   }
-
-   public void injectId(GlobalTransaction id) {
-      this.id = id.globalId();
-   }
 
    public void setReadsBeforeFirstWrite() {
       //I do not use isReadOnly just in case, in the future, we'll be able to tag as update a xact upon start
@@ -98,7 +82,7 @@ public abstract class TransactionStatistics implements InfinispanStat {
       this.prepareSent = true;
    }
 
-   public void incrementNumGets() {
+   public void notifyRead() {
       performedReads++;
    }
 
@@ -109,20 +93,26 @@ public abstract class TransactionStatistics implements InfinispanStat {
       this.transactionalClass = TransactionsStatisticsRegistry.DEFAULT_ISPN_CLASS;
       this.statisticsContainer = new StatisticsContainerImpl(size);
       this.configuration = configuration;
-
-      if (log.isTraceEnabled()) {
-         log.tracef("Created transaction statistics. Class is %s. Start time is %s",
-                    transactionalClass, initTime);
+      if (getLog().isTraceEnabled()) {
+         getLog().tracef("Created transaction statistics. Class is %s. Start time is %s",
+                         transactionalClass, initTime);
       }
-      if (sampleServiceTime) {
-         if (log.isTraceEnabled()) log.tracef("Transaction statistics is sampling cpuTime");
-         this.initCpuTime = threadMXBean.getCurrentThreadCpuTime();
+      if (TransactionsStatisticsRegistry.isSampleServiceTime()) {
+         getLog().tracef("Transaction statistics is sampling cpuTime");
+         this.initCpuTime = TransactionsStatisticsRegistry.getThreadCPUTime();
       }
    }
 
+   public final Map<Object, Long> getTakenLocks() {
+      return takenLocks;
+   }
 
-   public static long getCurrentCpuTime() {
-      return threadMXBean.getCurrentThreadCpuTime();
+   public final void attachId(GlobalTransaction id) {
+      this.id = id.globalId();
+   }
+
+   public final String getId() {
+      return id;
    }
 
    public final String getTransactionalClass() {
@@ -137,7 +127,7 @@ public abstract class TransactionStatistics implements InfinispanStat {
       return this.isCommit;
    }
 
-   public final void setCommit(boolean commit) {
+   public final void setTransactionOutcome(boolean commit) {
       isCommit = commit;
    }
 
@@ -156,33 +146,33 @@ public abstract class TransactionStatistics implements InfinispanStat {
       if (!this.takenLocks.containsKey(lock)) {
          long now = System.nanoTime();
          this.takenLocks.put(lock, now);
-         if (log.isTraceEnabled())
-            log.trace("TID " + Thread.currentThread().getId() + " Added " + lock + " at " + now);
+         if (getLog().isTraceEnabled())
+            getLog().trace("TID " + Thread.currentThread().getId() + " Added " + lock + " at " + now);
       }
    }
 
-   public final void addValue(IspnStats param, double value) {
+   public final void addValue(ExposedStatistic param, double value) {
       try {
          int index = this.getIndex(param);
          this.statisticsContainer.addValue(index, value);
-         if (log.isTraceEnabled()) {
-            log.tracef("Add %s to %s", value, param);
+         if (getLog().isTraceEnabled()) {
+            getLog().tracef("Add %s to %s", value, param);
          }
       } catch (NoIspnStatException e) {
-         log.warnf(e, "Exception caught when trying to add the value %s to %s.", value, param);
+         getLog().warnf(e, "Exception caught when trying to add the value %s to %s.", value, param);
       }
    }
 
-   public final long getValue(IspnStats param) {
+   public final long getValue(ExposedStatistic param) {
       int index = this.getIndex(param);
       long value = this.statisticsContainer.getValue(index);
-      if (log.isTraceEnabled()) {
-         log.tracef("Value of %s is %s", param, value);
+      if (getLog().isTraceEnabled()) {
+         getLog().tracef("Value of %s is %s", param, value);
       }
       return value;
    }
 
-   public final void incrementValue(IspnStats param) {
+   public final void incrementValue(ExposedStatistic param) {
       this.addValue(param, 1);
    }
 
@@ -193,8 +183,8 @@ public abstract class TransactionStatistics implements InfinispanStat {
     * running the remote transaction and then terminateTransaction is invoked to sample statistics.
     */
    public final void terminateTransaction() {
-      if (log.isTraceEnabled()) {
-         log.tracef("Terminating transaction. Is read only? %s. Is commit? %s", isReadOnly, isCommit);
+      if (getLog().isTraceEnabled()) {
+         getLog().tracef("Terminating transaction. Is read only? %s. Is commit? %s", isReadOnly, isCommit);
       }
 
        /*
@@ -209,54 +199,51 @@ public abstract class TransactionStatistics implements InfinispanStat {
       if (heldLocks > 0) {
          boolean remote = !(this instanceof LocalTransactionStatistics);
          if (!LockRelatedStatsHelper.shouldAppendLocks(configuration, isCommit, remote)) {
-            if (log.isTraceEnabled())
-               log.trace("TID " + Thread.currentThread().getId() + "Sampling locks for " + (remote ? "remote " : "local ") + " transaction " + this.id + " commit? " + isCommit);
+            if (getLog().isTraceEnabled())
+               getLog().trace("TID " + Thread.currentThread().getId() + "Sampling locks for " + (remote ? "remote " : "local ") + " transaction " + this.id + " commit? " + isCommit);
             immediateLockingTimeSampling(heldLocks, isCommit);
          } else {
-            if (log.isTraceEnabled())
-               log.trace("NOT sampling locks for " + (remote ? "remote " : "local ") + " transaction " + this.id);
+            if (getLog().isTraceEnabled())
+               getLog().trace("NOT sampling locks for " + (remote ? "remote " : "local ") + " transaction " + this.id);
          }
       }
 
       double execTime = System.nanoTime() - this.initTime;
       if (this.isReadOnly) {
          if (isCommit) {
-            this.incrementValue(IspnStats.NUM_COMMITTED_RO_TX);
-            this.addValue(IspnStats.RO_TX_SUCCESSFUL_EXECUTION_TIME, execTime);
-            this.addValue(IspnStats.NUM_SUCCESSFUL_GETS_RO_TX, this.getValue(IspnStats.NUM_GET));
-            this.addValue(IspnStats.NUM_SUCCESSFUL_REMOTE_GETS_RO_TX, this.getValue(IspnStats.NUM_LOCAL_REMOTE_GET));
+            this.incrementValue(NUM_COMMITTED_RO_TX);
+            this.addValue(RO_TX_SUCCESSFUL_EXECUTION_TIME, execTime);
+            this.addValue(NUM_SUCCESSFUL_GETS_RO_TX, this.getValue(NUM_GET));
+            this.addValue(NUM_SUCCESSFUL_REMOTE_GETS_RO_TX, this.getValue(NUM_LOCAL_REMOTE_GET));
          } else {
-            this.incrementValue(IspnStats.NUM_ABORTED_RO_TX);
-            this.addValue(IspnStats.RO_TX_ABORTED_EXECUTION_TIME, execTime);
+            this.incrementValue(NUM_ABORTED_RO_TX);
+            this.addValue(RO_TX_ABORTED_EXECUTION_TIME, execTime);
          }
       } else {
          if (isCommit) {
-            this.incrementValue(IspnStats.NUM_COMMITTED_WR_TX);
-            this.addValue(IspnStats.WR_TX_SUCCESSFUL_EXECUTION_TIME, execTime);
-            this.addValue(IspnStats.NUM_SUCCESSFUL_GETS_WR_TX, this.getValue(IspnStats.NUM_GET));
-            this.addValue(IspnStats.NUM_SUCCESSFUL_REMOTE_GETS_WR_TX, this.getValue(IspnStats.NUM_LOCAL_REMOTE_GET));
-            this.addValue(IspnStats.NUM_SUCCESSFUL_PUTS_WR_TX, this.getValue(IspnStats.NUM_PUT));
-            this.addValue(IspnStats.NUM_SUCCESSFUL_REMOTE_PUTS_WR_TX, this.getValue(IspnStats.NUM_REMOTE_PUT));
-
+            this.incrementValue(NUM_COMMITTED_WR_TX);
+            this.addValue(WR_TX_SUCCESSFUL_EXECUTION_TIME, execTime);
+            this.addValue(NUM_SUCCESSFUL_GETS_WR_TX, this.getValue(NUM_GET));
+            this.addValue(NUM_SUCCESSFUL_REMOTE_GETS_WR_TX, this.getValue(NUM_LOCAL_REMOTE_GET));
+            this.addValue(NUM_SUCCESSFUL_PUTS_WR_TX, this.getValue(NUM_PUT));
+            this.addValue(NUM_SUCCESSFUL_REMOTE_PUTS_WR_TX, this.getValue(NUM_REMOTE_PUT));
          } else {
-            this.incrementValue(IspnStats.NUM_ABORTED_WR_TX);
-            this.addValue(IspnStats.WR_TX_ABORTED_EXECUTION_TIME, execTime);
+            this.incrementValue(NUM_ABORTED_WR_TX);
+            this.addValue(WR_TX_ABORTED_EXECUTION_TIME, execTime);
          }
       }
-
-      //TODO: successful lock hold time?
-
       terminate();
    }
 
+   public abstract boolean stillLocalExecution();
+
    protected abstract void immediateLockingTimeSampling(int heldLocks, boolean isCommit);
 
-
-   public final void flush(TransactionStatistics ts) {
-      if (log.isTraceEnabled()) {
-         log.tracef("Flush this [%s] to %s", this, ts);
+   public final void flush(ConcurrentGlobalContainer globalStatistics) {
+      if (getLog().isTraceEnabled()) {
+         getLog().tracef("Flush this [%s] to %s", this, globalStatistics);
       }
-      this.statisticsContainer.mergeTo(ts.statisticsContainer);
+      this.statisticsContainer.mergeTo(globalStatistics, isLocal());
    }
 
    public final void dump() {
@@ -272,36 +259,74 @@ public abstract class TransactionStatistics implements InfinispanStat {
             '}';
    }
 
-   protected abstract int getIndex(IspnStats param);
+   public abstract void onPrepareCommand();
 
-   protected abstract void onPrepareCommand();
-
-   protected abstract void terminate();
-
-   protected long computeCumulativeLockHoldTime(int numLocks, long currentTime) {
-      Set<Map.Entry<Object, Long>> keySet = this.takenLocks.entrySet();
-      final boolean trace = (log.isTraceEnabled());
-      if (trace)
-         log.trace("Held locks from param " + numLocks + "numLocks in entryset " + keySet.size());
-      long ret = numLocks * currentTime;
-      if (trace)
-         log.trace("Now is " + currentTime + "total is " + ret);
-      for (Map.Entry<Object, Long> e : keySet) {
-         ret -= e.getValue();
-         if (trace)
-            log.trace("TID " + Thread.currentThread().getId() + " " + e.getKey() + " " + e.getValue());
-      }
-      if (trace)
-         log.trace("TID " + Thread.currentThread().getId() + " " + "Avg lock hold time is " + (ret / (long) numLocks) * 1e-3);
-      return ret;
+   public final long getLastOpTimestamp() {
+      return lastOpTimestamp;
    }
 
-   public void setLastOpTimestamp(long lastOpTimestamp) {
+   public final void setLastOpTimestamp(long lastOpTimestamp) {
       this.lastOpTimestamp = lastOpTimestamp;
    }
 
-   public long getLastOpTimestamp() {
-      return lastOpTimestamp;
+   public final void addNTBCValue(long currentTime) {
+      if (getLastOpTimestamp() != 0) {
+         addValue(TBC_EXECUTION_TIME, currentTime - getLastOpTimestamp());
+      }
+   }
+
+   public abstract boolean isLocal();
+
+   protected final void immediateLockingTimeSampling(int heldLocks) {
+      double cumulativeLockHoldTime = this.computeCumulativeLockHoldTime(heldLocks, System.nanoTime());
+      this.addValue(NUM_HELD_LOCKS, heldLocks);
+      this.addValue(LOCK_HOLD_TIME, cumulativeLockHoldTime);
+   }
+
+   protected abstract int getIndex(ExposedStatistic param);
+
+   protected abstract void terminate();
+
+   protected abstract Log getLog();
+
+   /*
+   private void appendLocks(Map<Object,Long> locks, Long id){
+      TransactionsStatisticsRegistry.shouldAppendLocks(locks,id);
+   }
+   */
+   /*
+     Upon completion of a xact (i.e., CommitCommand or RollbackCommand) I know that I have released the locks if
+     a. I am a local xact
+     b. I am a remote xact and
+     b.1. It is a RollbackCommand   OR
+     b.2  We are not running GMU protocol   OR
+     b.3  It is a CommitCommand and it is synchronous
+    */
+   //I have to save locks if I am remote committing with GMU (in async mode!!)
+   private boolean haveLocksAlreadyBeenReleased(boolean isCommit, Configuration configuration) {
+      boolean isGmu = configuration.versioning().scheme().equals(VersioningScheme.GMU);
+      boolean isSyncCommit = configuration.transaction().syncCommitPhase();
+      return !(this instanceof RemoteTransactionStatistics && isGmu && isCommit && !isSyncCommit);
+
+      // boolean isSyncCommit = configuration.transaction().syncCommitPhase();
+      // return ( this instanceof LocalTransactionStatistics) || !isCommit || !isGmu || isSyncCommit;          //Either is a RollbackCommand, or we are not using GMU, or we are using GMU and the commitCommand is sync
+   }
+
+   protected long computeCumulativeLockHoldTime(int numLocks, long currentTime) {
+      Set<Map.Entry<Object, Long>> keySet = this.takenLocks.entrySet();
+      final boolean trace = (getLog().isTraceEnabled());
+      if (trace)
+         getLog().trace("Held locks from param " + numLocks + "numLocks in entryset " + keySet.size());      long ret = numLocks * currentTime;
+      if (trace)
+         getLog().trace("Now is " + currentTime + "total is " + ret);
+      for (Map.Entry<Object, Long> e : keySet) {
+         ret -= e.getValue();
+         if (trace)
+            getLog().trace("TID " + Thread.currentThread().getId() + " " + e.getKey() + " " + e.getValue());
+      }
+      if (trace)
+         getLog().trace("TID " + Thread.currentThread().getId() + " " + "Avg lock hold time is " + (ret / (long) numLocks) * 1e-3);
+      return ret;
    }
 }
 

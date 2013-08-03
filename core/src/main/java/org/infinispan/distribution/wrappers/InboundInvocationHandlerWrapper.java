@@ -36,7 +36,8 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.jgroups.blocks.Response;
 
-import static org.infinispan.stats.translations.ExposedStatistics.IspnStats;
+import static org.infinispan.stats.ExposedStatistic.NUM_TX_COMPLETE_NOTIFY_COMMAND;
+import static org.infinispan.stats.ExposedStatistic.TX_COMPLETE_NOTIFY_EXECUTION_TIME;
 
 /**
  * @author Mircea Markus <mircea.markus@jboss.com> (C) 2011 Red Hat Inc.
@@ -56,6 +57,11 @@ public class InboundInvocationHandlerWrapper implements InboundInvocationHandler
 
    @Override
    public void handle(CacheRpcCommand command, Address origin, Response response) throws Throwable {
+      if (!TransactionsStatisticsRegistry.isActive()) {
+         actual.handle(command, origin, response);
+         return;
+      }
+
       if (log.isTraceEnabled()) {
          log.tracef("Handle remote command [%s] by the invocation handle wrapper from %s", command, origin);
       }
@@ -83,9 +89,9 @@ public class InboundInvocationHandlerWrapper implements InboundInvocationHandler
          actual.handle(command, origin, response);
 
          if (txCompleteNotify) {
-            TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(IspnStats.TX_COMPLETE_NOTIFY_EXECUTION_TIME,
+            TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(TX_COMPLETE_NOTIFY_EXECUTION_TIME,
                                                                     System.nanoTime() - currTime, false);
-            TransactionsStatisticsRegistry.incrementValueAndFlushIfNeeded(IspnStats.NUM_TX_COMPLETE_NOTIFY_COMMAND, false);
+            TransactionsStatisticsRegistry.incrementValueAndFlushIfNeeded(NUM_TX_COMPLETE_NOTIFY_COMMAND, false);
          }
       } finally {
          if (globalTransaction != null) {

@@ -51,7 +51,7 @@ import org.infinispan.remoting.transport.Transport;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
 import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.stats.TransactionsStatisticsRegistry;
-import org.infinispan.stats.translations.ExposedStatistics;
+import org.infinispan.stats.container.TransactionStatistics;
 import org.infinispan.transaction.TotalOrderRemoteTransactionState;
 import org.infinispan.transaction.totalorder.TotalOrderLatch;
 import org.infinispan.transaction.totalorder.TotalOrderManager;
@@ -61,6 +61,8 @@ import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.jgroups.blocks.RpcDispatcher;
+
+import static org.infinispan.stats.ExposedStatistic.*;
 
 /**
  * Sets the cache interceptor chain on an RPCCommand before calling it to perform
@@ -208,18 +210,18 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
                   long cpuInitTime = 0, initTime = 0;
                   if (sampleServiceTimes) {
                      //No xact is associated to this command, so we do not attach a TransactionStatistics and rely on the flushes
-                     cpuInitTime = TransactionsStatisticsRegistry.getCurrentThreadCpuTime();
+                     cpuInitTime = TransactionsStatisticsRegistry.getThreadCPUTime();
                      initTime = System.nanoTime();
                      if (hasWaited) {
-                        TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(ExposedStatistics.IspnStats.REMOTE_REMOTE_GET_WAITING_TIME, initTime - arrivalTime, false);
-                        TransactionsStatisticsRegistry.incrementValueAndFlushIfNeeded(ExposedStatistics.IspnStats.NUM_WAITS_REMOTE_REMOTE_GETS, false);
+                        TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(REMOTE_REMOTE_GET_WAITING_TIME, initTime - arrivalTime, false);
+                        TransactionsStatisticsRegistry.incrementValueAndFlushIfNeeded(NUM_WAITS_REMOTE_REMOTE_GETS, false);
                      }
                   }
                   resp = handleInternal(cmd, cr);
                   if (sampleServiceTimes) {
-                     TransactionsStatisticsRegistry.incrementValueAndFlushIfNeeded(ExposedStatistics.IspnStats.NUM_REMOTE_REMOTE_GETS, false);
-                     TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(ExposedStatistics.IspnStats.REMOTE_REMOTE_GET_R, System.nanoTime() - initTime, false);
-                     TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(ExposedStatistics.IspnStats.REMOTE_REMOTE_GET_S, TransactionsStatisticsRegistry.getCurrentThreadCpuTime() - cpuInitTime, false);
+                     TransactionsStatisticsRegistry.incrementValueAndFlushIfNeeded(NUM_REMOTE_REMOTE_GETS, false);
+                     TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(REMOTE_REMOTE_GET_R, System.nanoTime() - initTime, false);
+                     TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(REMOTE_REMOTE_GET_S, TransactionsStatisticsRegistry.getThreadCPUTime() - cpuInitTime, false);
                   }
                } catch (Throwable throwable) {
                   log.exceptionHandlingCommand(cmd, throwable);
@@ -228,7 +230,7 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
                //the ResponseGenerated is null in this case because the return value is a Response
                reply(response, resp);
                if (sampleServiceTimes) {
-                  TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(ExposedStatistics.IspnStats.REMOTE_REMOTE_GET_REPLY_SIZE, getReplySize(resp), false);
+                  TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(REMOTE_REMOTE_GET_REPLY_SIZE, getReplySize(resp), false);
                }
             }
          });
@@ -250,9 +252,12 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
                Response resp;
                try {
                   //RemoteTransactionStatistic has been attached and detached by the IIHW, so it has to be attached again to this thread
-                  if (TransactionsStatisticsRegistry.attachRemoteTransactionStatistic(gmuCommitCommand.getGlobalTransaction(), true) && hasWaited) {
-                     TransactionsStatisticsRegistry.addValue(ExposedStatistics.IspnStats.WAIT_TIME_IN_COMMIT_QUEUE, System.nanoTime() - arrivalTime);
-                     TransactionsStatisticsRegistry.incrementValue(ExposedStatistics.IspnStats.NUM_WAITS_IN_COMMIT_QUEUE);
+                  final TransactionStatistics transactionStatistics =
+                        TransactionsStatisticsRegistry.attachRemoteTransactionStatistic(
+                              gmuCommitCommand.getGlobalTransaction(), true);
+                  if (transactionStatistics != null && hasWaited) {
+                     transactionStatistics.addValue(WAIT_TIME_IN_COMMIT_QUEUE, System.nanoTime() - arrivalTime);
+                     transactionStatistics.incrementValue(NUM_WAITS_IN_COMMIT_QUEUE);
                   }
                   resp = handleInternal(cmd, cr);
                } catch (Throwable throwable) {

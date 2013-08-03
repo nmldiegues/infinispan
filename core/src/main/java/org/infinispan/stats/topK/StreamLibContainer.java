@@ -29,13 +29,14 @@ import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * This contains all the stream lib top keys. Stream lib is a space efficient technique to obtains the top-most
@@ -50,22 +51,20 @@ public class StreamLibContainer {
    private static final Log log = LogFactory.getLog(StreamLibContainer.class);
    private final String cacheName;
    private final String address;
-   private final Map<Stat, StreamSummary<Object>> streamSummaryEnumMap;
-   private final Map<Stat, Lock> lockMap;
+   private final AtomicBoolean flushing;
+   private final EnumMap<Stat, TopKeyWrapper> topKeyWrapper;
    private volatile int capacity = 1000;
    private volatile boolean active = false;
+   private volatile boolean reset = false;
 
    public StreamLibContainer(String cacheName, String address) {
       this.cacheName = cacheName;
       this.address = address;
-      streamSummaryEnumMap = Collections.synchronizedMap(new EnumMap<Stat, StreamSummary<Object>>(Stat.class));
-      lockMap = new EnumMap<Stat, Lock>(Stat.class);
-
+      topKeyWrapper = new EnumMap<Stat, TopKeyWrapper>(Stat.class);
       for (Stat stat : Stat.values()) {
-         lockMap.put(stat, new ReentrantLock());
+         topKeyWrapper.put(stat, new TopKeyWrapper());
       }
-
-      resetAll(1);
+      flushing = new AtomicBoolean(false);
    }
 
    public static StreamLibContainer getOrCreateStreamLibContainer(Cache cache) {
@@ -73,7 +72,7 @@ public class StreamLibContainer {
       StreamLibContainer streamLibContainer = componentRegistry.getComponent(StreamLibContainer.class);
       if (streamLibContainer == null) {
          String cacheName = cache.getName();
-         String address = String.valueOf(cache.getCacheManager().getAddress()); 
+         String address = String.valueOf(cache.getCacheManager().getAddress());
          componentRegistry.registerComponent(new StreamLibContainer(cacheName, address), StreamLibContainer.class);
       }
       return componentRegistry.getComponent(StreamLibContainer.class);
@@ -85,9 +84,9 @@ public class StreamLibContainer {
 
    public void setActive(boolean active) {
       if (!this.active && active) {
-         resetAll(capacity);
+         resetAll();
       } else if (!active) {
-         resetAll(1);
+         resetAll();
       }
       this.active = active;
    }
@@ -109,6 +108,7 @@ public class StreamLibContainer {
          return;
       }
       syncOffer(remote ? Stat.REMOTE_GET : Stat.LOCAL_GET, key);
+      tryFlushAll();
    }
 
    public void addPut(Object key, boolean remote) {
@@ -117,6 +117,7 @@ public class StreamLibContainer {
       }
 
       syncOffer(remote ? Stat.REMOTE_PUT : Stat.LOCAL_PUT, key);
+      tryFlushAll();
    }
 
    public void addLockInformation(Object key, boolean contention, boolean abort) {
@@ -132,10 +133,12 @@ public class StreamLibContainer {
       if (abort) {
          syncOffer(Stat.MOST_FAILED_KEYS, key);
       }
+      tryFlushAll();
    }
 
    public void addWriteSkewFailed(Object key) {
       syncOffer(Stat.MOST_WRITE_SKEW_FAILED_KEYS, key);
+      tryFlushAll();
    }
 
    public Map<Object, Long> getTopKFrom(Stat stat) {
@@ -143,63 +146,17 @@ public class StreamLibContainer {
    }
 
    public Map<Object, Long> getTopKFrom(Stat stat, int topK) {
-      try {
-         lockMap.get(stat).lock();
-         return getStatsFrom(streamSummaryEnumMap.get(stat), topK);
-      } finally {
-         lockMap.get(stat).unlock();
-      }
-
+      tryFlushAll();
+      return topKeyWrapper.get(stat).topK(topK);
    }
 
-   private Map<Object, Long> getStatsFrom(StreamSummary<Object> ss, int topK) {
-      List<Counter<Object>> counters = ss.topK(topK <= 0 ? 1 : topK);
-      Map<Object, Long> results = new HashMap<Object, Long>(topK);
-
-      for (Counter<Object> c : counters) {
-         results.put(c.getItem(), c.getCount());
-      }
-
-      return results;
+   public Map<String, Long> getTopKFromAsKeyString(Stat stat) {
+      return getTopKFromAsKeyString(stat, capacity);
    }
 
-   public void resetAll() {
-      resetAll(capacity);
-   }
-
-   public void resetStat(Stat stat) {
-      resetStat(stat, capacity);
-   }
-
-   private void resetStat(Stat stat, int customCapacity) {
-      try {
-         lockMap.get(stat).lock();
-         streamSummaryEnumMap.put(stat, createNewStreamSummary(customCapacity));
-      } finally {
-         lockMap.get(stat).unlock();
-      }
-   }
-
-   private StreamSummary<Object> createNewStreamSummary(int customCapacity) {
-      return new StreamSummary<Object>(Math.min(MAX_CAPACITY, customCapacity));
-   }
-
-   private void resetAll(int customCapacity) {
-      for (Stat stat : Stat.values()) {
-         resetStat(stat, customCapacity);
-      }
-   }
-
-   private void syncOffer(final Stat stat, Object key) {
-      try {
-         lockMap.get(stat).lock();
-         if (log.isTraceEnabled()) {
-            log.tracef("Offer key=%s to stat=%s in %s", key, stat, this);
-         }
-         streamSummaryEnumMap.get(stat).offer(key);
-      } finally {
-         lockMap.get(stat).unlock();
-      }
+   public Map<String, Long> getTopKFromAsKeyString(Stat stat, int topK) {
+      tryFlushAll();
+      return topKeyWrapper.get(stat).topKAsString(topK);
    }
 
    @Override
@@ -228,6 +185,38 @@ public class StreamLibContainer {
             '}';
    }
 
+   public final void tryFlushAll() {
+      if (flushing.compareAndSet(false, true)) {
+         if (reset) {
+            for (Stat stat : Stat.values()) {
+               topKeyWrapper.get(stat).reset(createNewStreamSummary(capacity));
+            }
+            reset = false;
+         } else {
+            for (Stat stat : Stat.values()) {
+               topKeyWrapper.get(stat).flush();
+            }
+         }
+         flushing.set(false);
+      }
+   }
+
+   public final void resetAll() {
+      reset = true;
+      tryFlushAll();
+   }
+
+   private StreamSummary<Object> createNewStreamSummary(int customCapacity) {
+      return new StreamSummary<Object>(Math.min(MAX_CAPACITY, customCapacity));
+   }
+
+   private void syncOffer(final Stat stat, Object key) {
+      if (log.isTraceEnabled()) {
+         log.tracef("Offer key=%s to stat=%s in %s", key, stat, this);
+      }
+      topKeyWrapper.get(stat).offer(key);
+   }
+
    public static enum Stat {
       REMOTE_GET,
       LOCAL_GET,
@@ -238,5 +227,58 @@ public class StreamLibContainer {
       MOST_CONTENDED_KEYS,
       MOST_FAILED_KEYS,
       MOST_WRITE_SKEW_FAILED_KEYS
+   }
+
+   private class TopKeyWrapper {
+      private final BlockingQueue<Object> pendingOffers;
+      private volatile StreamSummary<Object> streamSummary;
+
+      public TopKeyWrapper() {
+         pendingOffers = new LinkedBlockingQueue<Object>();
+         streamSummary = createNewStreamSummary(capacity);
+      }
+
+      private void offer(final Object element) {
+         pendingOffers.add(element);
+      }
+
+      private void reset(StreamSummary<Object> streamSummary) {
+         pendingOffers.clear();
+         this.streamSummary = streamSummary;
+      }
+
+      private void flush() {
+         List<Object> keys = new ArrayList<Object>();
+         pendingOffers.drainTo(keys);
+         synchronized (this) {
+            for (Object k : keys) {
+               streamSummary.offer(k);
+            }
+         }
+      }
+
+      private Map<Object, Long> topK(int k) {
+         List<Counter<Object>> counterList;
+         synchronized (this) {
+            counterList = streamSummary.topK(k);
+         }
+         Map<Object, Long> map = new LinkedHashMap<Object, Long>();
+         for (Counter<Object> counter : counterList) {
+            map.put(counter.getItem(), counter.getCount());
+         }
+         return map;
+      }
+
+      private Map<String, Long> topKAsString(int k) {
+         List<Counter<Object>> counterList;
+         synchronized (this) {
+            counterList = streamSummary.topK(k);
+         }
+         Map<String, Long> map = new LinkedHashMap<String, Long>();
+         for (Counter<Object> counter : counterList) {
+            map.put(String.valueOf(counter.getItem()), counter.getCount());
+         }
+         return map;
+      }
    }
 }

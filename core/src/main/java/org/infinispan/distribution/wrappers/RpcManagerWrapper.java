@@ -36,8 +36,9 @@ import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
+import org.infinispan.stats.ExposedStatistic;
 import org.infinispan.stats.TransactionsStatisticsRegistry;
-import org.infinispan.stats.translations.ExposedStatistics.IspnStats;
+import org.infinispan.stats.container.TransactionStatistics;
 import org.infinispan.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -47,6 +48,8 @@ import org.jgroups.util.Buffer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+
+import static org.infinispan.stats.ExposedStatistic.*;
 
 /**
  * @author Mircea Markus <mircea.markus@jboss.com> (C) 2011 Red Hat Inc.
@@ -140,14 +143,14 @@ public class RpcManagerWrapper implements RpcManager {
    public Map<Address, Response> invokeRemotely(Collection<Address> recipients, ReplicableCommand rpc, boolean sync,
                                                 boolean usePriorityQueue, boolean totalOrder) throws RpcException {
       boolean isPrepareCmd = rpc instanceof PrepareCommand;
-      boolean sample = TransactionsStatisticsRegistry.isActive();
+      final TransactionStatistics transactionStatistics = TransactionsStatisticsRegistry.getTransactionStatistics();
       //try {
       long currentTime = System.nanoTime();
-      if (isPrepareCmd && sample) {
-         TransactionsStatisticsRegistry.markPrepareSent();
+      if (isPrepareCmd && transactionStatistics != null) {
+         transactionStatistics.markPrepareSent();
       }
       Map<Address, Response> ret = actual.invokeRemotely(recipients, rpc, sync, usePriorityQueue, totalOrder);
-      if (sample) {
+      if (transactionStatistics != null) {
          updateStats(rpc, sync, currentTime, recipients);
       }
       return ret;
@@ -214,84 +217,85 @@ public class RpcManagerWrapper implements RpcManager {
    }
 
    private void updateStats(ReplicableCommand command, boolean sync, long init, Collection<Address> recipients) {
-      if (!TransactionsStatisticsRegistry.hasStatisticCollector() &&
+      final TransactionStatistics transactionStatistics = TransactionsStatisticsRegistry.getTransactionStatistics();
+      if (!TransactionsStatisticsRegistry.isActive() || transactionStatistics == null &&
             !(command instanceof TxCompletionNotificationCommand)) {
          if (log.isTraceEnabled()) {
             log.tracef("Does not update stats for command %s. No statistic collector found", command);
          }
          return;
       }
-      IspnStats durationStat;
-      IspnStats counterStat;
-      IspnStats recipientSizeStat;
-      IspnStats commandSizeStat = null;
-      long contactedNodes = recipientListSize(recipients);
+      ExposedStatistic durationStat;
+      ExposedStatistic counterStat;
+      ExposedStatistic recipientSizeStat;
+      ExposedStatistic commandSizeStat = null;
       long contactedNodesMinusMe = recipientListSize(recipients) - (isCurrentNodeInvolved(recipients) ? 1 : 0);
       if (command instanceof PrepareCommand) {
          if (sync) {
-            durationStat = IspnStats.RTT_PREPARE;
-            counterStat = IspnStats.NUM_RTTS_PREPARE;
+            durationStat = RTT_PREPARE;
+            counterStat = NUM_RTTS_PREPARE;
          } else {
-            durationStat = IspnStats.ASYNC_PREPARE;
-            counterStat = IspnStats.NUM_ASYNC_PREPARE;
+            durationStat = ASYNC_PREPARE;
+            counterStat = NUM_ASYNC_PREPARE;
          }
-         recipientSizeStat = IspnStats.NUM_NODES_PREPARE;
-         commandSizeStat = IspnStats.PREPARE_COMMAND_SIZE;
+         recipientSizeStat = NUM_NODES_PREPARE;
+         commandSizeStat = PREPARE_COMMAND_SIZE;
       } else if (command instanceof RollbackCommand) {
          if (sync) {
-            durationStat = IspnStats.RTT_ROLLBACK;
-            counterStat = IspnStats.NUM_RTTS_ROLLBACK;
+            durationStat = RTT_ROLLBACK;
+            counterStat = NUM_RTTS_ROLLBACK;
          } else {
-            durationStat = IspnStats.ASYNC_ROLLBACK;
-            counterStat = IspnStats.NUM_ASYNC_ROLLBACK;
+            durationStat = ASYNC_ROLLBACK;
+            counterStat = NUM_ASYNC_ROLLBACK;
          }
-         recipientSizeStat = IspnStats.NUM_NODES_ROLLBACK;
-         commandSizeStat = IspnStats.ROLLBACK_COMMAND_SIZE;
+         recipientSizeStat = NUM_NODES_ROLLBACK;
+         commandSizeStat = ROLLBACK_COMMAND_SIZE;
       } else if (command instanceof CommitCommand) {
          if (sync) {
-            durationStat = IspnStats.RTT_COMMIT;
-            counterStat = IspnStats.NUM_RTTS_COMMIT;
-            TransactionsStatisticsRegistry.addValue(IspnStats.SENT_SYNC_COMMIT, contactedNodesMinusMe);
+            durationStat = RTT_COMMIT;
+            counterStat = NUM_RTTS_COMMIT;
+            transactionStatistics.addValue(SENT_SYNC_COMMIT, contactedNodesMinusMe);
          } else {
-            durationStat = IspnStats.ASYNC_COMMIT;
-            counterStat = IspnStats.NUM_ASYNC_COMMIT;
-            TransactionsStatisticsRegistry.addValue(IspnStats.SENT_ASYNC_COMMIT, contactedNodesMinusMe);
+            durationStat = ASYNC_COMMIT;
+            counterStat = NUM_ASYNC_COMMIT;
+            transactionStatistics.addValue(SENT_ASYNC_COMMIT, contactedNodesMinusMe);
          }
-         recipientSizeStat = IspnStats.NUM_NODES_COMMIT;
-         commandSizeStat = IspnStats.COMMIT_COMMAND_SIZE;
+         recipientSizeStat = NUM_NODES_COMMIT;
+         commandSizeStat = COMMIT_COMMAND_SIZE;
 
 
       } else if (command instanceof ClusteredGetCommand) {
-         durationStat = IspnStats.RTT_GET;
-         counterStat = IspnStats.NUM_RTTS_GET;
-         recipientSizeStat = IspnStats.NUM_NODES_GET;
-         commandSizeStat = IspnStats.CLUSTERED_GET_COMMAND_SIZE;
+         durationStat = RTT_GET;
+         counterStat = NUM_RTTS_GET;
+         recipientSizeStat = NUM_NODES_GET;
+         commandSizeStat = CLUSTERED_GET_COMMAND_SIZE;
       } else if (command instanceof TxCompletionNotificationCommand) {
-         durationStat = IspnStats.ASYNC_COMPLETE_NOTIFY;
-         counterStat = IspnStats.NUM_ASYNC_COMPLETE_NOTIFY;
-         recipientSizeStat = IspnStats.NUM_NODES_COMPLETE_NOTIFY;
-
-         if (log.isTraceEnabled()) {
-            log.tracef("Update stats for command %s. Is sync? %s. Duration stat is %s, counter stats is %s, " +
-                             "recipient size stat is %s", command, sync, durationStat, counterStat, recipientSizeStat);
-         }
-
-         TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(durationStat, System.nanoTime() - init, true);
-         TransactionsStatisticsRegistry.incrementValueAndFlushIfNeeded(counterStat, true);
-         TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(recipientSizeStat, contactedNodes, true);
-
-         return;
+         durationStat = ASYNC_COMPLETE_NOTIFY;
+         counterStat = NUM_ASYNC_COMPLETE_NOTIFY;
+         recipientSizeStat = NUM_NODES_COMPLETE_NOTIFY;
       } else {
          if (log.isTraceEnabled()) {
             log.tracef("Does not update stats for command %s. The command is not needed", command);
          }
          return;
       }
-      TransactionsStatisticsRegistry.addValue(durationStat, System.nanoTime() - init);
-      TransactionsStatisticsRegistry.incrementValue(counterStat);
-      TransactionsStatisticsRegistry.addValue(recipientSizeStat, recipientListSize(recipients));
-      if (commandSizeStat != null) {
-         TransactionsStatisticsRegistry.addValue(commandSizeStat, getCommandSize(command));
+
+      if (log.isTraceEnabled()) {
+         log.tracef("Update stats for command %s. Is sync? %s. Duration stat is %s, counter stats is %s, " +
+                          "recipient size stat is %s", command, sync, durationStat, counterStat, recipientSizeStat);
+      }
+
+      if (transactionStatistics != null) {
+         transactionStatistics.addValue(durationStat, System.nanoTime() - init);
+         transactionStatistics.incrementValue(counterStat);
+         transactionStatistics.addValue(recipientSizeStat, recipientListSize(recipients));
+         if (commandSizeStat != null) {
+            transactionStatistics.addValue(commandSizeStat, getCommandSize(command));
+         }
+      } else {
+         TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(durationStat, System.nanoTime() - init, true);
+         TransactionsStatisticsRegistry.incrementValueAndFlushIfNeeded(counterStat, true);
+         TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(recipientSizeStat, recipientListSize(recipients), true);
       }
    }
 

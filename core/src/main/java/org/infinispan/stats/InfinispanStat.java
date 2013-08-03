@@ -23,8 +23,6 @@
 
 package org.infinispan.stats;
 
-import org.infinispan.stats.translations.ExposedStatistics;
-
 /**
  * Websiste: www.cloudtm.eu
  * Date: 20/04/12
@@ -33,8 +31,8 @@ import org.infinispan.stats.translations.ExposedStatistics;
  */
 public interface InfinispanStat {
 
-   long getValue(ExposedStatistics.IspnStats param);
-   void addValue(ExposedStatistics.IspnStats param, double delta);
-   void incrementValue(ExposedStatistics.IspnStats param);
+   long getValue(ExposedStatistic param);
+   void addValue(ExposedStatistic param, double delta);
+   void incrementValue(ExposedStatistic param);
 
 }

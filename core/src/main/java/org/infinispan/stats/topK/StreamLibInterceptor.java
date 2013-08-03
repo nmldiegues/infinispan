@@ -84,6 +84,8 @@ public class StreamLibInterceptor extends BaseCustomInterceptor {
             streamLibContainer.addWriteSkewFailed(key);
          }
          throw wse;
+      } finally {
+         streamLibContainer.tryFlushAll();
       }
    }
 
@@ -101,114 +103,98 @@ public class StreamLibInterceptor extends BaseCustomInterceptor {
 
    @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most read remotely by this instance",
                      displayName = "Top Remote Read Keys")
-   public Map<Object, Long> getRemoteTopGets() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.REMOTE_GET, DEFAULT_TOP_KEY);
+   public Map<String, Long> getRemoteTopGets() {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.REMOTE_GET, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most read remotely by this instance",
                      displayName = "N Top Remote Read Keys")
-   public Map<Object, Long> getNRemoteTopGets(@Parameter(name = "N th top-key") int n) {
-      Map<Object, Long> res = streamLibContainer.getTopKFrom(StreamLibContainer.Stat.REMOTE_GET, n);
-      streamLibContainer.resetStat(StreamLibContainer.Stat.REMOTE_GET);
-      return res;
+   public Map<String, Long> getNRemoteTopGets(@Parameter(name = "N th top-key") int n) {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.REMOTE_GET, n);
    }
 
    @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most read locally by this instance",
                      displayName = "Top Local Read Keys")
-   public Map<Object, Long> getLocalTopGets() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.LOCAL_GET, DEFAULT_TOP_KEY);
+   public Map<String, Long> getLocalTopGets() {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.LOCAL_GET, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most read locally by this instance",
                      displayName = "N Top Local Read Keys")
-   public Map<Object, Long> getNLocalTopGets(@Parameter(name = "N th top-key") int n) {
-      Map<Object, Long> res = streamLibContainer.getTopKFrom(StreamLibContainer.Stat.LOCAL_GET, n);
-      streamLibContainer.resetStat(StreamLibContainer.Stat.LOCAL_GET);
-      return res;
+   public Map<String, Long> getNLocalTopGets(@Parameter(name = "N th top-key") int n) {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.LOCAL_GET, n);
    }
 
    @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most write remotely by this instance",
                      displayName = "Top Remote Write Keys")
-   public Map<Object, Long> getRemoteTopPuts() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.REMOTE_PUT, DEFAULT_TOP_KEY);
+   public Map<String, Long> getRemoteTopPuts() {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.REMOTE_PUT, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most write remotely by this instance",
                      displayName = "N Top Remote Write Keys")
-   public Map<Object, Long> getNRemoteTopPuts(@Parameter(name = "N th top-key") int n) {
-      Map<Object, Long> res = streamLibContainer.getTopKFrom(StreamLibContainer.Stat.REMOTE_PUT, n);
-      streamLibContainer.resetStat(StreamLibContainer.Stat.REMOTE_PUT);
-      return res;
+   public Map<String, Long> getNRemoteTopPuts(@Parameter(name = "N th top-key") int n) {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.REMOTE_PUT, n);
    }
 
    @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most write locally by this instance",
                      displayName = "Top Local Write Keys")
-   public Map<Object, Long> getLocalTopPuts() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.LOCAL_PUT, DEFAULT_TOP_KEY);
+   public Map<String, Long> getLocalTopPuts() {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.LOCAL_PUT, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most write locally by this instance",
                      displayName = "N Top Local Write Keys")
-   public Map<Object, Long> getNLocalTopPuts(@Parameter(name = "N th top-key") int n) {
-      Map<Object, Long> res = streamLibContainer.getTopKFrom(StreamLibContainer.Stat.LOCAL_PUT, n);
-      streamLibContainer.resetStat(StreamLibContainer.Stat.LOCAL_PUT);
-      return res;
+   public Map<String, Long> getNLocalTopPuts(@Parameter(name = "N th top-key") int n) {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.LOCAL_PUT, n);
    }
 
    @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most locked",
                      displayName = "Top Locked Keys")
-   public Map<Object, Long> getTopLockedKeys() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_LOCKED_KEYS, DEFAULT_TOP_KEY);
+   public Map<String, Long> getTopLockedKeys() {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.MOST_LOCKED_KEYS, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most locked",
                      displayName = "N Top Locked Keys")
-   public Map<Object, Long> getNTopLockedKeys(@Parameter(name = "N th top-key") int n) {
-      Map<Object, Long> res = streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_LOCKED_KEYS, n);
-      streamLibContainer.resetStat(StreamLibContainer.Stat.MOST_LOCKED_KEYS);
-      return res;
+   public Map<String, Long> getNTopLockedKeys(@Parameter(name = "N th top-key") int n) {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.MOST_LOCKED_KEYS, n);
    }
 
    @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most contended",
                      displayName = "Top Contended Keys")
-   public Map<Object, Long> getTopContendedKeys() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_CONTENDED_KEYS, DEFAULT_TOP_KEY);
+   public Map<String, Long> getTopContendedKeys() {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.MOST_CONTENDED_KEYS, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most contended",
                      displayName = "N Top Contended Keys")
-   public Map<Object, Long> getNTopContendedKeys(@Parameter(name = "N th top-key") int n) {
-      Map<Object, Long> res = streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_CONTENDED_KEYS, n);
-      streamLibContainer.resetStat(StreamLibContainer.Stat.MOST_CONTENDED_KEYS);
-      return res;
+   public Map<String, Long> getNTopContendedKeys(@Parameter(name = "N th top-key") int n) {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.MOST_CONTENDED_KEYS, n);
    }
 
    @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys whose lock acquisition failed by timeout",
                      displayName = "Top Keys whose Lock Acquisition Failed by Timeout")
-   public Map<Object, Long> getTopLockFailedKeys() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_FAILED_KEYS, DEFAULT_TOP_KEY);
+   public Map<String, Long> getTopLockFailedKeys() {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.MOST_FAILED_KEYS, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys whose lock acquisition failed ",
                      displayName = "N Top Keys whose Lock Acquisition Failed by Timeout")
-   public Map<Object, Long> getNTopLockFailedKeys(@Parameter(name = "N th top-key") int n) {
-      Map<Object, Long> res = streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_FAILED_KEYS, n);
-      streamLibContainer.resetStat(StreamLibContainer.Stat.MOST_FAILED_KEYS);
-      return res;
+   public Map<String, Long> getNTopLockFailedKeys(@Parameter(name = "N th top-key") int n) {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.MOST_FAILED_KEYS, n);
    }
 
    @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys whose write skew check was failed",
                      displayName = "Top Keys whose Write Skew Check was failed")
-   public Map<Object, Long> getTopWriteSkewFailedKeys() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_WRITE_SKEW_FAILED_KEYS, DEFAULT_TOP_KEY);
+   public Map<String, Long> getTopWriteSkewFailedKeys() {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.MOST_WRITE_SKEW_FAILED_KEYS, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys whose write skew check was failed",
                      displayName = "N Top Keys whose Write Skew Check was failed")
-   public Map<Object, Long> getNTopWriteSkewFailedKeys(@Parameter(name = "N th top-key") int n) {
-      Map<Object, Long> res = streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_WRITE_SKEW_FAILED_KEYS, n);
-      streamLibContainer.resetStat(StreamLibContainer.Stat.MOST_WRITE_SKEW_FAILED_KEYS);
-      return res;
+   public Map<String, Long> getNTopWriteSkewFailedKeys(@Parameter(name = "N th top-key") int n) {
+      return streamLibContainer.getTopKFromAsKeyString(StreamLibContainer.Stat.MOST_WRITE_SKEW_FAILED_KEYS, n);
    }
 
    @ManagedOperation(description = "Show the top n keys whose write skew check was failed",

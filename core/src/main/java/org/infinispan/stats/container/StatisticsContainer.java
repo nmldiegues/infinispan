@@ -21,7 +21,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.infinispan.stats;
+package org.infinispan.stats.container;
 
 /**
  * Websiste: www.cloudtm.eu
@@ -33,7 +33,7 @@ public interface StatisticsContainer {
 
    void addValue(int param, double value);
    long getValue(int param);
-   void mergeTo(StatisticsContainer sc);
+   void mergeTo(ConcurrentGlobalContainer globalContainer, boolean local);
    int size();
    void dump();
 

@@ -58,7 +58,7 @@ import org.infinispan.loaders.CacheLoaderException;
 import org.infinispan.loaders.CacheLoaderManager;
 import org.infinispan.loaders.CacheStore;
 import org.infinispan.stats.TransactionsStatisticsRegistry;
-import org.infinispan.stats.translations.ExposedStatistics;
+import org.infinispan.stats.container.TransactionStatistics;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.RemoteTransaction;
 import org.infinispan.transaction.gmu.CommitLog;
@@ -77,6 +77,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import static org.infinispan.stats.ExposedStatistic.*;
 import static org.infinispan.transaction.gmu.GMUHelper.*;
 import static org.infinispan.transaction.gmu.manager.SortedTransactionQueue.TransactionEntry;
 
@@ -169,15 +170,16 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          retVal = invokeNextInterceptor(ctx, command);
          //in remote context, the commit command will be enqueue, so it does not need to wait
          if (transactionEntry != null) {     //Only local
-            boolean waited = TransactionsStatisticsRegistry.hasStatisticCollector() && !transactionEntry.isReadyToCommit();
+            final TransactionStatistics transactionStatistics = TransactionsStatisticsRegistry.getTransactionStatistics();
+            boolean waited = transactionStatistics != null && !transactionEntry.isReadyToCommit();
             long waitTime = 0L;
             if (waited) {
                waitTime = System.nanoTime();
             }
             transactionEntry.awaitUntilIsReadyToCommit();
             if (waited) {
-               TransactionsStatisticsRegistry.incrementValue(ExposedStatistics.IspnStats.NUM_WAITS_IN_COMMIT_QUEUE);
-               TransactionsStatisticsRegistry.addValue(ExposedStatistics.IspnStats.WAIT_TIME_IN_COMMIT_QUEUE, System.nanoTime() - waitTime);
+               transactionStatistics.incrementValue(NUM_WAITS_IN_COMMIT_QUEUE);
+               transactionStatistics.addValue(WAIT_TIME_IN_COMMIT_QUEUE, System.nanoTime() - waitTime);
             }
          } else if (!ctx.isOriginLocal()) {
             transactionEntry = gmuCommitCommand.getTransactionEntry();
@@ -192,6 +194,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
                   }
                }
             }
+            updateWaitingTime(transactionEntry);
             return retVal;
          }
 
@@ -215,6 +218,8 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
 
          committedTransactions.add(committedTransaction);
          committedTransactionEntries.add(transactionEntry);
+
+         updateWaitingTime(transactionEntry);
 
          //in case of transaction has the same version... should be rare...
          while (toCommit.hasNext()) {
@@ -469,6 +474,39 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          return invocationContextContainer.createRemoteTxInvocationContext((RemoteTransaction) cacheTransaction, null);
       }
       throw new IllegalStateException("Expected a remote or local transaction and not " + cacheTransaction);
+   }
+
+   private void updateWaitingTime(TransactionEntry transactionEntry) {
+      if (!TransactionsStatisticsRegistry.isGmuWaitingActive() || transactionEntry == null || !transactionEntry.hasWaited()) {
+         return;
+      }
+      long commitTimestamp = transactionEntry.getCommitReceivedTimestamp();
+      long firstInQueueTimeStamp = transactionEntry.getFirstInQueueTimestamp();
+      long readyToCommitTimestamp = transactionEntry.getReadyToCommitTimestamp();
+      boolean pendingTx = transactionEntry.isWaitBecauseOfPendingTx();
+      if (log.isTraceEnabled()) {
+         log.tracef("Updating statistics for tx %s. Commit=%s, Queue head=%s, Ready to commit=%s, Pending Tx=%s",
+                    transactionEntry.getGlobalTransaction().globalId(),
+                    commitTimestamp, firstInQueueTimeStamp, readyToCommitTimestamp, pendingTx);
+      }
+      if (commitTimestamp == -1 || firstInQueueTimeStamp == -1) {
+         log.errorf("Commit Timestamp or Queue Head Timestamp cannot be -1");
+         return;
+      }
+      TransactionStatistics transactionStatistics = TransactionsStatisticsRegistry.getTransactionStatistics();
+      if (transactionStatistics != null) {
+         if (pendingTx) {
+            transactionStatistics.addValue(GMU_WAITING_IN_QUEUE_DUE_PENDING, firstInQueueTimeStamp - commitTimestamp);
+            transactionStatistics.incrementValue(NUM_GMU_WAITING_IN_QUEUE_DUE_PENDING);
+         } else {
+            transactionStatistics.addValue(GMU_WAITING_IN_QUEUE_DUE_SLOW_COMMITS, firstInQueueTimeStamp - commitTimestamp);
+            transactionStatistics.incrementValue(NUM_GMU_WAITING_IN_QUEUE_DUE_SLOW_COMMITS);
+         }
+         if (readyToCommitTimestamp > firstInQueueTimeStamp) {
+            transactionStatistics.addValue(GMU_WAITING_IN_QUEUE_DUE_CONFLICT_VERSION, readyToCommitTimestamp - firstInQueueTimeStamp);
+            transactionStatistics.incrementValue(NUM_GMU_WAITING_IN_QUEUE_DUE_CONFLICT_VERSION);
+         }
+      }
    }
 
 }

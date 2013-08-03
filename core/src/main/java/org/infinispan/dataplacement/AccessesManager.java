@@ -161,10 +161,7 @@ public class AccessesManager {
          log.debug(stringBuilder);
       }
 
-      streamLibContainer.resetStat(REMOTE_GET);
-      streamLibContainer.resetStat(LOCAL_GET);
-      streamLibContainer.resetStat(REMOTE_PUT);
-      streamLibContainer.resetStat(LOCAL_PUT);
+      streamLibContainer.resetAll();
    }
 
    public final ObjectRequest[] getAccesses() {

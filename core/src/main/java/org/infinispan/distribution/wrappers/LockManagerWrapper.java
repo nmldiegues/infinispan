@@ -24,12 +24,11 @@ package org.infinispan.distribution.wrappers;
 
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.context.InvocationContext;
-import org.infinispan.context.impl.LocalTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.stats.LockRelatedStatsHelper;
 import org.infinispan.stats.TransactionsStatisticsRegistry;
+import org.infinispan.stats.container.TransactionStatistics;
 import org.infinispan.stats.topK.StreamLibContainer;
-import org.infinispan.stats.translations.ExposedStatistics.IspnStats;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.concurrent.TimeoutException;
 import org.infinispan.util.concurrent.locks.LockManager;
@@ -37,6 +36,8 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.util.Collection;
+
+import static org.infinispan.stats.ExposedStatistic.*;
 
 /**
  * @author Mircea Markus <mircea.markus@jboss.com> (C) 2011 Red Hat Inc.
@@ -132,8 +133,9 @@ public class LockManagerWrapper implements LockManager {
       boolean experiencedContention = false;
       boolean txScope = ctx.isInTxScope();
 
-      if (txScope) {
-         experiencedContention = this.updateContentionStats(key, (TxInvocationContext) ctx);
+      final TransactionStatistics transactionStatistics = TransactionsStatisticsRegistry.getTransactionStatistics();
+      if (txScope && transactionStatistics != null) {
+         experiencedContention = updateContentionStats(transactionStatistics, key, (TxInvocationContext) ctx);
          lockingTime = System.nanoTime();
       }
 
@@ -152,17 +154,12 @@ public class LockManagerWrapper implements LockManager {
 
       if (txScope && experiencedContention && locked) {
          lockingTime = System.nanoTime() - lockingTime;
-         TransactionsStatisticsRegistry.addValue(IspnStats.LOCK_WAITING_TIME, lockingTime);
-         TransactionsStatisticsRegistry.incrementValue(IspnStats.NUM_WAITED_FOR_LOCKS);
+         transactionStatistics.addValue(LOCK_WAITING_TIME, lockingTime);
+         transactionStatistics.incrementValue(NUM_WAITED_FOR_LOCKS);
       }
-      if (locked) {
-         if (txScope && ctx.isOriginLocal()) {
-            if (log.isTraceEnabled())
-               log.trace("Tacking lock for Xact " + ((LocalTxInvocationContext) ctx).getGlobalTransaction().getId());
-         }
-         TransactionsStatisticsRegistry.addTakenLock(key); //Idempotent
+      if (locked && transactionStatistics != null) {
+         transactionStatistics.addTakenLock(key); //Idempotent
       }
-
 
       return locked;
    }
@@ -175,33 +172,34 @@ public class LockManagerWrapper implements LockManager {
       boolean experiencedContention = false;
       boolean txScope = ctx.isInTxScope();
 
-      if (txScope) {
-         experiencedContention = this.updateContentionStats(key, (TxInvocationContext) ctx);
+      final TransactionStatistics transactionStatistics = TransactionsStatisticsRegistry.getTransactionStatistics();
+      if (txScope && transactionStatistics != null) {
+         experiencedContention = this.updateContentionStats(transactionStatistics, key, (TxInvocationContext) ctx);
          lockingTime = System.nanoTime();
       }
 
       boolean locked = actual.acquireLockNoCheck(ctx, key, timeoutMillis, skipLocking, shared);
 
-      if (txScope && experiencedContention) {
+      if (txScope && experiencedContention && locked) {
          lockingTime = System.nanoTime() - lockingTime;
-         TransactionsStatisticsRegistry.addValue(IspnStats.LOCK_WAITING_TIME, lockingTime);
-         TransactionsStatisticsRegistry.incrementValue(IspnStats.NUM_WAITED_FOR_LOCKS);
+         transactionStatistics.addValue(LOCK_WAITING_TIME, lockingTime);
+         transactionStatistics.incrementValue(NUM_WAITED_FOR_LOCKS);
       }
-      if (locked) {
-         TransactionsStatisticsRegistry.addTakenLock(key); //Idempotent
+      if (locked && transactionStatistics != null) {
+         transactionStatistics.addTakenLock(key); //Idempotent
       }
       return locked;
    }
 
-   private boolean updateContentionStats(Object key, TxInvocationContext tctx) {
+   private boolean updateContentionStats(TransactionStatistics transactionStatistics, Object key, TxInvocationContext tctx) {
       GlobalTransaction holder = (GlobalTransaction) getOwner(key);
       if (holder != null) {
          GlobalTransaction me = tctx.getGlobalTransaction();
          if (holder != me) {
             if (holder.isRemote()) {
-               TransactionsStatisticsRegistry.incrementValue(IspnStats.LOCK_CONTENTION_TO_REMOTE);
+               transactionStatistics.incrementValue(LOCK_CONTENTION_TO_REMOTE);
             } else {
-               TransactionsStatisticsRegistry.incrementValue(IspnStats.LOCK_CONTENTION_TO_LOCAL);
+               transactionStatistics.incrementValue(LOCK_CONTENTION_TO_LOCAL);
             }
             return true;
          }
@@ -210,7 +208,8 @@ public class LockManagerWrapper implements LockManager {
    }
 
    private void flushPendingLocksIfNeeded(GlobalTransaction lockOwner) {
-      if (sampleHoldTimes && LockRelatedStatsHelper.maybePendingLocks(lockOwner))
+      if (TransactionsStatisticsRegistry.isActive() && sampleHoldTimes &&
+            LockRelatedStatsHelper.maybePendingLocks(lockOwner))
          TransactionsStatisticsRegistry.flushPendingRemoteLocksIfNeeded(lockOwner);
    }
 }

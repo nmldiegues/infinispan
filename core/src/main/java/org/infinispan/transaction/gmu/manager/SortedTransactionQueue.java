@@ -23,6 +23,7 @@
 package org.infinispan.transaction.gmu.manager;
 
 import org.infinispan.container.versioning.gmu.GMUVersion;
+import org.infinispan.stats.TransactionsStatisticsRegistry;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
@@ -182,6 +183,7 @@ public class SortedTransactionQueue {
          }
          return false;
       }
+      firstEntry.getNext().notifyFirstInQueue();
 
       Node firstTransaction = firstEntry.getNext();
 
@@ -241,6 +243,22 @@ public class SortedTransactionQueue {
       return count;
    }
 
+   private void checkWaitingTime(Node entry) {
+      Node iterator = entry.getPrevious();
+      boolean waiting = iterator != firstEntry;
+      boolean pendingFound = false;
+      while (iterator != firstEntry) {
+         if (!iterator.hasReceiveCommitCommand()) {
+            pendingFound = true;
+            break;
+         }
+         iterator = iterator.getPrevious();
+      }
+      entry.setWaitingType(pendingFound);
+      entry.setWaiting(waiting);
+      firstEntry.getNext().notifyFirstInQueue();
+   }
+
    private void commitUntil(Node exclusive, List<TransactionEntry> transactionEntryList) {
       Node transaction = firstEntry.getNext();
 
@@ -278,6 +296,9 @@ public class SortedTransactionQueue {
             insertBefore = insertBefore.getNext();
          }
          addBefore(insertBefore, entry);
+      }
+      if (TransactionsStatisticsRegistry.isGmuWaitingActive()) {
+         checkWaitingTime(entry);
       }
    }
 
@@ -374,6 +395,12 @@ public class SortedTransactionQueue {
       Node getNext();
 
       void setNext(Node next);
+
+      void notifyFirstInQueue();
+
+      void setWaitingType(boolean pendingFound);
+
+      void setWaiting(boolean waiting);
    }
 
    public static interface TransactionEntry {
@@ -409,6 +436,16 @@ public class SortedTransactionQueue {
       void awaitUntilCommitted() throws InterruptedException;
 
       long getConcurrentClockNumber();
+
+      long getCommitReceivedTimestamp();
+
+      boolean isWaitBecauseOfPendingTx();
+
+      long getReadyToCommitTimestamp();
+
+      long getFirstInQueueTimestamp();
+
+      boolean hasWaited();
    }
 
    private class TransactionEntryImpl implements Node {
@@ -419,7 +456,11 @@ public class SortedTransactionQueue {
       private volatile boolean receivedCommitCommand;
       private volatile boolean committed;
       private long concurrentClockNumber; //This is the value of the last committed vector clock's n-th entry on this node n at the time this object was created.
-
+      private volatile long commitReceivedTimestamp = -1;
+      private volatile boolean waitBecauseOfPendingTx = false;
+      private volatile boolean waited = false;
+      private volatile long firstInQueueTimestamp = -1;
+      private volatile long readyToCommitTimestamp = -1;
       private Node previous;
       private Node next;
 
@@ -436,13 +477,33 @@ public class SortedTransactionQueue {
          if (log.isTraceEnabled()) {
             log.tracef("Set transaction commit version: %s", this);
          }
+         if (TransactionsStatisticsRegistry.isActive()) {
+            commitReceivedTimestamp = System.nanoTime();
+         }
+      }
+
+      @Override
+      public void setWaitingType(boolean pendingFound) {
+         this.waitBecauseOfPendingTx = pendingFound;
+      }
+
+      @Override
+      public void notifyFirstInQueue() {
+         if (firstInQueueTimestamp == -1 && TransactionsStatisticsRegistry.isActive()) {
+            firstInQueueTimestamp = System.nanoTime();
+         }
+      }
+
+      @Override
+      public void setWaiting(boolean waiting) {
+         this.waited = waiting;
       }
 
       public synchronized GMUVersion getVersion() {
          return entryVersion;
       }
 
-      public synchronized long getConcurrentClockNumber(){
+      public synchronized long getConcurrentClockNumber() {
          return concurrentClockNumber;
       }
 
@@ -457,6 +518,7 @@ public class SortedTransactionQueue {
       @Override
       public void markReadyToCommit() {
          readyToCommit.countDown();
+         readyToCommitTimestamp = System.nanoTime();
       }
 
       @Override
@@ -551,6 +613,31 @@ public class SortedTransactionQueue {
       public void setNext(Node next) {
          this.next = next;
       }
+
+      @Override
+      public final long getCommitReceivedTimestamp() {
+         return commitReceivedTimestamp;
+      }
+
+      @Override
+      public final boolean isWaitBecauseOfPendingTx() {
+         return waitBecauseOfPendingTx;
+      }
+
+      @Override
+      public final long getReadyToCommitTimestamp() {
+         return readyToCommitTimestamp;
+      }
+
+      @Override
+      public final long getFirstInQueueTimestamp() {
+         return firstInQueueTimestamp;
+      }
+
+      @Override
+      public final boolean hasWaited() {
+         return waited;
+      }
    }
 
    private abstract class AbstractBoundaryNode implements Node {
@@ -623,6 +710,46 @@ public class SortedTransactionQueue {
       @Override
       public long getConcurrentClockNumber() {
          throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public void notifyFirstInQueue() {
+         //no-op, stats methods
+      }
+
+      @Override
+      public void setWaitingType(boolean pendingFound) {
+         //no-op, stats methods
+      }
+
+      @Override
+      public long getCommitReceivedTimestamp() {
+         return -1;
+      }
+
+      @Override
+      public boolean isWaitBecauseOfPendingTx() {
+         return false;
+      }
+
+      @Override
+      public long getReadyToCommitTimestamp() {
+         return -1;
+      }
+
+      @Override
+      public long getFirstInQueueTimestamp() {
+         return -1;
+      }
+
+      @Override
+      public void setWaiting(boolean waiting) {
+         //no-op
+      }
+
+      @Override
+      public boolean hasWaited() {
+         return false;
       }
    }
 }

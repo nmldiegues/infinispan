@@ -56,7 +56,7 @@ public class ReservoirSampling implements PercentileStats {
 
    }
 
-   public final void insertSample(double sample){
+   public synchronized final void insertSample(double sample){
       int i = index.getAndIncrement();
       if(i < NUM_SPOT)
          reservoir[i]=sample;
@@ -68,19 +68,19 @@ public class ReservoirSampling implements PercentileStats {
       }
    }
 
-   public final double get95Percentile(){
+   public synchronized final double get95Percentile(){
       return getKPercentile(95);
    }
 
-   public final double get90Percentile(){
+   public synchronized final double get90Percentile(){
       return getKPercentile(90);
    }
 
-   public final double get99Percentile(){
+   public synchronized final double get99Percentile(){
       return getKPercentile(99);
    }
 
-   public final double getKPercentile(int k){
+   public synchronized final double getKPercentile(int k){
       if (k < 0 || k > 100) {
          throw new RuntimeException("Wrong index in getKpercentile");
       }
