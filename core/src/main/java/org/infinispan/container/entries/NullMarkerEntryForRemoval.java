@@ -50,7 +50,7 @@ public class NullMarkerEntryForRemoval extends RepeatableReadEntry {
     *         were removed.
     */
    @Override
-   public final boolean isRemoved() {
+   public boolean isRemoved() {
       return true;
    }
 

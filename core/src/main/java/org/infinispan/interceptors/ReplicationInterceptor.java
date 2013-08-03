@@ -34,6 +34,7 @@ import org.infinispan.commands.tx.RollbackCommand;
 import org.infinispan.commands.write.*;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configurations;
+import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.InternalCacheValue;
 import org.infinispan.context.InvocationContext;
@@ -121,11 +122,12 @@ public class ReplicationInterceptor extends ClusteringInterceptor {
    public Object visitGetKeyValueCommand(InvocationContext ctx, GetKeyValueCommand command) throws Throwable {
       try {
          Object returnValue = invokeNextInterceptor(ctx, command);
-
+         CacheEntry cacheEntry = ctx.lookupEntry(command.getKey());
+         boolean removed = cacheEntry != null && cacheEntry.isRemoved();
          // need to check in the context as well since a null retval is not necessarily an indication of the entry not being
          // available.  It could just have been removed in the same tx beforehand.  Also don't bother with a remote get if
          // the entry is mapped to the local node.
-         if (returnValue == null && ctx.isOriginLocal()) {
+         if (returnValue == null && !removed && ctx.isOriginLocal()) {
             if (needsRemoteGet(ctx, command)) {
                returnValue = remoteGet(ctx, command.getKey(), command, false);
             }

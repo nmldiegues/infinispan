@@ -50,4 +50,9 @@ public class NullMarkerEntry extends NullMarkerEntryForRemoval {
    public final void copyForUpdate(DataContainer d, boolean localModeWriteSkewCheck) {
       // no op
    }
+
+   @Override
+   public boolean isRemoved() {
+      return false;
+   }
 }
