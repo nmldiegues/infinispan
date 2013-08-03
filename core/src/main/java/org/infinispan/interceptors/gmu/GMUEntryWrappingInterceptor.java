@@ -67,6 +67,7 @@ import org.infinispan.transaction.gmu.manager.TransactionCommitManager;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.concurrent.BlockingTaskAwareExecutorService;
+import org.infinispan.util.concurrent.TimeoutException;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -165,7 +166,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
 
       Object retVal = null;
       try {
-         retVal = invokeNextInterceptor(ctx, command);
+         retVal = invokeNextIgnoringTimeout(ctx, command);
          //in remote context, the commit command will be enqueue, so it does not need to wait
          if (transactionEntry != null) {     //Only local
             final TransactionStatistics transactionStatistics = TransactionsStatisticsRegistry.getTransactionStatistics();
@@ -251,6 +252,15 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          }
       }
       return retVal;
+   }
+
+   private Object invokeNextIgnoringTimeout(TxInvocationContext context, CommitCommand commitCommand) throws Throwable {
+      try {
+         return invokeNextInterceptor(context, commitCommand);
+      } catch (TimeoutException timeout) {
+         //ignored
+         return null;
+      }
    }
 
    @Override

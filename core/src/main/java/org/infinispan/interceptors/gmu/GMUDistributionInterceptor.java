@@ -196,8 +196,11 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
                                                                        boolean acquireRemoteLock, FlagAffectedCommand command) {
       GlobalTransaction gtx = acquireRemoteLock ? txInvocationContext.getGlobalTransaction() : null;
 
-      List<Address> targets = new ArrayList<Address>(stateTransferManager.getCacheTopology().getReadConsistentHash().locateOwners(key));      // if any of the recipients has left the cluster since the command was issued, just don't wait for its response
-      // if any of the recipients has left the cluster since the command was issued, just don't wait for its response
+      //List<Address> targets = new ArrayList<Address>(stateTransferManager.getCacheTopology().getReadConsistentHash().locateOwners(key));      // if any of the recipients has left the cluster since the command was issued, just don't wait for its response
+      //Cloud-TM patch
+      Address primaryA = stateTransferManager.getCacheTopology().getReadConsistentHash().locatePrimaryOwner(key);
+      List<Address> targets = new ArrayList<Address>();
+      targets.add(primaryA);
       targets.retainAll(rpcManager.getTransport().getMembers());
 
       Collection<Address> alreadyReadFrom = txInvocationContext.getAlreadyReadFrom();

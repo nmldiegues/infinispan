@@ -437,19 +437,21 @@ public class ReconfigurableReplicationManager {
    }
 
    @ManagedOperation(description = "Switch the current replication protocol for the new one. It fails if the protocol " +
-         "does not exists or it is equals to the current", displayName = "Trigger protocol switch")
-   public final void switchTo(@Parameter(name = "Protocol ID") String protocolId,
+         "does not exists or it is equals to the current. It returns -3 if the switch is not allowed, -2 if it is not " +
+         "the coordinator and -1 if the protocol is already in use. Otherwise, it returns the next round id.",
+                     displayName = "Trigger protocol switch")
+   public final long switchTo(@Parameter(name = "Protocol ID") String protocolId,
                               @Parameter(name = "Force Stop the World") boolean forceStopTheWorld,
                               @Parameter(name = "Abort running transactions") boolean abortOnStop) throws Exception {
       if (!allowSwitch) {
-         return;
+         return -3;
       }
       if (!rpcManager.getTransport().isCoordinator()) {
          ReconfigurableProtocolCommand command = commandsFactory.buildReconfigurableProtocolCommand(Type.SWITCH_REQ, protocolId);
          command.setForceStop(forceStopTheWorld);
          command.setAbortOnStop(abortOnStop);
          rpcManager.invokeRemotely(Collections.singleton(getCoordinator()), command, true, false);
-         return;
+         return -2;
       }
 
       if (registry.getProtocolById(protocolId) == null) {
@@ -457,7 +459,7 @@ public class ReconfigurableReplicationManager {
          throw new NoSuchReconfigurableProtocolException(protocolId);
       } else if (protocolManager.isCurrentProtocol(registry.getProtocolById(protocolId))) {
          log.warnf("Tried to switch the replication protocol to %s but it is already the current protocol", protocolId);
-         return; //nothing to do
+         return -1; //nothing to do
       } else if (!coolDownTimeManager.checkAndSetToSwitch()) {
          log.warnf("Tried to switch to %s but you cannot do it right now...", protocolId);
          throw new Exception("You need to wait before perform a new switch");
@@ -469,11 +471,12 @@ public class ReconfigurableReplicationManager {
 
       if (protocolManager.getCurrent().useTotalOrder()) {
          rpcManager.broadcastRpcCommand(command, false, true);
-         return;
+         return protocolManager.getEpoch() + 1;
       }
 
       rpcManager.broadcastRpcCommand(command, false, false);
       startSwitchTask(protocolId, forceStopTheWorld, abortOnStop, new CountDownLatch(1));
+      return protocolManager.getEpoch() + 1;
    }
 
    @ManagedAttribute(description = "Returns a collection of replication protocols IDs that can be used in the switchTo",
@@ -510,7 +513,7 @@ public class ReconfigurableReplicationManager {
       return protocolManager.getState().toString();
    }
 
-   @ManagedAttribute(description = "Returns the coordinator IP address.",
+   @ManagedOperation(description = "Returns the coordinator IP address.",
                      displayName = "Coordinator Host Name")
    public final String getCoordinatorHostName() {
       Address coordinator = getCoordinator();
@@ -520,7 +523,9 @@ public class ReconfigurableReplicationManager {
             return ((IpAddress) jgroupsAddress).getIpAddress().getHostName();
          }
       }
-      return coordinator.toString();
+      String hostname = coordinator.toString();
+      int index = hostname.lastIndexOf('-');
+      return index == -1 ? hostname : hostname.substring(0, index);
    }
 
    @ManagedAttribute(description = "Returns the current replication protocol information, namely the protocol ID and " +

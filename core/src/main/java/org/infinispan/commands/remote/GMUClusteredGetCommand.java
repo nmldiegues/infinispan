@@ -120,8 +120,6 @@ public class GMUClusteredGetCommand extends ClusteredGetCommand {
       command = super.constructCommand(getFlags());
       invocationContext = super.createInvocationContext(command);
 
-      GMUVersion maxGMUVersion;
-
       boolean alreadyReadOnThisNode;
       if (alreadyReadFrom != null) {
          int txViewId = transactionVersion.getViewId();
@@ -133,19 +131,16 @@ public class GMUClusteredGetCommand extends ClusteredGetCommand {
             }
          }
          minGMUVersion = versionGenerator.calculateMinVersionToRead(transactionVersion, addressList);
-         maxGMUVersion = versionGenerator.calculateMaxVersionToRead(transactionVersion, addressList);
          int myIndex = clusterSnapshot.indexOf(versionGenerator.getAddress());
          //to be safe, is better to wait...
          alreadyReadOnThisNode = myIndex != -1 && alreadyReadFrom.get(myIndex);
 
       } else {
          minGMUVersion = transactionVersion;
-         maxGMUVersion = null;
          alreadyReadOnThisNode = false;
       }
 
       invocationContext.setAlreadyReadOnThisNode(alreadyReadOnThisNode);
-      invocationContext.setVersionToRead(commitLog.getAvailableVersionLessThan(maxGMUVersion));
 
       if (minGMUVersion == null) {
          throw new NullPointerException("Min Version cannot be null");
@@ -168,11 +163,30 @@ public class GMUClusteredGetCommand extends ClusteredGetCommand {
 
    @Override
    protected InternalCacheValue invoke(GetKeyValueCommand command, InvocationContext context) {
+      setMaxGMUVersionToRead(context);
       super.invoke(command, context);
       InternalGMUCacheEntry gmuCacheEntry = context.getKeysReadInCommand().get(getKey());
       if (gmuCacheEntry == null) {
          throw new VersionNotAvailableException();
       }
       return gmuCacheEntry.toInternalCacheValue();
+   }
+
+   private void setMaxGMUVersionToRead(InvocationContext invocationContext) {
+      GMUVersion maxGMUVersion;
+      if (alreadyReadFrom != null) {
+         int txViewId = transactionVersion.getViewId();
+         ClusterSnapshot clusterSnapshot = versionGenerator.getClusterSnapshot(txViewId);
+         List<Address> addressList = new LinkedList<Address>();
+         for (int i = 0; i < clusterSnapshot.size(); ++i) {
+            if (alreadyReadFrom.get(i)) {
+               addressList.add(clusterSnapshot.get(i));
+            }
+         }
+         maxGMUVersion = versionGenerator.calculateMaxVersionToRead(transactionVersion, addressList);
+      } else {
+         maxGMUVersion = null;
+      }
+      invocationContext.setVersionToRead(commitLog.getAvailableVersionLessThan(maxGMUVersion));
    }
 }

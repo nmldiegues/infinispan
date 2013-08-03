@@ -321,9 +321,11 @@ public class DataPlacementManager {
       }
    }
 
-   @ManagedOperation(description = "Start the data placement algorithm in order to optimize the system performance",
+   @ManagedOperation(description = "Start the data placement algorithm in order to optimize the system performance. " +
+         "It returns -2 if it is not the coordinator, -1 if the request is not possible. Otherwise, it returns the " +
+         "next round id.",
                      displayName = "Trigger Data Placement")
-   public final void dataPlacementRequest() throws Exception {
+   public final long dataPlacementRequest() throws Exception {
       if (!rpcManager.getTransport().isCoordinator()) {
          if (log.isTraceEnabled()) {
             log.trace("Data placement request. Sending request to coordinator");
@@ -332,17 +334,17 @@ public class DataPlacementManager {
                                                                                   roundManager.getCurrentRoundId());
          rpcManager.invokeRemotely(Collections.singleton(getCoordinator()),
                                    command, false, false);
-         return;
+         return -2;
       }
 
       if (rpcManager.getTransport().getMembers().size() == 1) {
          log.warn("Data placement request received but we are the only member. ignoring...");
-         return;
+         return -1;
       }
 
       if (rebalancePolicy == null) {
          log.error("Cannot start Data Placement protocol. No Rebalance Policy set!");
-         return;
+         throw new Exception("Cannot start Data Placement protocol. No Rebalance Policy set!");
       }
 
       if (log.isTraceEnabled()) {
@@ -357,6 +359,7 @@ public class DataPlacementManager {
       command.setMembers(addressArray);
       rpcManager.broadcastRpcCommand(command, false, false);
       startDataPlacement(newRoundId, addressArray);
+      return newRoundId;
    }
 
    @ManagedAttribute(description = "The cache name", writable = false, displayName = "Cache name")
@@ -419,7 +422,7 @@ public class DataPlacementManager {
       }
    }
 
-   @ManagedAttribute(description = "Returns the coordinator IP address.",
+   @ManagedOperation(description = "Returns the coordinator IP address.",
                      displayName = "Coordinator Host Name")
    public final String getCoordinatorHostName() {
       Address coordinator = getCoordinator();
@@ -429,7 +432,9 @@ public class DataPlacementManager {
             return ((IpAddress) jgroupsAddress).getIpAddress().getHostName();
          }
       }
-      return coordinator.toString();
+      String hostname = coordinator.toString();
+      int index = hostname.lastIndexOf('-');
+      return index == -1 ? hostname : hostname.substring(0, index);
    }
 
    @ManagedOperation(description = "Triggers the replication degree optimizer",
