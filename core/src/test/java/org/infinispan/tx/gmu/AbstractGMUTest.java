@@ -139,6 +139,11 @@ public abstract class AbstractGMUTest extends MultipleCacheManagersTest {
       assertEquals(returnValue, oldValue);
    }
 
+   protected final void txRemove(int cacheIndex, Object key, Object returnValue) {
+      Object oldValue = cache(cacheIndex).remove(key);
+      assertEquals(returnValue, oldValue);
+   }
+
    protected final void putIfAbsent(int cacheIndex, Object key, Object value, Object returnValue, Object expectedValue) {
       Object oldValue = cache(cacheIndex).putIfAbsent(key, value);
       assertCachesValue(cacheIndex, key, expectedValue);

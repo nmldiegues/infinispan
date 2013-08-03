@@ -38,8 +38,7 @@ import javax.transaction.RollbackException;
 import javax.transaction.Transaction;
 import java.util.concurrent.CountDownLatch;
 
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.fail;
+import static junit.framework.Assert.*;
 
 /**
  * // TODO: Document this
@@ -216,6 +215,62 @@ public class ConsistencyTest extends AbstractGMUTest {
 
       assertNoTransactions();
       assertNoLocks();
+   }
+
+   public void testRemove() throws Exception {
+      assertAtLeastCaches(2);
+
+      Object key1 = newKey(1, 0);
+
+      logKeysUsedInTest("testRemove", key1);
+
+      assertKeyOwners(key1, 1, 0);
+      assertCacheValuesNull(key1);
+
+      tm(0).begin();
+      txPut(0, key1, VALUE_1, null);
+      tm(0).commit();
+
+      assertCachesValue(0, key1, VALUE_1);
+
+      tm(0).begin();
+      assertEquals("Wrong value for key.", VALUE_1, cache(0).get(key1));
+      txRemove(0, key1, VALUE_1);
+      assertNull("Expected key to be removed.", cache(0).get(key1));
+      tm(0).commit();
+
+      assertCachesValue(0, key1, null);
+
+      assertNoTransactions();
+      printDataContainer();
+   }
+
+   public void testRemoveOnOwner() throws Exception {
+      assertAtLeastCaches(2);
+
+      Object key1 = newKey(0, 1);
+
+      logKeysUsedInTest("testRemoveOnOwner", key1);
+
+      assertKeyOwners(key1, 0, 1);
+      assertCacheValuesNull(key1);
+
+      tm(0).begin();
+      txPut(0, key1, VALUE_1, null);
+      tm(0).commit();
+
+      assertCachesValue(0, key1, VALUE_1);
+
+      tm(0).begin();
+      assertEquals("Wrong value for key.", VALUE_1, cache(0).get(key1));
+      txRemove(0, key1, VALUE_1);
+      assertNull("Expected key to be removed.", cache(0).get(key1));
+      tm(0).commit();
+
+      assertCachesValue(0, key1, null);
+
+      assertNoTransactions();
+      printDataContainer();
    }
 
    @Override
