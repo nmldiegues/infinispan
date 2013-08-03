@@ -29,6 +29,9 @@ import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -36,8 +39,6 @@ import java.util.concurrent.CountDownLatch;
 import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersion;
 
 /**
- * // TODO: Document this
- *
  * @author Pedro Ruivo
  * @since 5.2
  */
@@ -55,23 +56,23 @@ public class SortedTransactionQueue {
          private Node first;
 
          @Override
-         public Node getNext() {
+         public final Node getNext() {
             return first;
          }
 
          @Override
-         public void setNext(Node next) {
+         public final void setNext(Node next) {
             this.first = next;
          }
 
          @Override
-         public int compareTo(Node o) {
+         public final int compareTo(Node o) {
             //the first node is always lower
             return -1;
          }
 
          @Override
-         public String toString() {
+         public final String toString() {
             return "FIRST_ENTRY";
          }
       };
@@ -80,23 +81,23 @@ public class SortedTransactionQueue {
          private Node last;
 
          @Override
-         public Node getPrevious() {
+         public final Node getPrevious() {
             return last;
          }
 
          @Override
-         public void setPrevious(Node previous) {
+         public final void setPrevious(Node previous) {
             this.last = previous;
          }
 
          @Override
-         public int compareTo(Node o) {
+         public final int compareTo(Node o) {
             //the last node is always higher
             return 1;
          }
 
          @Override
-         public String toString() {
+         public final String toString() {
             return "LAST_ENTRY";
          }
       };
@@ -112,13 +113,11 @@ public class SortedTransactionQueue {
       }
       Node entry = new TransactionEntryImpl(cacheTransaction, concurrentClockNumber);
       concurrentHashMap.put(globalTransaction, entry);
-      addNew(entry);
-      hasTransactionReadyToCommit();
+      insertNew(entry);
    }
 
    public final void rollback(CacheTransaction cacheTransaction) {
       remove(concurrentHashMap.remove(cacheTransaction.getGlobalTransaction()));
-      hasTransactionReadyToCommit();
    }
 
    //return true if it is a read-write transaction
@@ -129,101 +128,37 @@ public class SortedTransactionQueue {
             log.debugf("Cannot commit transaction %s. Maybe it is a read-only on this node",
                        globalTransaction.globalId());
          }
-         return entry;
+         return null;
       }
       update(entry, commitVersion);
-      hasTransactionReadyToCommit();
       return entry;
    }
 
    public final synchronized void populateToCommit(List<TransactionEntry> transactionEntryList) {
-      removeCommitted();
-      if (!firstEntry.getNext().hasReceiveCommitCommand()) {
+      Node entry = firstEntry.getNext();
+      if (entry == lastEntry || !entry.isReadyToCommit()) {
          if (log.isTraceEnabled()) {
-            log.tracef("get transactions to commit. First is not ready! %s", firstEntry.getNext());
+            log.tracef("populateToCommit() == false. First is not ready! %s", entry);
          }
          return;
       }
 
-      //if (log.isDebugEnabled()) {
-      //   log.debugf("Try to commit transaction. Queue is %s", queueToString());
-      //}
-
-      Node firstTransaction = firstEntry.getNext();
-
-      Node transactionToCheck = firstTransaction.getNext();
-
-      while (transactionToCheck != lastEntry) {
-         boolean isSameVersion = transactionToCheck.compareTo(firstTransaction) == 0;
-         if (!isSameVersion) {
-            //commit until this transaction
-            commitUntil(transactionToCheck, transactionEntryList);
-            return;
-         } else if (!transactionToCheck.hasReceiveCommitCommand()) {
-            if (log.isTraceEnabled()) {
-               log.tracef("Transaction with the same version not ready. %s and %s", firstTransaction, transactionToCheck);
-            }
-            return;
-         }
-         transactionToCheck = transactionToCheck.getNext();
-      }
-      //commit until this transaction
-      commitUntil(transactionToCheck, transactionEntryList);
+      do {
+         transactionEntryList.add(entry);
+         entry = entry.getNext();
+      } while (entry != lastEntry && entry.isReadyToCommit());
    }
 
-   /**
-    * @return {@code true} if it has already transactions to be committed
-    */
-   public final synchronized boolean hasTransactionReadyToCommit() {
-      removeCommitted();
-      //same code as populateToCommit...
-      if (!firstEntry.getNext().hasReceiveCommitCommand()) {
-         if (log.isTraceEnabled()) {
-            log.tracef("hasTransactionReadyToCommit() == false. %s", firstEntry.getNext());
-         }
-         return false;
+   public final void notifyTransactionsCommitted() {
+      Collection<Node> toRemove;
+      synchronized (this) {
+         toRemove = internalRemoveCommitted();
+         internalCheckTransactionsReady();
       }
-      firstEntry.getNext().notifyFirstInQueue();
-
-      Node firstTransaction = firstEntry.getNext();
-
-      Node transactionToCheck = firstTransaction.getNext();
-
-      while (transactionToCheck != lastEntry) {
-         boolean isSameVersion = transactionToCheck.compareTo(firstTransaction) == 0;
-         if (!isSameVersion) {
-            if (log.isTraceEnabled()) {
-               log.tracef("hasTransactionReadyToCommit() == true. %s", firstTransaction);
-            }
-            transactionToCheck = transactionToCheck.getPrevious();
-            while (transactionToCheck != firstEntry) {
-               transactionToCheck.markReadyToCommit();
-               if (log.isTraceEnabled()) {
-                  log.tracef("Mark ready to commit: %s", transactionToCheck);
-               }
-               transactionToCheck = transactionToCheck.getPrevious();
-            }
-            return true;
-         } else if (!transactionToCheck.hasReceiveCommitCommand()) {
-            if (log.isTraceEnabled()) {
-               log.tracef("hasTransactionReadyToCommit() == false. %s is waiting for %s", firstTransaction, transactionToCheck);
-            }
-            return false;
-         }
-         transactionToCheck = transactionToCheck.getNext();
+      for (Node node : toRemove) {
+         concurrentHashMap.remove(node.getGlobalTransaction());
+         node.markReadyToCommit();
       }
-      if (log.isTraceEnabled()) {
-         log.tracef("hasTransactionReadyToCommit() == true. %s", firstTransaction);
-      }
-      transactionToCheck = transactionToCheck.getPrevious();
-      while (transactionToCheck != firstEntry) {
-         transactionToCheck.markReadyToCommit();
-         if (log.isTraceEnabled()) {
-            log.tracef("Mark ready to commit: %s", transactionToCheck);
-         }
-         transactionToCheck = transactionToCheck.getPrevious();
-      }
-      return true;
    }
 
    public final TransactionEntry getTransactionEntry(GlobalTransaction globalTransaction) {
@@ -248,13 +183,7 @@ public class SortedTransactionQueue {
    }
 
    public final int size() {
-      Node node = firstEntry.getNext();
-      int count = 0;
-      while (node != lastEntry) {
-         count++;
-         node = node.getNext();
-      }
-      return count;
+      return concurrentHashMap.size();
    }
 
    private void checkWaitingTime(Node entry) {
@@ -273,20 +202,15 @@ public class SortedTransactionQueue {
       firstEntry.getNext().notifyFirstInQueue();
    }
 
-   private void commitUntil(Node exclusive, List<TransactionEntry> transactionEntryList) {
-      Node transaction = firstEntry.getNext();
-
-      while (transaction != exclusive) {
-         transactionEntryList.add(transaction);
-         transaction = transaction.getNext();
-      }
-   }
-
-   private void removeCommitted() {
+   private Collection<Node> internalRemoveCommitted() {
       Node node = firstEntry.getNext();
+      if (node == lastEntry || !node.isCommitted()) {
+         return Collections.emptyList();
+      }
+      List<Node> list = new ArrayList<Node>(4);
       while (node != lastEntry) {
          if (node.isCommitted()) {
-            node.markReadyToCommit(); //to be sure that is unblocked
+            list.add(node);
             node = node.getNext();
          } else {
             break;
@@ -295,6 +219,7 @@ public class SortedTransactionQueue {
       Node newFirst = node;
       firstEntry.setNext(newFirst);
       newFirst.setPrevious(firstEntry);
+      return list;
    }
 
    private synchronized void update(Node entry, GMUVersion commitVersion) {
@@ -305,18 +230,19 @@ public class SortedTransactionQueue {
       entry.commitVersion(commitVersion);
       if (entry.compareTo(entry.getNext()) > 0) {
          Node insertBefore = entry.getNext().getNext();
-         remove(entry);
+         internalRemove(entry);
          while (entry.compareTo(insertBefore) > 0) {
             insertBefore = insertBefore.getNext();
          }
-         addBefore(insertBefore, entry);
+         internalInsertBefore(insertBefore, entry);
       }
       if (TransactionsStatisticsRegistry.isGmuWaitingActive()) {
          checkWaitingTime(entry);
       }
+      internalCheckTransactionsReady();
    }
 
-   private synchronized void addNew(Node entry) {
+   private synchronized void insertNew(Node entry) {
       if (log.isTraceEnabled()) {
          log.tracef("Add new entry: %s", entry);
       }
@@ -328,13 +254,10 @@ public class SortedTransactionQueue {
          }
          insertAfter = insertAfter.getPrevious();
       }
-      addAfter(insertAfter, entry);
-      if (log.isTraceEnabled()) {
-         log.tracef("After add, first entry is %s", firstEntry.getNext());
-      }
+      internalInsertAfter(insertAfter, entry);
    }
 
-   private synchronized void remove(Node entry) {
+   private void remove(Node entry) {
       if (entry == null) {
          return;
       }
@@ -343,19 +266,25 @@ public class SortedTransactionQueue {
          log.tracef("remove entry: %s", entry);
       }
 
-      Node previous = entry.getPrevious();
-      Node next = entry.getNext();
-      entry.setPrevious(null);
-      entry.setNext(null);
+      synchronized (this) {
+         internalRemove(entry);
+         internalCheckTransactionsReady();
+      }
 
-      previous.setNext(next);
-      next.setPrevious(previous);
       if (log.isTraceEnabled()) {
          log.tracef("After remove, first entry is %s", firstEntry.getNext());
       }
    }
 
-   private synchronized void addAfter(Node insertAfter, Node entry) {
+   private void internalRemove(Node entry) {
+      Node previous = entry.getPrevious();
+      Node next = entry.getNext();
+
+      previous.setNext(next);
+      next.setPrevious(previous);
+   }
+
+   private void internalInsertAfter(Node insertAfter, Node entry) {
       entry.setNext(insertAfter.getNext());
       insertAfter.getNext().setPrevious(entry);
 
@@ -363,18 +292,59 @@ public class SortedTransactionQueue {
       insertAfter.setNext(entry);
 
       if (log.isTraceEnabled()) {
-         log.tracef("add after: %s --> [%s] --> %s", insertAfter, entry, entry.getNext());
+         log.tracef("add after: %s --> [%s] --> %s", entry.getPrevious(), entry, entry.getNext());
       }
    }
 
-   private void addBefore(Node insertBefore, Node entry) {
+   private void internalInsertBefore(Node insertBefore, Node entry) {
       entry.setPrevious(insertBefore.getPrevious());
       insertBefore.getPrevious().setNext(entry);
 
       entry.setNext(insertBefore);
       insertBefore.setPrevious(entry);
+
       if (log.isTraceEnabled()) {
          log.tracef("add before: %s --> [%s] --> %s", entry.getPrevious(), entry, insertBefore);
+      }
+   }
+
+   private void internalCheckTransactionsReady() {
+      Node firstTransaction = firstEntry.getNext();
+      //same code as populateToCommit...
+      if (firstTransaction == lastEntry || !firstTransaction.hasReceiveCommitCommand() ||
+            firstTransaction.isReadyToCommit()) {
+         //or the transaction hasn't received the commit yet or it was already notified...
+         if (log.isTraceEnabled()) {
+            log.tracef("internalCheckTransactionsReady() == false. %s", firstTransaction);
+         }
+         return;
+      }
+      firstTransaction.notifyFirstInQueue();
+
+      Node transactionToCheck = firstTransaction.getNext();
+
+      while (transactionToCheck != lastEntry) {
+         if (transactionToCheck.compareTo(firstTransaction) != 0) {
+            break;
+         } else if (!transactionToCheck.hasReceiveCommitCommand()) {
+            if (log.isTraceEnabled()) {
+               log.tracef("internalCheckTransactionsReady() == false. %s is waiting for %s", firstTransaction,
+                          transactionToCheck);
+            }
+            return;
+         }
+         transactionToCheck = transactionToCheck.getNext();
+      }
+      if (log.isTraceEnabled()) {
+         log.tracef("internalCheckTransactionsReady() == true. %s", firstTransaction);
+      }
+      transactionToCheck = transactionToCheck.getPrevious();
+      while (transactionToCheck != firstEntry) {
+         transactionToCheck.markReadyToCommit();
+         if (log.isTraceEnabled()) {
+            log.tracef("Mark ready to commit: %s", transactionToCheck);
+         }
+         transactionToCheck = transactionToCheck.getPrevious();
       }
    }
 
@@ -399,7 +369,7 @@ public class SortedTransactionQueue {
          return (state & mask) != 0;
       }
 
-      public static final String stateToString(byte state) {
+      public static String stateToString(byte state) {
          if (state == 0) {
             return "[]";
          }
@@ -534,67 +504,67 @@ public class SortedTransactionQueue {
       }
 
       @Override
-      public synchronized void setWaitingType(boolean pendingFound) {
+      public final synchronized void setWaitingType(boolean pendingFound) {
          if (pendingFound) {
             this.state = TxState.PENDING_TX_BEFORE.set(state);
          }
       }
 
       @Override
-      public void notifyFirstInQueue() {
+      public final void notifyFirstInQueue() {
          if (firstInQueueTimestamp == -1 && TransactionsStatisticsRegistry.isActive()) {
             firstInQueueTimestamp = System.nanoTime();
          }
       }
 
       @Override
-      public synchronized void setWaiting(boolean waiting) {
+      public final synchronized void setWaiting(boolean waiting) {
          if (waiting) {
             this.state = TxState.WAITED.set(state);
          }
       }
 
-      public synchronized GMUVersion getVersion() {
+      public final synchronized GMUVersion getVersion() {
          return entryVersion;
       }
 
-      public synchronized long getConcurrentClockNumber() {
+      public final synchronized long getConcurrentClockNumber() {
          return concurrentClockNumber;
       }
 
-      public CacheTransaction getCacheTransaction() {
+      public final CacheTransaction getCacheTransaction() {
          return cacheTransaction;
       }
 
-      public synchronized boolean hasReceiveCommitCommand() {
+      public final synchronized boolean hasReceiveCommitCommand() {
          return TxState.COMMIT_RECEIVED.isSet(state);
       }
 
       @Override
-      public synchronized void markReadyToCommit() {
+      public final synchronized void markReadyToCommit() {
          this.state = TxState.READY_TO_COMMIT.set(state);
          readyToCommit.countDown();
          readyToCommitTimestamp = System.nanoTime();
       }
 
       @Override
-      public synchronized boolean isCommitted() {
+      public final synchronized boolean isCommitted() {
          return TxState.COMMITTED.isSet(state);
       }
 
-      public GlobalTransaction getGlobalTransaction() {
+      public final GlobalTransaction getGlobalTransaction() {
          return cacheTransaction.getGlobalTransaction();
       }
 
       @Override
-      public synchronized void awaitUntilCommitted() throws InterruptedException {
+      public final synchronized void awaitUntilCommitted() throws InterruptedException {
          while (!isCommitted()) {
             wait();
          }
       }
 
       @Override
-      public synchronized boolean committing() {
+      public final synchronized boolean committing() {
          if (TxState.COMMITTING.isSet(state)) {
             return false;
          }
@@ -602,7 +572,7 @@ public class SortedTransactionQueue {
          return true;
       }
 
-      public synchronized void committed() {
+      public final synchronized void committed() {
          if (log.isTraceEnabled()) {
             log.tracef("Mark transaction committed: %s", this);
          }
@@ -611,23 +581,23 @@ public class SortedTransactionQueue {
       }
 
       @Override
-      public void awaitUntilIsReadyToCommit() throws InterruptedException {
+      public final void awaitUntilIsReadyToCommit() throws InterruptedException {
          readyToCommit.await();
       }
 
       @Override
-      public synchronized boolean isReadyToCommit() {
+      public final synchronized boolean isReadyToCommit() {
          return TxState.READY_TO_COMMIT.isSet(state);
       }
 
       @Override
-      public CacheTransaction getCacheTransactionForCommit() {
+      public final CacheTransaction getCacheTransactionForCommit() {
          cacheTransaction.setTransactionVersion(entryVersion);
          return cacheTransaction;
       }
 
       @Override
-      public String toString() {
+      public final String toString() {
          return "TransactionEntry{" +
                "version=" + getVersion() +
                ", state=" + TxState.stateToString(state) +
@@ -636,7 +606,7 @@ public class SortedTransactionQueue {
       }
 
       @Override
-      public int compareTo(Node otherNode) {
+      public final int compareTo(Node otherNode) {
          if (otherNode == null) {
             return -1;
          } else if (otherNode == firstEntry) {
@@ -658,22 +628,22 @@ public class SortedTransactionQueue {
       }
 
       @Override
-      public Node getPrevious() {
+      public final Node getPrevious() {
          return previous;
       }
 
       @Override
-      public void setPrevious(Node previous) {
+      public final void setPrevious(Node previous) {
          this.previous = previous;
       }
 
       @Override
-      public Node getNext() {
+      public final Node getNext() {
          return next;
       }
 
       @Override
-      public void setNext(Node next) {
+      public final void setNext(Node next) {
          this.next = next;
       }
 
@@ -706,28 +676,28 @@ public class SortedTransactionQueue {
    private abstract class AbstractBoundaryNode implements Node {
 
       @Override
-      public void commitVersion(GMUVersion commitCommand) {/*no-op*/}
+      public final void commitVersion(GMUVersion commitCommand) {/*no-op*/}
 
       @Override
-      public GMUVersion getVersion() {
+      public final GMUVersion getVersion() {
          throw new UnsupportedOperationException();
       }
 
       @Override
-      public boolean committing() {
+      public final boolean committing() {
          return false;
       }
 
       @Override
-      public boolean hasReceiveCommitCommand() {
+      public final boolean hasReceiveCommitCommand() {
          return false;
       }
 
       @Override
-      public void markReadyToCommit() {/*no-op*/}
+      public final void markReadyToCommit() {/*no-op*/}
 
       @Override
-      public GlobalTransaction getGlobalTransaction() {
+      public final GlobalTransaction getGlobalTransaction() {
          throw new UnsupportedOperationException();
       }
 
@@ -752,71 +722,71 @@ public class SortedTransactionQueue {
       }
 
       @Override
-      public void awaitUntilIsReadyToCommit() throws InterruptedException {/*no-op*/}
+      public final void awaitUntilIsReadyToCommit() throws InterruptedException {/*no-op*/}
 
       @Override
-      public boolean isReadyToCommit() {
+      public final boolean isReadyToCommit() {
          throw new UnsupportedOperationException();
       }
 
       @Override
-      public CacheTransaction getCacheTransactionForCommit() {
+      public final CacheTransaction getCacheTransactionForCommit() {
          throw new UnsupportedOperationException();
       }
 
       @Override
-      public void committed() {/*no-op*/}
+      public final void committed() {/*no-op*/}
 
       @Override
-      public boolean isCommitted() {
+      public final boolean isCommitted() {
          throw new UnsupportedOperationException();
       }
 
       @Override
-      public void awaitUntilCommitted() throws InterruptedException {/*no-op*/}
+      public final void awaitUntilCommitted() throws InterruptedException {/*no-op*/}
 
       @Override
-      public long getConcurrentClockNumber() {
+      public final long getConcurrentClockNumber() {
          throw new UnsupportedOperationException();
       }
 
       @Override
-      public void notifyFirstInQueue() {
+      public final void notifyFirstInQueue() {
          //no-op, stats methods
       }
 
       @Override
-      public void setWaitingType(boolean pendingFound) {
+      public final void setWaitingType(boolean pendingFound) {
          //no-op, stats methods
       }
 
       @Override
-      public long getCommitReceivedTimestamp() {
+      public final long getCommitReceivedTimestamp() {
          return -1;
       }
 
       @Override
-      public boolean isWaitBecauseOfPendingTx() {
+      public final boolean isWaitBecauseOfPendingTx() {
          return false;
       }
 
       @Override
-      public long getReadyToCommitTimestamp() {
+      public final long getReadyToCommitTimestamp() {
          return -1;
       }
 
       @Override
-      public long getFirstInQueueTimestamp() {
+      public final long getFirstInQueueTimestamp() {
          return -1;
       }
 
       @Override
-      public void setWaiting(boolean waiting) {
+      public final void setWaiting(boolean waiting) {
          //no-op
       }
 
       @Override
-      public boolean hasWaited() {
+      public final boolean hasWaited() {
          return false;
       }
    }

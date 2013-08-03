@@ -118,7 +118,7 @@ public class TransactionCommitManager {
          transactionEntry.committed();
       }
       //then we can remove them from the transaction queue.
-      sortedTransactionQueue.hasTransactionReadyToCommit();
+      sortedTransactionQueue.notifyTransactionsCommitted();
    }
 
    //DEBUG ONLY!
