@@ -312,5 +312,7 @@ public interface AdvancedCache<K, V> extends Cache<K, V> {
     */
    CacheEntry getCacheEntry(Object key, EnumSet<Flag> explicitFlags, ClassLoader explicitClassLoader);
 
+   void registerGet(Object key);
+   
    boolean setTransactionClass(String transactionClass);
 }
