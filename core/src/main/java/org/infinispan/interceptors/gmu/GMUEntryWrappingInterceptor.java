@@ -278,7 +278,9 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
    @Override
    public Object visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
       ctx.clearKeyReadInCommand();
+      final boolean previousAccessed = ctx.getLookedUpEntries().containsKey(command.getKey());
       Object retVal = super.visitPutKeyValueCommand(ctx, command);
+      checkWriteCommand(ctx, previousAccessed, command);
       updateTransactionVersion(ctx, command);
       return retVal;
    }
@@ -286,7 +288,9 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
    @Override
    public Object visitRemoveCommand(InvocationContext ctx, RemoveCommand command) throws Throwable {
       ctx.clearKeyReadInCommand();
+      final boolean previousAccessed = ctx.getLookedUpEntries().containsKey(command.getKey());
       Object retVal = super.visitRemoveCommand(ctx, command);
+      checkWriteCommand(ctx, previousAccessed, command);
       updateTransactionVersion(ctx, command);
       return retVal;
    }
@@ -294,7 +298,9 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
    @Override
    public Object visitReplaceCommand(InvocationContext ctx, ReplaceCommand command) throws Throwable {
       ctx.clearKeyReadInCommand();
+      final boolean previousAccessed = ctx.getLookedUpEntries().containsKey(command.getKey());
       Object retVal = super.visitReplaceCommand(ctx, command);
+      checkWriteCommand(ctx, previousAccessed, command);
       updateTransactionVersion(ctx, command);
       return retVal;
    }
@@ -305,6 +311,17 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          cdl.commitEntry(entry, ((TxInvocationContext) ctx).getTransactionVersion(), skipOwnershipCheck, ctx);
       } else {
          cdl.commitEntry(entry, entry.getVersion(), skipOwnershipCheck, ctx);
+      }
+   }
+
+   private void checkWriteCommand(InvocationContext context, boolean previousAccessed, WriteCommand command) {
+      if (previousAccessed || command.isConditional()) {
+         //if previous accessed, we have nothing to update in transaction version
+         //if conditional, it is forced to read the key
+         return;
+      }
+      if (command.hasFlag(Flag.IGNORE_RETURN_VALUES)) {
+         context.getKeysReadInCommand().clear(); //remove all the keys read!
       }
    }
 
