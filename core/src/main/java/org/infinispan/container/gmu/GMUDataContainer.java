@@ -24,7 +24,6 @@ package org.infinispan.container.gmu;
 
 import org.infinispan.container.AbstractDataContainer;
 import org.infinispan.container.DataContainer;
-import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMUNullCacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMURemovedCacheEntry;
@@ -37,7 +36,6 @@ import org.infinispan.eviction.EvictionThreadPolicy;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.transaction.gmu.CommitLog;
 import org.infinispan.util.Util;
-import org.infinispan.util.concurrent.BoundedConcurrentHashMap;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -68,12 +66,7 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
    }
 
    protected GMUDataContainer(int concurrencyLevel, int maxEntries, EvictionStrategy strategy, EvictionThreadPolicy policy) {
-      super(concurrencyLevel, maxEntries, strategy, policy, new BoundedConcurrentHashMap.CacheEntryTypeConverter<DataContainerVersionChain>() {
-         @Override
-         public CacheEntry convert(DataContainerVersionChain value) {
-            return value == null ? null : value.get(null).getEntry();
-         }
-      });
+      super(concurrencyLevel, maxEntries, strategy, policy);
    }
 
    public static DataContainer boundedDataContainer(int concurrencyLevel, int maxEntries,

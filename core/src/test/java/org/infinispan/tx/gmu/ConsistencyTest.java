@@ -192,11 +192,13 @@ public class ConsistencyTest extends AbstractGMUTest {
          }
       };
       final InterceptorChain chain = TestingUtil.extractComponent(cache(1), InterceptorChain.class);
-      final Object key = newKey(1);
+      final Object key1 = newKey(1);
+      final Object key2 = initialClusterSize() > 2 ? newKey(2) : newKey(0);
       try {
          chain.addInterceptor(interceptor, 0);
          tm(0).begin();
-         cache(0).put(key, "v");
+         cache(0).put(key1, VALUE_1);
+         cache(0).put(key2, VALUE_1);
          tm(0).commit();
          fail("Rollback expected!");
       } catch (RollbackException e) {
@@ -205,6 +207,12 @@ public class ConsistencyTest extends AbstractGMUTest {
          block.countDown();
          chain.removeInterceptor(0);
       }
+
+      cache(0).put(key1, VALUE_2);
+      cache(0).put(key2, VALUE_2);
+
+      assertCachesValue(0, key1, VALUE_2);
+      assertCachesValue(0, key2, VALUE_2);
 
       assertNoTransactions();
       assertNoLocks();

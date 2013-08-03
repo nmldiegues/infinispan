@@ -209,7 +209,14 @@ public class TxInterceptor extends CommandInterceptor {
          }
          rollbacks.incrementAndGet();
       }
-      if (!ctx.isOriginLocal() || isTotalOrder) {
+      boolean forceRemoveRemoteTransaction = false;
+      if (ctx.isOriginLocal() && isTotalOrder) {
+         RemoteTransaction remoteTransaction = txTable.getRemoteTransaction(ctx.getGlobalTransaction());
+         if (remoteTransaction != null) {
+            forceRemoveRemoteTransaction = remoteTransaction.getTransactionState().isFinished();
+         }
+      }
+      if (forceRemoveRemoteTransaction || !ctx.isOriginLocal()) {
          txTable.remoteTransactionRollback(command.getGlobalTransaction());
       }
       try {

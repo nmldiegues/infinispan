@@ -23,13 +23,11 @@
 package org.infinispan.container;
 
 import net.jcip.annotations.ThreadSafe;
-import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.eviction.EvictionThreadPolicy;
 import org.infinispan.util.Util;
-import org.infinispan.util.concurrent.BoundedConcurrentHashMap;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -56,12 +54,7 @@ public class DefaultDataContainer extends AbstractDataContainer<InternalCacheEnt
    }
 
    protected DefaultDataContainer(int concurrencyLevel, int maxEntries, EvictionStrategy strategy, EvictionThreadPolicy policy) {
-      super(concurrencyLevel, maxEntries, strategy, policy, new BoundedConcurrentHashMap.CacheEntryTypeConverter<InternalCacheEntry>() {
-         @Override
-         public CacheEntry convert(InternalCacheEntry value) {
-            return value;
-         }
-      });
+      super(concurrencyLevel, maxEntries, strategy, policy);
    }
 
    public static DataContainer boundedDataContainer(int concurrencyLevel, int maxEntries,
