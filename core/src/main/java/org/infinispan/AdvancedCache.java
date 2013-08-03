@@ -22,6 +22,12 @@
  */
 package org.infinispan;
 
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.List;
+
+import javax.transaction.xa.XAResource;
+
 import org.infinispan.atomic.Delta;
 import org.infinispan.batch.BatchContainer;
 import org.infinispan.container.DataContainer;
@@ -35,12 +41,6 @@ import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.stats.Stats;
 import org.infinispan.util.concurrent.locks.LockManager;
-
-import javax.transaction.TransactionManager;
-import javax.transaction.xa.XAResource;
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.List;
 
 /**
  * An advanced interface that exposes additional methods not available on {@link Cache}.
@@ -76,8 +76,6 @@ public interface AdvancedCache<K, V> extends Cache<K, V> {
     */
    AdvancedCache<K, V> withFlags(Flag... flags);
    
-   org.infinispan.transaction.TransactionTable getTxTable();
-
    org.infinispan.transaction.TransactionTable getTxTable();
    
    /**
@@ -230,7 +228,7 @@ public interface AdvancedCache<K, V> extends Cache<K, V> {
     *
     * @return the transaction manager associated with this cache instance or null
     */
-   TransactionManager getTransactionManager();
+   javax.transaction.TransactionManager getTransactionManager();
 
    /**
     * Returns the component that deals with all aspects of acquiring and
