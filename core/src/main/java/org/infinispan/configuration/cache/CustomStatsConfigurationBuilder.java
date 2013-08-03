@@ -31,6 +31,7 @@ import org.infinispan.configuration.Builder;
 public class CustomStatsConfigurationBuilder extends AbstractConfigurationChildBuilder implements Builder<CustomStatsConfiguration> {
 
    private boolean sampleServiceTimes = false;
+   private boolean gmuWaitingTimeEnabled;
 
    CustomStatsConfigurationBuilder(ConfigurationBuilder builder) {
       super(builder);
@@ -52,19 +53,44 @@ public class CustomStatsConfigurationBuilder extends AbstractConfigurationChildB
 
    @Override
    public CustomStatsConfiguration create() {
-      return new CustomStatsConfiguration(sampleServiceTimes);
+      return new CustomStatsConfiguration(sampleServiceTimes, gmuWaitingTimeEnabled);
    }
 
    @Override
    public CustomStatsConfigurationBuilder read(CustomStatsConfiguration template) {
-      this.sampleServiceTimes = template.isSampleServiceTimes();
+      this.sampleServiceTimes = template.sampleServiceTimes();
+      this.gmuWaitingTimeEnabled = template.gmuWaitingTimeEnabled();
       return this;
+   }
+
+   public void gmuWaitingTimeEnabled(boolean enabled) {
+      this.gmuWaitingTimeEnabled = enabled;
    }
 
    @Override
    public String toString() {
       return "CustomStatsConfigurationBuilder{" +
             "sampleServiceTimes=" + sampleServiceTimes +
+            ", gmuWaitingTimeEnabled=" + gmuWaitingTimeEnabled +
             '}';
+   }
+
+   @Override
+   public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+
+      CustomStatsConfigurationBuilder that = (CustomStatsConfigurationBuilder) o;
+
+      return gmuWaitingTimeEnabled == that.gmuWaitingTimeEnabled &&
+            sampleServiceTimes == that.sampleServiceTimes;
+
+   }
+
+   @Override
+   public int hashCode() {
+      int result = (sampleServiceTimes ? 1 : 0);
+      result = 31 * result + (gmuWaitingTimeEnabled ? 1 : 0);
+      return result;
    }
 }

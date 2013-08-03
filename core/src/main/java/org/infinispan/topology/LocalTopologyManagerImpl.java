@@ -38,6 +38,7 @@ import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
 import org.infinispan.reconfigurableprotocol.manager.ReconfigurableReplicationManager;
+import org.infinispan.remoting.responses.ConfigurationFilter;
 import org.infinispan.remoting.responses.ExceptionResponse;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.responses.SuccessfulResponse;
@@ -273,8 +274,9 @@ public class LocalTopologyManagerImpl implements LocalTopologyManager {
 
    private ConfigurationState getConfigurationState(String cacheName, long timeout) throws Exception {
       ConfigurationStateCommand command = new ConfigurationStateCommand(cacheName);
+      ConfigurationFilter filter = new ConfigurationFilter(transport.getMembers().size());
       Map<Address, Response> responseMap = transport.invokeRemotely(null, command, ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS,
-                                                                    timeout, true, null , false, false);
+                                                                    timeout, true, filter , false, false);
       for (Response response : responseMap.values()) {
          if (response instanceof SuccessfulResponse) {
             Object responseValue = ((SuccessfulResponse) response).getResponseValue();

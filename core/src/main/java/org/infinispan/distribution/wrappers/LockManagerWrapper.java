@@ -192,7 +192,8 @@ public class LockManagerWrapper implements LockManager {
    }
 
    private boolean updateContentionStats(TransactionStatistics transactionStatistics, Object key, TxInvocationContext tctx) {
-      GlobalTransaction holder = (GlobalTransaction) getOwner(key);
+      Object owner = getOwner(key);
+      GlobalTransaction holder = owner instanceof GlobalTransaction ? (GlobalTransaction) owner : null;
       if (holder != null) {
          GlobalTransaction me = tctx.getGlobalTransaction();
          if (holder != me) {

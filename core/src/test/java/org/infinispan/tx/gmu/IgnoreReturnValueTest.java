@@ -117,6 +117,46 @@ public class IgnoreReturnValueTest extends MultipleCacheManagersTest {
       populate();
 
       tm(0).begin();
+      Assert.assertEquals(cache(0).get(KEYS[0]), VALUES[0]);
+      advancedCache(0).withFlags(Flag.IGNORE_RETURN_VALUES).put(KEYS[0], VALUES[1]);
+      final Transaction tx1 = tm(0).suspend();
+
+      tm(0).begin();
+      Assert.assertEquals(cache(0).get(KEYS[0]), VALUES[0]);
+      advancedCache(0).withFlags(Flag.IGNORE_RETURN_VALUES).put(KEYS[0], VALUES[2]);
+      final Transaction tx2 = tm(0).suspend();
+
+      tm(0).begin();
+      advancedCache(0).withFlags(Flag.IGNORE_RETURN_VALUES).put(KEYS[0], VALUES[3]);
+      final Transaction tx3 = tm(0).suspend();
+
+      tm(0).resume(tx1);
+
+      tm(0).commit();
+
+      assertInAllCaches(KEYS[0], VALUES[1]);
+
+      try {
+         tm(0).resume(tx2);
+         tm(0).commit();
+         Assert.fail("Rollback expected!");
+      } catch (Exception e) {
+         //expected
+      }
+
+      assertInAllCaches(KEYS[0], VALUES[1]);
+
+      tm(0).resume(tx3);
+      tm(0).commit();
+
+      assertInAllCaches(KEYS[0], VALUES[3]);
+   }
+
+   public final void testValidation() throws Exception {
+      populate();
+
+      tm(0).begin();
+
       advancedCache(0).withFlags(Flag.IGNORE_RETURN_VALUES).put(KEYS[0], VALUES[1]);
       final Transaction tx1 = tm(0).suspend();
 

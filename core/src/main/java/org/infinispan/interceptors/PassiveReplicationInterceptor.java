@@ -110,6 +110,6 @@ public class PassiveReplicationInterceptor extends CommandInterceptor {
    }
 
    private boolean isMaster() {
-      return rpcManager.getTransport().isCoordinator();
+      return rpcManager.getAddress().equals(rpcManager.getMembers().get(0));
    }
 }

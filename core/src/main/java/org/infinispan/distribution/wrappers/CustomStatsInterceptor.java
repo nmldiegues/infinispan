@@ -1622,9 +1622,9 @@ public final class CustomStatsInterceptor extends BaseCustomInterceptor {
             counter = NUM_UPDATE_TX_LOCAL_LOCAL_ROLLBACK;
          }
       } else {
-         cpuStat = UPDATE_TX_LOCAL_LOCAL_ROLLBACK_S;
-         stat = UPDATE_TX_LOCAL_LOCAL_ROLLBACK_R;
-         counter = NUM_UPDATE_TX_LOCAL_LOCAL_ROLLBACK;
+         cpuStat = UPDATE_TX_REMOTE_ROLLBACK_S;
+         stat = UPDATE_TX_REMOTE_ROLLBACK_R;
+         counter = NUM_UPDATE_TX_REMOTE_ROLLBACK;
       }
       updateWallClockTime(transactionStatistics, stat, counter, initTime);
       if (TransactionsStatisticsRegistry.isSampleServiceTime())
@@ -1759,7 +1759,7 @@ public final class CustomStatsInterceptor extends BaseCustomInterceptor {
 
    private void replaceLockManager(ComponentRegistry componentRegistry) {
       LockManager lockManager = componentRegistry.getComponent(LockManager.class);
-      LockManagerWrapper lockManagerWrapper = new LockManagerWrapper(lockManager, StreamLibContainer.getOrCreateStreamLibContainer(cache), true);// this.configuration.customStatsConfiguration().isSampleServiceTimes());
+      LockManagerWrapper lockManagerWrapper = new LockManagerWrapper(lockManager, StreamLibContainer.getOrCreateStreamLibContainer(cache), true);// this.configuration.customStatsConfiguration().sampleServiceTimes());
       componentRegistry.registerComponent(lockManagerWrapper, LockManager.class);
    }
 

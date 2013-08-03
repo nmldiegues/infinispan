@@ -268,6 +268,9 @@ public class Parser52 implements ConfigurationParser<ConfigurationBuilderHolder>
                     } else
                         builder.customStats().notSampleServiceTimes();
                     break;
+                case GMU_WAITING_TIME:
+                   builder.customStats().gmuWaitingTimeEnabled(Boolean.valueOf(value));
+                   break;
                 default:
                     throw ParseUtils.unexpectedAttribute(reader, i);
             }

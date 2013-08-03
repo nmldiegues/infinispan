@@ -42,7 +42,6 @@ public enum ExposedStatistic {
    NUM_REMOTE_ABORTED_LOCKS(true, true),
    NUM_HELD_LOCKS(true, true),            // C
    NUM_HELD_LOCKS_SUCCESS_TX(true, false),   // L
-   WR_TX_LOCAL_EXECUTION_TIME(true, false),  // L
 
    NUM_COMMITTED_RO_TX(true, true), // C
    NUM_COMMITTED_WR_TX(true, true), // C

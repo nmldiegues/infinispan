@@ -30,13 +30,19 @@ package org.infinispan.configuration.cache;
 public class CustomStatsConfiguration {
 
    private final boolean sampleServiceTimes;
+   private final boolean gmuWaitingTimeEnabled;
 
-   CustomStatsConfiguration(boolean sampleServiceTimes) {
+   CustomStatsConfiguration(boolean sampleServiceTimes, boolean gmuWaitingTimeEnabled) {
       this.sampleServiceTimes = sampleServiceTimes;
+      this.gmuWaitingTimeEnabled = gmuWaitingTimeEnabled;
    }
 
-   public boolean isSampleServiceTimes() {
+   public boolean sampleServiceTimes() {
       return sampleServiceTimes;
+   }
+
+   public boolean gmuWaitingTimeEnabled() {
+      return gmuWaitingTimeEnabled;
    }
 
    @Override
@@ -46,19 +52,23 @@ public class CustomStatsConfiguration {
 
       CustomStatsConfiguration that = (CustomStatsConfiguration) o;
 
-      return sampleServiceTimes == that.sampleServiceTimes;
+      return gmuWaitingTimeEnabled == that.gmuWaitingTimeEnabled &&
+            sampleServiceTimes == that.sampleServiceTimes;
 
    }
 
    @Override
    public int hashCode() {
-      return (sampleServiceTimes ? 1 : 0);
+      int result = (sampleServiceTimes ? 1 : 0);
+      result = 31 * result + (gmuWaitingTimeEnabled ? 1 : 0);
+      return result;
    }
 
    @Override
    public String toString() {
       return "CustomStatsConfiguration{" +
             "sampleServiceTimes=" + sampleServiceTimes +
+            ", gmuWaitingTimeEnabled=" + gmuWaitingTimeEnabled +
             '}';
    }
 }

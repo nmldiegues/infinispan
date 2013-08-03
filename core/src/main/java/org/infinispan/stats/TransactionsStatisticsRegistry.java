@@ -81,10 +81,10 @@ public final class TransactionsStatisticsRegistry {
    public static void init(Configuration configuration) {
       log.info("Initializing transactionalClassesMap");
       TransactionsStatisticsRegistry.configuration = configuration;
-      sampleServiceTime = configuration.customStatsConfiguration().isSampleServiceTimes();
+      sampleServiceTime = configuration.customStatsConfiguration().sampleServiceTimes();
+      setGmuWaitingActive(configuration.customStatsConfiguration().gmuWaitingTimeEnabled());
       transactionalClassesStatsMap.put(DEFAULT_ISPN_CLASS, new NodeScopeStatisticCollector());
       active = true;
-      sampleServiceTime = configuration.customStatsConfiguration().isSampleServiceTimes();
    }
 
    public static long getThreadCPUTime() {

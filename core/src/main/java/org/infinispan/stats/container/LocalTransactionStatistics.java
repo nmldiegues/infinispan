@@ -73,11 +73,11 @@ public class LocalTransactionStatistics extends TransactionStatistics {
     */
    @Override
    protected final void terminate() {
+      if (!isCommit())
+         return;
       final boolean sampleServiceTime = TransactionsStatisticsRegistry.isSampleServiceTime();
       long cpuTime = sampleServiceTime ? TransactionsStatisticsRegistry.getThreadCPUTime() : 0;
       long now = System.nanoTime();
-      if (!isCommit())
-         return;
       if (!isReadOnly()) {
          long numPuts = this.getValue(NUM_PUT);
          this.addValue(FIRST_WRITE_INDEX, this.readsBeforeFirstWrite);
@@ -125,7 +125,6 @@ public class LocalTransactionStatistics extends TransactionStatistics {
       this.endLocalTime = now;
       if (!isReadOnly()) {
          incrementValue(NUM_UPDATE_TX_GOT_TO_PREPARE);
-         this.addValue(WR_TX_LOCAL_EXECUTION_TIME, System.nanoTime() - this.initTime);
       }
       //RO can never abort :)
       else {

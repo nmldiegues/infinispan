@@ -158,6 +158,7 @@ public enum Attribute {
     L1_GC_INTERVAL("l1GCInterval"),
     VIEW_GC_BACK_OFF("viewGCBackOff"),
     SAMPLE_SERVICE_TIME("sampleServiceTimes"),
+    GMU_WAITING_TIME("gmuWaitingTime"),
     ;
 
     private final String name;
