@@ -44,6 +44,7 @@ import java.util.Map;
 @MBean(objectName = "StreamLibStatistics", description = "Show analytics for workload monitor")
 public class StreamLibInterceptor extends BaseCustomInterceptor {
 
+   private static final int DEFAULT_TOP_KEY = 10;
    private StreamLibContainer streamLibContainer;
    private boolean statisticEnabled = false;
    private DistributionManager distributionManager;
@@ -98,10 +99,10 @@ public class StreamLibInterceptor extends BaseCustomInterceptor {
       streamLibContainer.setCapacity(value);
    }
 
-   @ManagedAttribute(description = "Show the top " + StreamLibContainer.MAX_CAPACITY + " keys most read remotely by this instance",
+   @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most read remotely by this instance",
                      displayName = "Top Remote Read Keys")
    public Map<Object, Long> getRemoteTopGets() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.REMOTE_GET);
+      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.REMOTE_GET, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most read remotely by this instance",
@@ -112,10 +113,10 @@ public class StreamLibInterceptor extends BaseCustomInterceptor {
       return res;
    }
 
-   @ManagedAttribute(description = "Show the top " + StreamLibContainer.MAX_CAPACITY + " keys most read locally by this instance",
+   @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most read locally by this instance",
                      displayName = "Top Local Read Keys")
    public Map<Object, Long> getLocalTopGets() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.LOCAL_GET);
+      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.LOCAL_GET, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most read locally by this instance",
@@ -126,10 +127,10 @@ public class StreamLibInterceptor extends BaseCustomInterceptor {
       return res;
    }
 
-   @ManagedAttribute(description = "Show the top " + StreamLibContainer.MAX_CAPACITY + " keys most write remotely by this instance",
+   @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most write remotely by this instance",
                      displayName = "Top Remote Write Keys")
    public Map<Object, Long> getRemoteTopPuts() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.REMOTE_PUT);
+      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.REMOTE_PUT, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most write remotely by this instance",
@@ -140,10 +141,10 @@ public class StreamLibInterceptor extends BaseCustomInterceptor {
       return res;
    }
 
-   @ManagedAttribute(description = "Show the top " + StreamLibContainer.MAX_CAPACITY + " keys most write locally by this instance",
+   @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most write locally by this instance",
                      displayName = "Top Local Write Keys")
    public Map<Object, Long> getLocalTopPuts() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.LOCAL_PUT);
+      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.LOCAL_PUT, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most write locally by this instance",
@@ -154,10 +155,10 @@ public class StreamLibInterceptor extends BaseCustomInterceptor {
       return res;
    }
 
-   @ManagedAttribute(description = "Show the top " + StreamLibContainer.MAX_CAPACITY + " keys most locked",
+   @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most locked",
                      displayName = "Top Locked Keys")
    public Map<Object, Long> getTopLockedKeys() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_LOCKED_KEYS);
+      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_LOCKED_KEYS, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most locked",
@@ -168,10 +169,10 @@ public class StreamLibInterceptor extends BaseCustomInterceptor {
       return res;
    }
 
-   @ManagedAttribute(description = "Show the top " + StreamLibContainer.MAX_CAPACITY + " keys most contended",
+   @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys most contended",
                      displayName = "Top Contended Keys")
    public Map<Object, Long> getTopContendedKeys() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_CONTENDED_KEYS);
+      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_CONTENDED_KEYS, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys most contended",
@@ -182,10 +183,10 @@ public class StreamLibInterceptor extends BaseCustomInterceptor {
       return res;
    }
 
-   @ManagedAttribute(description = "Show the top " + StreamLibContainer.MAX_CAPACITY + " keys whose lock acquisition failed by timeout",
+   @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys whose lock acquisition failed by timeout",
                      displayName = "Top Keys whose Lock Acquisition Failed by Timeout")
    public Map<Object, Long> getTopLockFailedKeys() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_FAILED_KEYS);
+      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_FAILED_KEYS, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys whose lock acquisition failed ",
@@ -196,10 +197,10 @@ public class StreamLibInterceptor extends BaseCustomInterceptor {
       return res;
    }
 
-   @ManagedAttribute(description = "Show the top " + StreamLibContainer.MAX_CAPACITY + " keys whose write skew check was failed",
+   @ManagedAttribute(description = "Show the top " + DEFAULT_TOP_KEY + " keys whose write skew check was failed",
                      displayName = "Top Keys whose Write Skew Check was failed")
    public Map<Object, Long> getTopWriteSkewFailedKeys() {
-      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_WRITE_SKEW_FAILED_KEYS);
+      return streamLibContainer.getTopKFrom(StreamLibContainer.Stat.MOST_WRITE_SKEW_FAILED_KEYS, DEFAULT_TOP_KEY);
    }
 
    @ManagedOperation(description = "Show the top n keys whose write skew check was failed",
