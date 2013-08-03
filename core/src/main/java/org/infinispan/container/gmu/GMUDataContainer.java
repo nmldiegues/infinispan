@@ -24,10 +24,12 @@ package org.infinispan.container.gmu;
 
 import org.infinispan.container.AbstractDataContainer;
 import org.infinispan.container.DataContainer;
+import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMUNullCacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMURemovedCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.gmu.EvictedVersion;
 import org.infinispan.container.versioning.gmu.GMUCacheEntryVersion;
 import org.infinispan.container.versioning.gmu.GMUReadVersion;
 import org.infinispan.eviction.EvictionStrategy;
@@ -35,6 +37,7 @@ import org.infinispan.eviction.EvictionThreadPolicy;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.transaction.gmu.CommitLog;
 import org.infinispan.util.Util;
+import org.infinispan.util.concurrent.BoundedConcurrentHashMap;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -65,7 +68,12 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
    }
 
    protected GMUDataContainer(int concurrencyLevel, int maxEntries, EvictionStrategy strategy, EvictionThreadPolicy policy) {
-      super(concurrencyLevel, maxEntries, strategy, policy);
+      super(concurrencyLevel, maxEntries, strategy, policy, new BoundedConcurrentHashMap.CacheEntryTypeConverter<DataContainerVersionChain>() {
+         @Override
+         public CacheEntry convert(DataContainerVersionChain value) {
+            return value == null ? null : value.get(null).getEntry();
+         }
+      });
    }
 
    public static DataContainer boundedDataContainer(int concurrencyLevel, int maxEntries,
@@ -187,6 +195,9 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
       }
       if (log.isTraceEnabled()) {
          log.tracef("DataContainer.remove(%s,%s)", k, version);
+      }
+      if (version == EvictedVersion.INSTANCE) {
+         entries.remove(k);
       }
 
       DataContainerVersionChain chain = entries.get(k);
@@ -379,7 +390,8 @@ public class GMUDataContainer extends AbstractDataContainer<GMUDataContainer.Dat
 
       @Override
       public void reincarnate(VersionBody<InternalCacheEntry> other) {
-         throw new IllegalStateException("This cannot happen");
+         //throw new IllegalStateException("This cannot happen");
+         //ignored since the entries loaded from cache store can be committed multiple times.
       }
 
       @Override

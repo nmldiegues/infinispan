@@ -113,7 +113,7 @@ public class ActivationInterceptor extends CacheLoaderInterceptor {
       notifier.notifyCacheEntryActivated(key, value, pre, ctx);
    }
 
-   private void removeFromStoreIfNeeded(Object... keys) {
+   protected void removeFromStoreIfNeeded(Object... keys) {
       if (enabled && isManualEviction) {
          if (log.isTraceEnabled())
             log.tracef("Remove from store keys=%s, if needed", Arrays.toString(keys));

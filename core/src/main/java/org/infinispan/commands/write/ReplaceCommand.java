@@ -86,6 +86,7 @@ public class ReplaceCommand extends AbstractDataWriteCommand {
             Object old = e.setValue(newValue);
             e.setLifespan(lifespanMillis);
             e.setMaxIdle(maxIdleTimeMillis);
+            e.setLoaded(false);
             return returnValue(old, true, ctx);
          }
          // Revert assumption that new value is to be committed

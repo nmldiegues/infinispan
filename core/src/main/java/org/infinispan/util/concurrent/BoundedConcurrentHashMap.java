@@ -301,6 +301,10 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
       abstract <K, V> EvictionPolicy<K, V> make(Segment<K, V> s, int capacity, float lf);
    }
 
+   public interface CacheEntryTypeConverter<V> {
+      CacheEntry convert(V value);
+   }
+
    public interface EvictionListener<K, V> {
 
       void onEntryEviction(Map<K, V> evicted);
@@ -1406,9 +1410,12 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
 
       transient final EvictionListener<K, V> evictionListener;
 
-      Segment(int cap, int evictCap, float lf, Eviction es, EvictionListener<K, V> listener) {
+      transient final CacheEntryTypeConverter<V> valueConverter;
+
+      Segment(int cap, int evictCap, float lf, Eviction es, EvictionListener<K, V> listener, CacheEntryTypeConverter<V> valueConverter) {
          loadFactor = lf;
          this.evictCap = evictCap;
+         this.valueConverter = valueConverter;
          eviction = es.make(this, evictCap, lf);
          evictionListener = listener;
          setTable(HashEntry.<K, V> newArray(cap));
@@ -1753,8 +1760,8 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
       }
 
       private boolean isEvictionRemoval(boolean isEvict, V oldValue) {
-         return isEvict ||
-               ((oldValue instanceof CacheEntry) && ((CacheEntry) oldValue).isEvicted());
+         CacheEntry entry = valueConverter.convert(oldValue);
+         return isEvict || (entry != null && entry.isEvicted());
       }
 
       void clear() {
@@ -1829,6 +1836,7 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
     * Creates a new, empty map with the specified maximum capacity, load factor and concurrency
     * level.
     *
+    *
     * @param capacity
     *            is the upper bound capacity for the number of elements in this map
     *
@@ -1842,12 +1850,13 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
     * @param evictionListener
     *            the evicton listener callback to be notified about evicted elements
     *
+    * @param valueConverter
     * @throws IllegalArgumentException
     *             if the initial capacity is negative or the load factor or concurrencyLevel are
     *             nonpositive.
     */
    public BoundedConcurrentHashMap(int capacity, int concurrencyLevel,
-         Eviction evictionStrategy, EvictionListener<K, V> evictionListener) {
+                                   Eviction evictionStrategy, EvictionListener<K, V> evictionListener, CacheEntryTypeConverter<V> valueConverter) {
       if (capacity < 0 || concurrencyLevel <= 0) {
          throw new IllegalArgumentException();
       }
@@ -1860,7 +1869,7 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
          throw new IllegalArgumentException("Maximum capacity has to be at least twice the concurrencyLevel");
       }
 
-      if (evictionStrategy == null || evictionListener == null) {
+      if (evictionStrategy == null || evictionListener == null || valueConverter == null) {
          throw new IllegalArgumentException();
       }
 
@@ -1889,7 +1898,7 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
       }
 
       for (int i = 0; i < this.segments.length; ++i) {
-         this.segments[i] = new Segment<K, V>(cap, c, DEFAULT_LOAD_FACTOR, evictionStrategy, evictionListener);
+         this.segments[i] = new Segment<K, V>(cap, c, DEFAULT_LOAD_FACTOR, evictionStrategy, evictionListener, valueConverter);
       }
    }
 
@@ -1931,7 +1940,7 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
     *             nonpositive.
     */
    public BoundedConcurrentHashMap(int capacity, int concurrencyLevel, Eviction evictionStrategy) {
-      this(capacity, concurrencyLevel, evictionStrategy, new NullEvictionListener<K, V>());
+      this(capacity, concurrencyLevel, evictionStrategy, new NullEvictionListener<K, V>(), null);
    }
 
    /**

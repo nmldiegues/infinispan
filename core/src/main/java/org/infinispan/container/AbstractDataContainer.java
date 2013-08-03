@@ -67,7 +67,7 @@ public abstract class AbstractDataContainer<T> implements DataContainer {
       entries = ConcurrentMapFactory.makeConcurrentMap(128, concurrencyLevel);
    }
 
-   protected AbstractDataContainer(int concurrencyLevel, int maxEntries, EvictionStrategy strategy, EvictionThreadPolicy policy) {
+   protected AbstractDataContainer(int concurrencyLevel, int maxEntries, EvictionStrategy strategy, EvictionThreadPolicy policy, BoundedConcurrentHashMap.CacheEntryTypeConverter<T> valueConverter) {
       // translate eviction policy and strategy
       BoundedConcurrentHashMap.EvictionListener<Object, T> evictionListener;
       switch (policy) {
@@ -92,7 +92,7 @@ public abstract class AbstractDataContainer<T> implements DataContainer {
          default:
             throw new IllegalArgumentException("No such eviction strategy " + strategy);
       }
-      entries = new BoundedConcurrentHashMap<Object, T>(maxEntries, concurrencyLevel, eviction, evictionListener);
+      entries = new BoundedConcurrentHashMap<Object, T>(maxEntries, concurrencyLevel, eviction, evictionListener, valueConverter);
    }
 
    @Inject

@@ -104,6 +104,7 @@ public class RemoveCommand extends AbstractDataWriteCommand {
       if (this instanceof EvictCommand) {
          e.setEvicted(true);
       }
+      e.setLoaded(false);
 
       return value == null ? removedValue : true;
    }

@@ -67,7 +67,7 @@ public class CacheLoaderInterceptor extends JmxStatsCommandInterceptor {
    protected CacheNotifier notifier;
    protected CacheLoader loader;
    protected volatile boolean enabled = true;
-   private EntryFactory entryFactory;
+   protected EntryFactory entryFactory;
 
    private static final Log log = LogFactory.getLog(CacheLoaderInterceptor.class);
 
@@ -170,7 +170,7 @@ public class CacheLoaderInterceptor extends JmxStatsCommandInterceptor {
       return flags != null && flags.contains(Flag.DELTA_WRITE);
    }
 
-   private boolean loadIfNeeded(InvocationContext ctx, Object key, boolean isRetrieval, FlagAffectedCommand cmd) throws Throwable {
+   protected boolean loadIfNeeded(InvocationContext ctx, Object key, boolean isRetrieval, FlagAffectedCommand cmd) throws Throwable {
       if (cmd.hasFlag(Flag.SKIP_CACHE_STORE) || cmd.hasFlag(Flag.SKIP_CACHE_LOAD)
             || cmd.hasFlag(Flag.IGNORE_RETURN_VALUES)) {
          return false; //skip operation
@@ -214,7 +214,7 @@ public class CacheLoaderInterceptor extends JmxStatsCommandInterceptor {
     * @param entry       the appropriately locked entry in the caller's context
     * @param loadedEntry the internal entry loaded from the cache store.
     */
-   private void recordLoadedEntry(InvocationContext ctx, Object key,
+   protected void recordLoadedEntry(InvocationContext ctx, Object key,
          CacheEntry entry, InternalCacheEntry loadedEntry) throws Exception {
       boolean entryExists = loadedEntry != null;
       if (log.isTraceEnabled()) {

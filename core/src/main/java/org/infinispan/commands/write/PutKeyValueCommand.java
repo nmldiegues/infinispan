@@ -119,6 +119,7 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand {
             e.setLifespan(lifespanMillis);
             e.setMaxIdle(maxIdleTimeMillis);
          }
+         e.setLoaded(false);
       }
       return o;
    }

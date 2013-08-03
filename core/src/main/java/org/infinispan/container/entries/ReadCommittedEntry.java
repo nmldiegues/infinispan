@@ -25,6 +25,7 @@ package org.infinispan.container.entries;
 import org.infinispan.atomic.AtomicHashMap;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.gmu.EvictedVersion;
 import org.infinispan.util.Util;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -194,11 +195,14 @@ public class ReadCommittedEntry implements MVCCEntry {
             if (isRemoved() && !isEvicted()) ahm.markRemoved(true);
          }
 
-         if (isRemoved()) {
+         if (isEvicted()) {
+            container.remove(key, EvictedVersion.INSTANCE);
+         } else if (isRemoved()) {
             container.remove(key, newVersion);
          } else if (value != null) {
             container.put(key, value, newVersion, lifespan, maxIdle);
          }
+         setVersion(newVersion);
          reset();
       }
    }
