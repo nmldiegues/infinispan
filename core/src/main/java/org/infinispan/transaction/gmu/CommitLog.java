@@ -65,8 +65,8 @@ import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersionGenerator;
 public class CommitLog {
 
    private static final Log log = LogFactory.getLog(CommitLog.class);
-   private GMUVersion mostRecentVersion;
-   private VersionEntry currentVersion;
+   private volatile GMUVersion mostRecentVersion;
+   private volatile VersionEntry currentVersion;
    private GMUVersionGenerator versionGenerator;
    private boolean enabled = false;
 
@@ -108,14 +108,10 @@ public class CommitLog {
 	  return;
       }
       
-      GMUVersion transactionVersion;
-      synchronized (this) {
-         transactionVersion = versionGenerator.updatedVersion(mostRecentVersion);
-      }
-      localTransaction.setTransactionVersion(transactionVersion);
+      localTransaction.setTransactionVersion(versionGenerator.updatedVersion(mostRecentVersion));
    }
 
-   public final synchronized GMUVersion getCurrentVersion() {
+   public final GMUVersion getCurrentVersion() {
       assertEnabled();
       //versions are immutable
       GMUVersion version = versionGenerator.updatedVersion(mostRecentVersion);
@@ -127,10 +123,7 @@ public class CommitLog {
    }
 
    public final EntryVersion getOldestVersion() {
-      VersionEntry iterator;
-      synchronized (this) {
-         iterator = currentVersion;
-      }
+      VersionEntry iterator = currentVersion;
       while (iterator.getPrevious() != null) {
          iterator = iterator.getPrevious();
       }
@@ -139,10 +132,7 @@ public class CommitLog {
 
    public final EntryVersion getEntry(EntryVersion entryVersion) {
       GMUVersion gmuEntryVersion = toGMUVersion(entryVersion);
-      VersionEntry versionEntry;
-      synchronized (this) {
-         versionEntry = currentVersion;
-      }
+      VersionEntry versionEntry = currentVersion;
       while (versionEntry != null) {
          if (versionEntry.getVersion().getThisNodeVersionValue() == gmuEntryVersion.getThisNodeVersionValue()) {
             return versionEntry.getVersion();
@@ -155,10 +145,8 @@ public class CommitLog {
    public final GMUVersion getAvailableVersionLessThan(EntryVersion other) {
       assertEnabled();
       if (other == null) {
-         synchronized (this) {
-            return versionGenerator.updatedVersion(mostRecentVersion);
-            //return versionGenerator.updatedVersion(currentVersion.getVersion());
-         }
+         return versionGenerator.updatedVersion(mostRecentVersion);
+         //return versionGenerator.updatedVersion(currentVersion.getVersion());
       }
       GMUVersion gmuVersion = toGMUVersion(other);
 
@@ -167,8 +155,6 @@ public class CommitLog {
       }
 
       LinkedList<GMUVersion> possibleVersion = new LinkedList<GMUVersion>();
-      VersionEntry iterator;
-
 
       VersionEntry firstFoundPossible = null; //These are used to optimize the search
       long concurrentClockNumber = 0L;
@@ -179,24 +165,21 @@ public class CommitLog {
       * of the last committed vector clock's N-th entry at the time A was "prepared" on this node.
        */
 
-      synchronized (this) {
-         iterator = currentVersion;
-      }
+      VersionEntry iterator = currentVersion;
 
       while (iterator != null &&
-              (firstFoundPossible == null ||
-                      concurrentClockNumber < iterator.getVersion().getThisNodeVersionValue())
-              ) {
+            (firstFoundPossible == null ||
+                   concurrentClockNumber < iterator.getVersion().getThisNodeVersionValue())) {
          if (isLessOrEquals(iterator.getVersion(), gmuVersion)) {
             possibleVersion.add(iterator.getVersion());
 
-            if(firstFoundPossible == null){
-                firstFoundPossible = iterator;
-                concurrentClockNumber = iterator.getConcurrentClockNumber();
+            if (firstFoundPossible == null) {
+               firstFoundPossible = iterator;
+               concurrentClockNumber = iterator.getConcurrentClockNumber();
             }
 
          }
-         if(firstFoundPossible != null && concurrentClockNumber > iterator.getConcurrentClockNumber()){
+         if (firstFoundPossible != null && concurrentClockNumber > iterator.getConcurrentClockNumber()) {
             //We move the bound before.
             concurrentClockNumber = iterator.getConcurrentClockNumber();
 
@@ -212,7 +195,6 @@ public class CommitLog {
       }
       GMUVersion gmuVersion = toGMUVersion(other);
       GMUReadVersion gmuReadVersion = versionGenerator.convertVersionToRead(gmuVersion);
-      VersionEntry iterator;
 
       VersionEntry firstFoundPossible = null; //These are used to optimize the search
       long concurrentClockNumber = 0L;
@@ -224,15 +206,11 @@ public class CommitLog {
        */
 
 
-
-      synchronized (this) {
-         iterator = currentVersion;
-      }
+      VersionEntry iterator = currentVersion;
 
       while (iterator != null &&
-              (firstFoundPossible == null ||
-                      concurrentClockNumber < iterator.getVersion().getThisNodeVersionValue())
-              ) {
+            (firstFoundPossible == null ||
+                   concurrentClockNumber < iterator.getVersion().getThisNodeVersionValue())) {
          if (log.isTraceEnabled()) {
             log.tracef("getReadVersion(...) ==> comparing %s and %s", iterator.getVersion(), gmuReadVersion);
          }
@@ -246,7 +224,7 @@ public class CommitLog {
                if (log.isTraceEnabled()) {
                   log.tracef("getReadVersion(...) ==> comparing %s and %s ==> VISIBLE", iterator.getVersion(), gmuReadVersion);
                }
-               if(firstFoundPossible == null){
+               if (firstFoundPossible == null) {
                   firstFoundPossible = iterator;
                   concurrentClockNumber = iterator.getConcurrentClockNumber();
                }
@@ -257,7 +235,7 @@ public class CommitLog {
             }
          }
 
-         if(firstFoundPossible != null && concurrentClockNumber > iterator.getConcurrentClockNumber()){
+         if (firstFoundPossible != null && concurrentClockNumber > iterator.getConcurrentClockNumber()) {
             //We move the bound before.
             concurrentClockNumber = iterator.getConcurrentClockNumber();
 
@@ -272,6 +250,8 @@ public class CommitLog {
 
    public final synchronized void insertNewCommittedVersions(Collection<CommittedTransaction> transactions) {
       assertEnabled();
+      VersionEntry oldCurrentVersion = currentVersion;
+      GMUVersion oldMostRecentVersion = mostRecentVersion;
       for (CommittedTransaction transaction : transactions) {
          if (log.isTraceEnabled()) {
             log.tracef("insertNewCommittedVersions(...) ==> add %s", transaction.getCommitVersion());
@@ -279,17 +259,19 @@ public class CommitLog {
          VersionEntry current = new VersionEntry(toGMUVersion(transaction.getCommitVersion()),
                                                  getAffectedKeys(transaction.getModifications()),
                                                  transaction.getSubVersion(), transaction.getConcurrentClockNumber());
-         current.setPrevious(currentVersion);
-         currentVersion = current;
-         mostRecentVersion = versionGenerator.mergeAndMax(mostRecentVersion, currentVersion.getVersion());
+         current.setPrevious(oldCurrentVersion);
+         oldCurrentVersion = current;
+         oldMostRecentVersion = versionGenerator.mergeAndMax(oldMostRecentVersion, oldCurrentVersion.getVersion());
       }
+      currentVersion = oldCurrentVersion;
+      mostRecentVersion = oldMostRecentVersion;
       if (log.isTraceEnabled()) {
-         log.tracef("insertNewCommittedVersions(...) ==> %s", currentVersion.getVersion());
+         log.tracef("insertNewCommittedVersions(...) ==> %s", oldCurrentVersion.getVersion());
       }
       notifyAll();
    }
 
-   public final synchronized void updateMostRecentVersion(EntryVersion newVersion) {
+   public final void updateMostRecentVersion(EntryVersion newVersion) {
       /*
       assertEnabled();
       GMUVersion gmuEntryVersion = toGMUVersion(newVersion);
@@ -302,49 +284,27 @@ public class CommitLog {
       */
    }
 
-   public final synchronized boolean waitForVersion(EntryVersion version, long timeout) throws InterruptedException {
+   public final void waitForVersion(EntryVersion version, long timeout) throws InterruptedException {
       assertEnabled();
-      if (timeout < 0) {
-         if (log.isTraceEnabled()) {
-            log.tracef("waitForVersion(%s,%s) and current version is %s", version, timeout, currentVersion.getVersion());
-         }
-         long versionValue = toGMUVersion(version).getThisNodeVersionValue();
-         while (currentVersion.getVersion().getThisNodeVersionValue() < versionValue) {
-            wait();
-         }
-         if (log.isTraceEnabled()) {
-            log.tracef("waitForVersion(%s) ==> %s TRUE ?", version,
-                       currentVersion.getVersion().getThisNodeVersionValue());
-         }
-         return true;
+      final long versionValue = toGMUVersion(version).getThisNodeVersionValue();
+      if (currentVersion.getVersion().getThisNodeVersionValue() >= versionValue) {
+         return;
       }
-      long finalTimeout = System.currentTimeMillis() + timeout;
-      long versionValue = toGMUVersion(version).getThisNodeVersionValue();
       if (log.isTraceEnabled()) {
          log.tracef("waitForVersion(%s,%s) and current version is %s", version, timeout, currentVersion.getVersion());
       }
-      do {
-         if (currentVersion.getVersion().getThisNodeVersionValue() >= versionValue) {
-            if (log.isTraceEnabled()) {
-               log.tracef("waitForVersion(%s) ==> %s >= %s ?", version,
-                          currentVersion.getVersion().getThisNodeVersionValue(), versionValue);
-            }
-            return true;
+      synchronized (this) {
+         while (currentVersion.getVersion().getThisNodeVersionValue() < versionValue) {
+            wait();
          }
-         long waitingTime = finalTimeout - System.currentTimeMillis();
-         if (waitingTime <= 0) {
-            break;
-         }
-         wait(waitingTime);
-      } while (true);
-      if (log.isTraceEnabled()) {
-         log.tracef("waitForVersion(%s) ==> %s >= %s ?", version,
-                    currentVersion.getVersion().getThisNodeVersionValue(), versionValue);
       }
-      return currentVersion.getVersion().getThisNodeVersionValue() >= versionValue;
+      if (log.isTraceEnabled()) {
+         log.tracef("waitForVersion(%s) ==> %s TRUE ?", version,
+                    currentVersion.getVersion().getThisNodeVersionValue());
+      }
    }
 
-   public final synchronized boolean isMinVersionAvailable(EntryVersion version) {
+   public final boolean isMinVersionAvailable(EntryVersion version) {
       assertEnabled();
 
       long versionValue = toGMUVersion(version).getThisNodeVersionValue();
@@ -362,11 +322,7 @@ public class CommitLog {
          return false;
       }
       try {
-         VersionEntry iterator;
-         synchronized (this) {
-            //bufferedWriter.write(mostRecentVersion.toString());
-            iterator = currentVersion;
-         }
+         VersionEntry iterator = currentVersion;
          bufferedWriter.newLine();
          while (iterator != null) {
             iterator.dumpTo(bufferedWriter);
@@ -388,12 +344,9 @@ public class CommitLog {
     * @return the minimum usable version (to remove entries in data container)
     */
    public final GMUVersion gcOlderVersions(GMUVersion minVersion) {
-      VersionEntry iterator;
+      VersionEntry iterator = currentVersion;
       VersionEntry removeFromHere = null;
       GMUVersion minimumVisibleVersion = null;
-      synchronized (this) {
-         iterator = currentVersion;
-      }
 
       while (iterator != null) {
          if (isLessOrEquals(iterator.getVersion(), minVersion)) {
@@ -422,12 +375,9 @@ public class CommitLog {
    }
 
    public final int calculateMinimumViewId() {
-      VersionEntry iterator;
-      int minimumViewId;
-      synchronized (this) {
-         minimumViewId = currentVersion.getVersion().getViewId();
-         iterator = currentVersion.getPrevious();
-      }
+      VersionEntry iterator = currentVersion;
+      int minimumViewId = iterator.getVersion().getViewId();
+      iterator = iterator.getPrevious();
       while (iterator != null) {
          minimumViewId = Math.min(minimumViewId, iterator.getVersion().getViewId());
       }
@@ -490,7 +440,7 @@ public class CommitLog {
          return subVersion;
       }
 
-      public long getConcurrentClockNumber(){
+      public long getConcurrentClockNumber() {
          return concurrentClockNumber;
       }
 
