@@ -161,8 +161,6 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          //the commitTransaction() can re-order the queue. we need to check for pending commit commands.
          //if not, the queue can be blocked forever.
          gmuExecutor.checkForReadyTasks();
-      } else {
-         ctx.setTransactionVersion(gmuCommitCommand.getCommitVersion());
       }
 
       Object retVal = null;

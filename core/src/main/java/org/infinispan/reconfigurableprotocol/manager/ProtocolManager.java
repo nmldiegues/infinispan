@@ -209,11 +209,15 @@ public class ProtocolManager {
    /**
     * the possible states
     */
-   private static enum State {
+   static enum State {
       SAFE,
       UNSAFE,
       IN_PROGRESS
    }
+
+    public final synchronized State getState(){
+        return state;
+    }
 
    /**
     * class used to atomically retrieve the current replication protocol and epoch

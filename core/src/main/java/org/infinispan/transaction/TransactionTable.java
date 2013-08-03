@@ -31,6 +31,7 @@ import org.infinispan.commands.tx.RollbackCommand;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.Configurations;
+import org.infinispan.configuration.cache.VersioningScheme;
 import org.infinispan.context.InvocationContextContainer;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.factories.annotations.Inject;
@@ -55,6 +56,7 @@ import org.infinispan.transaction.xa.TransactionFactory;
 import org.infinispan.util.InfinispanCollections;
 import org.infinispan.util.Util;
 import org.infinispan.util.concurrent.ConcurrentMapFactory;
+import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -102,6 +104,7 @@ public class TransactionTable {
    private TransactionSynchronizationRegistry transactionSynchronizationRegistry;
    protected ClusteringDependentLogic clusteringLogic;
    protected boolean clustered = false;
+   private boolean gmu;
    private Lock minTopologyRecalculationLock;
    private final ConcurrentMap<GlobalTransaction, Long> completedTransactions = ConcurrentMapFactory.makeConcurrentMap();
 
@@ -175,6 +178,8 @@ public class TransactionTable {
          }
       }, interval, interval, TimeUnit.MILLISECONDS);
 
+      this.gmu = configuration.locking().isolationLevel() == IsolationLevel.SERIALIZABLE &&
+            configuration.versioning().scheme() == VersioningScheme.GMU;
    }
 
    @Stop
@@ -393,7 +398,7 @@ public class TransactionTable {
     */
    public void remoteTransactionCommitted(GlobalTransaction gtx) {
       boolean totalOrder = gtx.getReconfigurableProtocol().useTotalOrder();
-      if (Configurations.isSecondPhaseAsync(configuration) || totalOrder) {
+      if (gmu || Configurations.isSecondPhaseAsync(configuration) || totalOrder) {
          removeRemoteTransaction(gtx);
       }
    }

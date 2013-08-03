@@ -40,7 +40,7 @@ import static org.infinispan.stats.ExposedStatistic.getRemoteStatsSize;
  */
 public class RemoteTransactionStatistics extends TransactionStatistics {
 
-   private static final Log log = LogFactory.getLog(LocalTransactionStatistics.class);
+   private static final Log log = LogFactory.getLog(RemoteTransactionStatistics.class);
    private static final int SIZE = getRemoteStatsSize();
 
    public RemoteTransactionStatistics(Configuration configuration) {

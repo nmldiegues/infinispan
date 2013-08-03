@@ -195,7 +195,7 @@ public class SortedTransactionQueue {
             if (log.isTraceEnabled()) {
                log.tracef("hasTransactionReadyToCommit() == true. %s", firstTransaction);
             }
-            transactionToCheck.getPrevious();
+            transactionToCheck = transactionToCheck.getPrevious();
             while (transactionToCheck != firstEntry) {
                transactionToCheck.markReadyToCommit();
                if (log.isTraceEnabled()) {

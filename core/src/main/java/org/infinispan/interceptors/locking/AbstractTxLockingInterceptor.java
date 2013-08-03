@@ -227,7 +227,7 @@ public abstract class AbstractTxLockingInterceptor extends AbstractLockingInterc
                                        txContext.getGlobalTransaction() + ". Lock is being held by " + lockManager.getOwner(key));
    }
 
-   private boolean releaseLockOnTxCompletion(TxInvocationContext ctx) {
+   protected boolean releaseLockOnTxCompletion(TxInvocationContext ctx) {
       return ctx.isOriginLocal() || Configurations.isSecondPhaseAsync(cacheConfiguration);
    }
 

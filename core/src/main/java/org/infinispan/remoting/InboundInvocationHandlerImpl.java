@@ -30,6 +30,7 @@ import org.infinispan.commands.remote.CacheRpcCommand;
 import org.infinispan.commands.remote.ConfigurationStateCommand;
 import org.infinispan.commands.remote.GMUClusteredGetCommand;
 import org.infinispan.commands.tx.GMUCommitCommand;
+import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.tx.RollbackCommand;
 import org.infinispan.commands.tx.totalorder.TotalOrderPrepareCommand;
 import org.infinispan.configuration.cache.Configuration;
@@ -173,8 +174,14 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
 
             @Override
             public void run() {
+               final PrepareCommand command = (PrepareCommand) cmd;
+               final boolean stats = TransactionsStatisticsRegistry.isActive();
                Response resp;
                try {
+                  if (stats) {
+                     TransactionsStatisticsRegistry.attachRemoteTransactionStatistic(command.getGlobalTransaction(),
+                                                                                     true);
+                  }
                   resp = handleInternal(cmd, cr);
                } catch (RetryPrepareException retry) {
                   log.debugf(retry, "Prepare [%s] conflicted with state transfer", cmd);
@@ -188,6 +195,10 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
                }
                //the ResponseGenerated is null in this case because the return value is a Response
                reply(response, resp);
+               if (stats) {
+                  TransactionsStatisticsRegistry.detachRemoteTransactionStatistic(command.getGlobalTransaction(),
+                                                                                  command.isOnePhaseCommit());
+               }
             }
          });
          return;

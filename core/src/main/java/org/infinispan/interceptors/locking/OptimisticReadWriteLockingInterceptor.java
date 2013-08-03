@@ -54,4 +54,9 @@ public class OptimisticReadWriteLockingInterceptor extends OptimisticLockingInte
          ctx.addAffectedKey(key);
       }
    }
+
+   @Override
+   protected boolean releaseLockOnTxCompletion(TxInvocationContext ctx) {
+      return true;
+   }
 }
