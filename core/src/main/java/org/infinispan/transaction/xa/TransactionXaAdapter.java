@@ -31,6 +31,7 @@ import org.infinispan.transaction.TransactionCoordinator;
 import org.infinispan.transaction.TransactionTable;
 import org.infinispan.transaction.xa.recovery.RecoveryManager;
 import org.infinispan.transaction.xa.recovery.SerializableXid;
+import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -105,8 +106,10 @@ public class TransactionXaAdapter extends AbstractEnlistmentAdapter implements X
       recoveryEnabled = configuration.transaction().recovery().enabled();
       //in distributed mode, we only allow 2 phases!!
       this.onePhaseTotalOrder = configuration.transaction().transactionProtocol().isTotalOrder() &&
-            !configuration.clustering().cacheMode().isDistributed();
-      this.onePhasePassiveReplication = configuration.transaction().transactionProtocol().isPassiveReplication();
+            !configuration.clustering().cacheMode().isDistributed() &&
+            configuration.locking().isolationLevel() != IsolationLevel.SERIALIZABLE;
+      this.onePhasePassiveReplication = configuration.transaction().transactionProtocol().isPassiveReplication() &&
+            configuration.locking().isolationLevel() != IsolationLevel.SERIALIZABLE;
    }
 
    /**
