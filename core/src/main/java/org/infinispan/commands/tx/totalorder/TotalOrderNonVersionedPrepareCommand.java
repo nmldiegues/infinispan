@@ -78,7 +78,8 @@ public class TotalOrderNonVersionedPrepareCommand extends PrepareCommand impleme
    }
 
    @Override
-   public Object[] getKeysToLock() {
-      return getAffectedKeysToLock(false);
+   public Object[][] getKeysToLock() {
+      Object[] writeSet = getAffectedKeysToLock(false);
+      return writeSet == null ? null : new Object[][] {writeSet};
    }
 }

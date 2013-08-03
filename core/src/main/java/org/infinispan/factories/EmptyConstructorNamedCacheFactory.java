@@ -56,6 +56,8 @@ import org.infinispan.transaction.TransactionCoordinator;
 import org.infinispan.transaction.gmu.CommitLog;
 import org.infinispan.transaction.gmu.manager.GarbageCollectorManager;
 import org.infinispan.transaction.gmu.manager.TransactionCommitManager;
+import org.infinispan.transaction.totalorder.DefaultTotalOrderManager;
+import org.infinispan.transaction.totalorder.GMUTotalOrderManager;
 import org.infinispan.transaction.totalorder.TotalOrderManager;
 import org.infinispan.transaction.xa.TransactionFactory;
 import org.infinispan.transaction.xa.recovery.RecoveryAdminOperations;
@@ -152,7 +154,9 @@ public class EmptyConstructorNamedCacheFactory extends AbstractNamedCacheCompone
          } else if (componentType.equals(BackupSender.class)) {
             return (T) new BackupSenderImpl(globalConfiguration.sites().localSite());
          } else if (componentType.equals(TotalOrderManager.class)) {
-            return (T) new TotalOrderManager();
+            return (T) (configuration.locking().isolationLevel() == IsolationLevel.SERIALIZABLE ?
+                              new GMUTotalOrderManager() :
+                              new DefaultTotalOrderManager());
          } else if (componentType.equals(DataPlacementManager.class)){
                return (T) new DataPlacementManager();
          }

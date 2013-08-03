@@ -60,5 +60,5 @@ public interface TotalOrderPrepareCommand extends TransactionBoundaryCommand {
     */
    TotalOrderRemoteTransactionState getOrCreateState();
 
-   Object[] getKeysToLock();
+   Object[][] getKeysToLock();
 }

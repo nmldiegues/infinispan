@@ -36,8 +36,6 @@ import java.util.Arrays;
 import java.util.Set;
 
 /**
- * // TODO: Document this
- *
  * @author Pedro Ruivo
  * @since 5.2
  */

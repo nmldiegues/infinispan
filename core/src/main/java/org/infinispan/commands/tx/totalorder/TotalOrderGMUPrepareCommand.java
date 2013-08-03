@@ -75,14 +75,14 @@ public class TotalOrderGMUPrepareCommand extends GMUPrepareCommand implements To
    }
 
    @Override
-   public Object[] getKeysToLock() {
-      Object[] writeLock = getAffectedKeysToLock(false);
-      if (writeLock == null) {
-         return writeLock;
+   public Object[][] getKeysToLock() {
+      Object[] writeSet = getAffectedKeysToLock(false);
+      if (writeSet == null) {
+         return null;
       }
-      Set<Object> keysToLock = new HashSet<Object>(writeLock.length + getReadSet().length);
-      keysToLock.addAll(Arrays.asList(writeLock));
-      keysToLock.addAll(Arrays.asList(getReadSet()));
-      return keysToLock.toArray();
+      Object[][] keysWriteAndRead = new Object[2][];
+      keysWriteAndRead[0] = writeSet;
+      keysWriteAndRead[1] = getReadSet();
+      return keysWriteAndRead;
    }
 }
