@@ -23,7 +23,6 @@
 package org.infinispan.transaction.gmu;
 
 import org.infinispan.CacheException;
-import org.infinispan.commands.FlagAffectedCommand;
 import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
@@ -153,7 +152,7 @@ public class GMUHelper {
             allPreparedVersions.add(version);
          } else if (r instanceof ExceptionResponse) {
             throw new ValidationException(((ExceptionResponse) r).getException());
-         } else if(!r.isSuccessful()) {
+         } else if (!r.isSuccessful()) {
             throw new CacheException("Unsuccessful response received... aborting transaction " + gtx.globalId());
          }
       }

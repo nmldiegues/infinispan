@@ -64,9 +64,15 @@ public class LocalTransactionStatistics extends TransactionStatistics {
       this.incrementValue(IspnStats.NUM_PREPARES);
    }
 
-
    public final boolean isStillLocalExecution() {
       return this.stillLocalExecution;
+   }
+
+   @Override
+   public final String toString() {
+      return "LocalTransactionStatistics{" +
+            "stillLocalExecution=" + stillLocalExecution +
+            ", " + super.toString();
    }
 
    @Override
@@ -117,31 +123,23 @@ public class LocalTransactionStatistics extends TransactionStatistics {
    }
 
    protected void immediateLockingTimeSampling(int heldLocks, boolean isCommit) {
-         double cumulativeLockHoldTime = this.computeCumulativeLockHoldTime(heldLocks, System.nanoTime());
-         this.addValue(IspnStats.NUM_HELD_LOCKS, heldLocks);
-         this.addValue(IspnStats.LOCK_HOLD_TIME, cumulativeLockHoldTime);
-         IspnStats counter, type;
-         if (isCommit) {
-            counter = IspnStats.NUM_SUX_LOCKS;
-            type = IspnStats.SUX_LOCK_HOLD_TIME;
+      double cumulativeLockHoldTime = this.computeCumulativeLockHoldTime(heldLocks, System.nanoTime());
+      this.addValue(IspnStats.NUM_HELD_LOCKS, heldLocks);
+      this.addValue(IspnStats.LOCK_HOLD_TIME, cumulativeLockHoldTime);
+      IspnStats counter, type;
+      if (isCommit) {
+         counter = IspnStats.NUM_SUX_LOCKS;
+         type = IspnStats.SUX_LOCK_HOLD_TIME;
+      } else {
+         if (!isPrepareSent()) {
+            counter = IspnStats.NUM_LOCAL_ABORTED_LOCKS;
+            type = IspnStats.LOCAL_ABORT_LOCK_HOLD_TIME;
          } else {
-            if (!isPrepareSent()) {
-               counter = IspnStats.NUM_LOCAL_ABORTED_LOCKS;
-               type = IspnStats.LOCAL_ABORT_LOCK_HOLD_TIME;
-            } else {
-               counter = IspnStats.NUM_REMOTE_ABORTED_LOCKS;
-               type = IspnStats.REMOTE_ABORT_LOCK_HOLD_TIME;
-            }
+            counter = IspnStats.NUM_REMOTE_ABORTED_LOCKS;
+            type = IspnStats.REMOTE_ABORT_LOCK_HOLD_TIME;
          }
-         addValue(counter, heldLocks);
-         addValue(type, cumulativeLockHoldTime);
       }
-
-
-   @Override
-   public final String toString() {
-      return "LocalTransactionStatistics{" +
-            "stillLocalExecution=" + stillLocalExecution +
-            ", " + super.toString();
+      addValue(counter, heldLocks);
+      addValue(type, cumulativeLockHoldTime);
    }
 }

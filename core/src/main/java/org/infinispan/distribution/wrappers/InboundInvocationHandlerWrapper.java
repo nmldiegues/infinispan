@@ -26,7 +26,6 @@ import org.infinispan.commands.remote.CacheRpcCommand;
 import org.infinispan.commands.remote.recovery.TxCompletionNotificationCommand;
 import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.PrepareCommand;
-import org.infinispan.commands.tx.RollbackCommand;
 import org.infinispan.commands.tx.TransactionBoundaryCommand;
 import org.infinispan.remoting.InboundInvocationHandler;
 import org.infinispan.remoting.transport.Address;
@@ -46,9 +45,8 @@ import static org.infinispan.stats.translations.ExposedStatistics.IspnStats;
  */
 public class InboundInvocationHandlerWrapper implements InboundInvocationHandler {
 
-   private final InboundInvocationHandler actual;
    private static final Log log = LogFactory.getLog(InboundInvocationHandlerWrapper.class);
-
+   private final InboundInvocationHandler actual;
    private final TransactionTable transactionTable;
 
    public InboundInvocationHandlerWrapper(InboundInvocationHandler actual, TransactionTable transactionTable) {

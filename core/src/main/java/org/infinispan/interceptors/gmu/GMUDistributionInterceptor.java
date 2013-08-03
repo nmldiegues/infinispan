@@ -65,8 +65,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 import static org.infinispan.transaction.gmu.GMUHelper.*;
-import static org.infinispan.transaction.gmu.GMUHelper.convert;
-import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersion;
 
 /**
  * @author Pedro Ruivo
@@ -225,7 +223,7 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
       ClusteredGetCommand get = cf.buildGMUClusteredGetCommand(key, command.getFlags(), acquireRemoteLock,
                                                                gtx, transactionVersion, alreadyReadFromMask);
 
-      if(log.isDebugEnabled()) {
+      if (log.isDebugEnabled()) {
          log.debugf("Perform a remote get for transaction %s. %s",
                     txInvocationContext.getGlobalTransaction().globalId(), get);
       }
@@ -234,14 +232,14 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
       Map<Address, Response> responses = rpcManager.invokeRemotely(targets, get, ResponseMode.WAIT_FOR_VALID_RESPONSE,
                                                                    cacheConfiguration.clustering().sync().replTimeout(), true, filter, false);
 
-      if(log.isDebugEnabled()) {
+      if (log.isDebugEnabled()) {
          log.debugf("Remote get done for transaction %s [key:%s]. response are: %s",
                     txInvocationContext.getGlobalTransaction().globalId(),
                     key, responses);
       }
 
       if (!responses.isEmpty()) {
-         for (Map.Entry<Address,Response> entry : responses.entrySet()) {
+         for (Map.Entry<Address, Response> entry : responses.entrySet()) {
             Response r = entry.getValue();
             if (r instanceof SuccessfulResponse) {
                InternalGMUCacheValue gmuCacheValue = convert(((SuccessfulResponse) r).getResponseValue(),
@@ -251,7 +249,7 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
                txInvocationContext.addKeyReadInCommand(key, gmuCacheEntry);
                txInvocationContext.addReadFrom(entry.getKey());
 
-               if(log.isDebugEnabled()) {
+               if (log.isDebugEnabled()) {
                   log.debugf("Remote Get successful for transaction %s and key %s. Return value is %s",
                              txInvocationContext.getGlobalTransaction().globalId(), key, gmuCacheValue);
                }
@@ -269,7 +267,7 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
    private InternalCacheEntry retrieveSingleKeyFromRemoteSource(Object key, SingleKeyNonTxInvocationContext ctx, FlagAffectedCommand command) {
       //List<Address> targets = new ArrayList<Address>(stateTransferManager.getCacheTopology().getReadConsistentHash().locateOwners(key));      // if any of the recipients has left the cluster since the command was issued, just don't wait for its response
       //Cloud-TM patch
-      Address primaryA =  stateTransferManager.getCacheTopology().getReadConsistentHash().locatePrimaryOwner(key);
+      Address primaryA = stateTransferManager.getCacheTopology().getReadConsistentHash().locatePrimaryOwner(key);
       List<Address> targets = new ArrayList<Address>();
       targets.add(primaryA);
       targets.retainAll(rpcManager.getTransport().getMembers());
@@ -277,7 +275,7 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
       ClusteredGetCommand get = cf.buildGMUClusteredGetCommand(key, command.getFlags(), false, null,
                                                                toGMUVersion(commitLog.getCurrentVersion()), null);
 
-      if(log.isDebugEnabled()) {
+      if (log.isDebugEnabled()) {
          log.debugf("Perform a single remote get. %s", get);
       }
 
@@ -285,13 +283,13 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
       Map<Address, Response> responses = rpcManager.invokeRemotely(targets, get, ResponseMode.WAIT_FOR_VALID_RESPONSE,
                                                                    cacheConfiguration.clustering().sync().replTimeout(), true, filter, false);
 
-      if(log.isDebugEnabled()) {
+      if (log.isDebugEnabled()) {
          log.debugf("Remote get done for single key [key:%s]. response are: %s", key, responses);
       }
 
 
       if (!responses.isEmpty()) {
-         for (Map.Entry<Address,Response> entry : responses.entrySet()) {
+         for (Map.Entry<Address, Response> entry : responses.entrySet()) {
             Response r = entry.getValue();
             if (r == null) {
                continue;
@@ -303,8 +301,8 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
                InternalGMUCacheEntry gmuCacheEntry = (InternalGMUCacheEntry) gmuCacheValue.toInternalCacheEntry(key);
                ctx.addKeyReadInCommand(key, gmuCacheEntry);
 
-               if(log.isDebugEnabled()) {
-                  log.debugf("Remote Get successful for single key %s. Return value is %s",key, gmuCacheValue);
+               if (log.isDebugEnabled()) {
+                  log.debugf("Remote Get successful for single key %s. Return value is %s", key, gmuCacheValue);
                }
                return gmuCacheEntry;
             }

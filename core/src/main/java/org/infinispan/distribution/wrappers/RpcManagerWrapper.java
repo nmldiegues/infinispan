@@ -26,7 +26,6 @@ import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.remote.ClusteredGetCommand;
 import org.infinispan.commands.remote.recovery.TxCompletionNotificationCommand;
 import org.infinispan.commands.tx.CommitCommand;
-import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.tx.RollbackCommand;
 import org.infinispan.remoting.RpcException;
@@ -143,15 +142,15 @@ public class RpcManagerWrapper implements RpcManager {
       boolean isPrepareCmd = rpc instanceof PrepareCommand;
       boolean sample = TransactionsStatisticsRegistry.isActive();
       //try {
-         long currentTime = System.nanoTime();
-         if (isPrepareCmd && sample) {
-               TransactionsStatisticsRegistry.markPrepareSent();
-         }
-         Map<Address, Response> ret = actual.invokeRemotely(recipients, rpc, sync, usePriorityQueue, totalOrder);
-         if(sample){
-            updateStats(rpc, sync, currentTime, recipients);
-         }
-         return ret;
+      long currentTime = System.nanoTime();
+      if (isPrepareCmd && sample) {
+         TransactionsStatisticsRegistry.markPrepareSent();
+      }
+      Map<Address, Response> ret = actual.invokeRemotely(recipients, rpc, sync, usePriorityQueue, totalOrder);
+      if (sample) {
+         updateStats(rpc, sync, currentTime, recipients);
+      }
+      return ret;
       //}
       /*catch (RpcException e) {
          if (isPrepareCmd && sample) {

@@ -26,7 +26,6 @@ import org.infinispan.CacheException;
 import org.infinispan.commands.CancellableCommand;
 import org.infinispan.commands.CancellationService;
 import org.infinispan.commands.CommandsFactory;
-import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.remote.CacheRpcCommand;
 import org.infinispan.commands.remote.ConfigurationStateCommand;
 import org.infinispan.commands.remote.GMUClusteredGetCommand;
@@ -44,14 +43,13 @@ import org.infinispan.factories.scopes.Scope;
 import org.infinispan.factories.scopes.Scopes;
 import org.infinispan.interceptors.totalorder.RetryPrepareException;
 import org.infinispan.manager.NamedCacheNotFoundException;
-import org.infinispan.remoting.rpc.RpcManager;
-import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
-import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.remoting.responses.ExceptionResponse;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.responses.ResponseGenerator;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
+import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
+import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.stats.TransactionsStatisticsRegistry;
 import org.infinispan.stats.translations.ExposedStatistics;
 import org.infinispan.transaction.TotalOrderRemoteTransactionState;
@@ -63,7 +61,6 @@ import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.jgroups.blocks.RpcDispatcher;
-import org.jgroups.util.Buffer;
 
 /**
  * Sets the cache interceptor chain on an RPCCommand before calling it to perform
@@ -73,17 +70,15 @@ import org.jgroups.util.Buffer;
  */
 @Scope(Scopes.GLOBAL)
 public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
-   private GlobalComponentRegistry gcr;
    private static final Log log = LogFactory.getLog(InboundInvocationHandlerImpl.class);
    private static final boolean trace = log.isTraceEnabled();
+   private GlobalComponentRegistry gcr;
    private GlobalConfiguration globalConfiguration;
    private Transport transport;
    private CancellationService cancelService;
    private BlockingTaskAwareExecutorService totalOrderExecutorService;
    private BlockingTaskAwareExecutorService gmuExecutorService;
-
    private RpcDispatcher.Marshaller marshaller = null;
-
 
    @Inject
    public void inject(GlobalComponentRegistry gcr, Transport transport,
@@ -121,7 +116,6 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
 
       handleWithWaitForBlocks(cmd, cr, response);
    }
-
 
    private Response handleInternal(final CacheRpcCommand cmd, final ComponentRegistry cr) throws Throwable {
       try {
@@ -249,13 +243,14 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
             public boolean isReady() {
                return gmuCommitCommand.isReady();
             }
+
             //TODO service and response time of remote commits?
             @Override
             public void run() {
                Response resp;
                try {
                   //RemoteTransactionStatistic has been attached and detached by the IIHW, so it has to be attached again to this thread
-                  if (TransactionsStatisticsRegistry.attachRemoteTransactionStatistic(gmuCommitCommand.getGlobalTransaction(),true) && hasWaited) {
+                  if (TransactionsStatisticsRegistry.attachRemoteTransactionStatistic(gmuCommitCommand.getGlobalTransaction(), true) && hasWaited) {
                      TransactionsStatisticsRegistry.addValue(ExposedStatistics.IspnStats.WAIT_TIME_IN_COMMIT_QUEUE, System.nanoTime() - arrivalTime);
                      TransactionsStatisticsRegistry.incrementValue(ExposedStatistics.IspnStats.NUM_WAITS_IN_COMMIT_QUEUE);
                   }
@@ -267,7 +262,7 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
                //the ResponseGenerated is null in this case because the return value is a Response
                reply(response, resp);
                //Before the gmuExecutorService continues handling other stuff, we have to detach the current xact.
-               TransactionsStatisticsRegistry.detachRemoteTransactionStatistic(gmuCommitCommand.getGlobalTransaction(),true);
+               TransactionsStatisticsRegistry.detachRemoteTransactionStatistic(gmuCommitCommand.getGlobalTransaction(), true);
                gmuExecutorService.checkForReadyTasks();
             }
          });
@@ -299,8 +294,7 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
          if (marshaller == null && transport instanceof JGroupsTransport) {
             marshaller = ((JGroupsTransport) transport).getCommandAwareRpcDispatcher().getMarshaller();
          }
-         Buffer buffer = marshaller.objectToBuffer(r);
-         return buffer != null ? buffer.getLength() : 0;
+         return marshaller != null ? marshaller.objectToBuffer(r).getLength() : 0;
       } catch (Exception e) {
          return 0;
       }

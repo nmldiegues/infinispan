@@ -44,27 +44,20 @@ import java.util.concurrent.ConcurrentMap;
  */
 public final class TransactionsStatisticsRegistry {
 
-   private static final Log log = LogFactory.getLog(TransactionsStatisticsRegistry.class);
-
    public static final String DEFAULT_ISPN_CLASS = "DEFAULT_ISPN_CLASS";
-   private static ConcurrentHashMap<String, Map<Object, Long>> pendingLocks = new ConcurrentHashMap<String, Map<Object, Long>>();
-
+   private static final Log log = LogFactory.getLog(TransactionsStatisticsRegistry.class);
    //Now it is unbounded, we can define a MAX_NO_CLASSES
    private static final Map<String, NodeScopeStatisticCollector> transactionalClassesStatsMap
          = new HashMap<String, NodeScopeStatisticCollector>();
-
    private static final ConcurrentMap<GlobalTransaction, RemoteTransactionStatistics> remoteTransactionStatistics =
          new ConcurrentHashMap<GlobalTransaction, RemoteTransactionStatistics>();
-
-   private static Configuration configuration;
-
    //Comment for reviewers: do we really need threadLocal? If I have the global id of the transaction, I can
    //retrieve the transactionStatistics
    private static final ThreadLocal<TransactionStatistics> thread = new ThreadLocal<TransactionStatistics>();
-   private static ThreadLocal<TransactionTS> lastTransactionTS = new ThreadLocal<TransactionTS>();
-
    public static boolean active = false;
-
+   private static ConcurrentHashMap<String, Map<Object, Long>> pendingLocks = new ConcurrentHashMap<String, Map<Object, Long>>();
+   private static Configuration configuration;
+   private static ThreadLocal<TransactionTS> lastTransactionTS = new ThreadLocal<TransactionTS>();
    private static boolean sampleServiceTime = false;
 
    public static boolean isActive() {
@@ -75,7 +68,6 @@ public final class TransactionsStatisticsRegistry {
       return active && sampleServiceTime;
    }
 
-
    public static void init(Configuration configuration) {
       log.info("Initializing transactionalClassesMap");
       TransactionsStatisticsRegistry.configuration = configuration;
@@ -84,7 +76,6 @@ public final class TransactionsStatisticsRegistry {
       sampleServiceTime = configuration.customStatsConfiguration().isSampleServiceTimes();
       TransactionStatistics.init(configuration);
    }
-
 
    public static void markPrepareSent() {
       TransactionStatistics txs = thread.get();
@@ -113,7 +104,6 @@ public final class TransactionsStatisticsRegistry {
       return txs.isStillLocalExecution();
    }
 
-
    public static void attachId(TxInvocationContext ctx) {
       TransactionStatistics txs = thread.get();
       if (txs == null) {
@@ -123,7 +113,6 @@ public final class TransactionsStatisticsRegistry {
       }
       txs.injectId(ctx.getGlobalTransaction());
    }
-
 
    public static void notifyRead() {
       TransactionStatistics txs = thread.get();
@@ -135,7 +124,6 @@ public final class TransactionsStatisticsRegistry {
       }
       txs.incrementNumGets();
    }
-
 
    //MESSY WORKAROUND
    public static long getCurrentThreadCpuTime() {
@@ -174,13 +162,6 @@ public final class TransactionsStatisticsRegistry {
          return;
       }
       appendLocks(stats.getTakenLocks(), stats.id);
-   }
-
-   private static void appendLocks(Map<Object, Long> locks, String id) {
-      if (locks != null && !locks.isEmpty()) {
-         //log.trace("Appending locks for " + id);
-         pendingLocks.put(id, locks);
-      }
    }
 
    public static void addValue(IspnStats param, double value) {
@@ -331,32 +312,11 @@ public final class TransactionsStatisticsRegistry {
 
    public static void flushPendingRemoteLocksIfNeeded(GlobalTransaction id) {
       if (pendingLocks.containsKey(id.globalId())) {
-         if(log.isTraceEnabled())
+         if (log.isTraceEnabled())
             log.trace("Going to flush locks for " + (id.isRemote() ? "local " : "remote ") + "xact " + id.getId());
          immediateRemoteLockingTimeSampling(pendingLocks.get(id.globalId()));
          pendingLocks.remove(id.globalId());
       }
-   }
-
-
-   private static long computeCumulativeLockHoldTime(Map<Object, Long> takenLocks, int numLocks, long currentTime) {
-      long ret = numLocks * currentTime;
-      Set<Map.Entry<Object, Long>> keySet = takenLocks.entrySet();
-      for (Map.Entry<Object, Long> e : keySet)
-         ret -= takenLocks.get(e.getValue());
-      return ret;
-   }
-
-   /**
-    * NB: I assume here that *only* remote transactions can have pending locks
-    *
-    * @param locks
-    */
-   private static void immediateRemoteLockingTimeSampling(Map<Object, Long> locks) {
-      int size = locks.size();
-      double cumulativeLockHoldTime = computeCumulativeLockHoldTime(locks, size, System.nanoTime());
-      addValueAndFlushIfNeeded(IspnStats.LOCK_HOLD_TIME, cumulativeLockHoldTime, false);
-      addValueAndFlushIfNeeded(IspnStats.NUM_HELD_LOCKS, size, false);
    }
 
    public static Object getPercentile(IspnStats param, int percentile) {
@@ -376,7 +336,6 @@ public final class TransactionsStatisticsRegistry {
       }
       txs.addTakenLock(lock);
    }
-
 
    public static void setUpdateTransaction() {
       TransactionStatistics txs = thread.get();
@@ -460,6 +419,33 @@ public final class TransactionsStatisticsRegistry {
       registerTransactionalClass(className);
    }
 
+   private static void appendLocks(Map<Object, Long> locks, String id) {
+      if (locks != null && !locks.isEmpty()) {
+         //log.trace("Appending locks for " + id);
+         pendingLocks.put(id, locks);
+      }
+   }
+
+   private static long computeCumulativeLockHoldTime(Map<Object, Long> takenLocks, int numLocks, long currentTime) {
+      long ret = numLocks * currentTime;
+      Set<Map.Entry<Object, Long>> keySet = takenLocks.entrySet();
+      for (Map.Entry<Object, Long> e : keySet)
+         ret -= takenLocks.get(e.getValue());
+      return ret;
+   }
+
+   /**
+    * NB: I assume here that *only* remote transactions can have pending locks
+    *
+    * @param locks
+    */
+   private static void immediateRemoteLockingTimeSampling(Map<Object, Long> locks) {
+      int size = locks.size();
+      double cumulativeLockHoldTime = computeCumulativeLockHoldTime(locks, size, System.nanoTime());
+      addValueAndFlushIfNeeded(IspnStats.LOCK_HOLD_TIME, cumulativeLockHoldTime, false);
+      addValueAndFlushIfNeeded(IspnStats.NUM_HELD_LOCKS, size, false);
+   }
+
    private static synchronized void registerTransactionalClass(String className) {
       if (transactionalClassesStatsMap.get(className) == null) {
          transactionalClassesStatsMap.put(className, new NodeScopeStatisticCollector(configuration));
@@ -477,7 +463,7 @@ public final class TransactionsStatisticsRegistry {
          //Here only when transaction starts
          TransactionTS lastTS = lastTransactionTS.get();
          if (lastTS == null) {
-            if(log.isTraceEnabled())
+            if (log.isTraceEnabled())
                log.tracef("Init a new local transaction statistics for Timestamp");
             lastTransactionTS.set(new TransactionTS());
          } else {

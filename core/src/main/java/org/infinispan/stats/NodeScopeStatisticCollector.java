@@ -41,19 +41,19 @@ import static org.infinispan.stats.translations.ExposedStatistics.IspnStats.*;
  */
 public class NodeScopeStatisticCollector {
    private final static Log log = LogFactory.getLog(NodeScopeStatisticCollector.class);
-
    private LocalTransactionStatistics localTransactionStatistics;
    private RemoteTransactionStatistics remoteTransactionStatistics;
-
    private PercentileStats localTransactionWrExecutionTime;
    private PercentileStats remoteTransactionWrExecutionTime;
    private PercentileStats localTransactionRoExecutionTime;
    private PercentileStats remoteTransactionRoExecutionTime;
-
    private Configuration configuration;
-
-
    private long lastResetTime;
+
+   public NodeScopeStatisticCollector(Configuration configuration) {
+      this.configuration = configuration;
+      reset();
+   }
 
    public final synchronized void reset() {
       if (log.isTraceEnabled()) {
@@ -68,11 +68,6 @@ public class NodeScopeStatisticCollector {
       this.remoteTransactionWrExecutionTime = PercentileStatsFactory.createNewPercentileStats();
 
       this.lastResetTime = System.nanoTime();
-   }
-
-   public NodeScopeStatisticCollector(Configuration configuration) {
-      this.configuration = configuration;
-      reset();
    }
 
    public final synchronized void merge(TransactionStatistics ts) {
@@ -119,7 +114,6 @@ public class NodeScopeStatisticCollector {
    public final synchronized void addRemoteValue(IspnStats stat, double value) {
       remoteTransactionStatistics.addValue(stat, value);
    }
-
 
    public final synchronized double getPercentile(IspnStats param, int percentile) throws NoIspnStatException {
       if (log.isTraceEnabled()) {
@@ -395,9 +389,9 @@ public class NodeScopeStatisticCollector {
          }
          case TX_WRITE_PERCENTAGE: {     //computed on the locally born txs
             long readTx = localTransactionStatistics.getValue(IspnStats.NUM_READ_ONLY_TX_COMMIT) +
-                    localTransactionStatistics.getValue(NUM_ABORTED_RO_TX);
+                  localTransactionStatistics.getValue(NUM_ABORTED_RO_TX);
             long writeTx = localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX) +
-                    localTransactionStatistics.getValue(NUM_ABORTED_WR_TX);
+                  localTransactionStatistics.getValue(NUM_ABORTED_WR_TX);
             long total = readTx + writeTx;
             if (total != 0)
                return new Double(writeTx * 1.0 / total);
@@ -481,9 +475,9 @@ public class NodeScopeStatisticCollector {
          }
          case ABORT_RATE:
             long totalAbort = localTransactionStatistics.getValue(NUM_ABORTED_RO_TX) +
-                    localTransactionStatistics.getValue(NUM_ABORTED_WR_TX);
+                  localTransactionStatistics.getValue(NUM_ABORTED_WR_TX);
             long totalCommitAndAbort = localTransactionStatistics.getValue(IspnStats.NUM_READ_ONLY_TX_COMMIT) +
-                    localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX) + totalAbort;
+                  localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX) + totalAbort;
             if (totalCommitAndAbort != 0) {
                return new Double(totalAbort * 1.0 / totalCommitAndAbort);
             }
@@ -493,18 +487,18 @@ public class NodeScopeStatisticCollector {
          }
          case ARRIVAL_RATE:
             long localCommittedTx = localTransactionStatistics.getValue(IspnStats.NUM_READ_ONLY_TX_COMMIT) +
-                    localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX);
+                  localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX);
             long localAbortedTx = localTransactionStatistics.getValue(NUM_ABORTED_RO_TX) +
-                    localTransactionStatistics.getValue(NUM_ABORTED_WR_TX);
+                  localTransactionStatistics.getValue(NUM_ABORTED_WR_TX);
             long remoteCommittedTx = remoteTransactionStatistics.getValue(IspnStats.NUM_READ_ONLY_TX_COMMIT) +
-                    remoteTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX);
+                  remoteTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX);
             long remoteAbortedTx = remoteTransactionStatistics.getValue(NUM_ABORTED_RO_TX) +
-                    remoteTransactionStatistics.getValue(NUM_ABORTED_WR_TX);
+                  remoteTransactionStatistics.getValue(NUM_ABORTED_WR_TX);
             long totalBornTx = localAbortedTx + localCommittedTx + remoteAbortedTx + remoteCommittedTx;
             return new Double(totalBornTx * 1.0 / convertNanosToSeconds(System.nanoTime() - this.lastResetTime));
          case THROUGHPUT:
             long totalLocalBornTx = localTransactionStatistics.getValue(IspnStats.NUM_READ_ONLY_TX_COMMIT) +
-                    localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX);
+                  localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX);
             return new Double(totalLocalBornTx * 1.0 / convertNanosToSeconds(System.nanoTime() - this.lastResetTime));
          case LOCK_HOLD_TIME_LOCAL:
             return microAvgLocal(IspnStats.NUM_HELD_LOCKS, IspnStats.LOCK_HOLD_TIME);
@@ -512,17 +506,17 @@ public class NodeScopeStatisticCollector {
             return microAvgRemote(IspnStats.NUM_HELD_LOCKS, IspnStats.LOCK_HOLD_TIME);
          case NUM_COMMITS:
             return new Long(localTransactionStatistics.getValue(IspnStats.NUM_READ_ONLY_TX_COMMIT) +
-                    localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX) +
-                    remoteTransactionStatistics.getValue(IspnStats.NUM_READ_ONLY_TX_COMMIT) +
-                    remoteTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX));
+                                  localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX) +
+                                  remoteTransactionStatistics.getValue(IspnStats.NUM_READ_ONLY_TX_COMMIT) +
+                                  remoteTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX));
          case NUM_LOCAL_COMMITS:
             return new Long(localTransactionStatistics.getValue(IspnStats.NUM_READ_ONLY_TX_COMMIT) +
-                    localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX));
+                                  localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX));
          case WRITE_SKEW_PROBABILITY:
             long totalTxs = localTransactionStatistics.getValue(IspnStats.NUM_READ_ONLY_TX_COMMIT) +
-                    localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX) +
-                    localTransactionStatistics.getValue(NUM_ABORTED_RO_TX) +
-                    localTransactionStatistics.getValue(NUM_ABORTED_WR_TX);
+                  localTransactionStatistics.getValue(IspnStats.NUM_COMMITTED_WR_TX) +
+                  localTransactionStatistics.getValue(NUM_ABORTED_RO_TX) +
+                  localTransactionStatistics.getValue(NUM_ABORTED_WR_TX);
             if (totalTxs != 0) {
                long writeSkew = localTransactionStatistics.getValue(IspnStats.NUM_WRITE_SKEW);
                return new Double(writeSkew * 1.0 / totalTxs);
@@ -530,21 +524,21 @@ public class NodeScopeStatisticCollector {
             return new Double(0);
          case NUM_GET:
             return localTransactionStatistics.getValue(NUM_SUCCESSFUL_GETS_WR_TX) +
-                    localTransactionStatistics.getValue(NUM_SUCCESSFUL_GETS_RO_TX);
+                  localTransactionStatistics.getValue(NUM_SUCCESSFUL_GETS_RO_TX);
          case NUM_LOCAL_REMOTE_GET:
             return localTransactionStatistics.getValue(NUM_SUCCESSFUL_REMOTE_GETS_WR_TX) +
-                    localTransactionStatistics.getValue(NUM_SUCCESSFUL_REMOTE_GETS_RO_TX);
+                  localTransactionStatistics.getValue(NUM_SUCCESSFUL_REMOTE_GETS_RO_TX);
          case NUM_PUT:
             return localTransactionStatistics.getValue(NUM_SUCCESSFUL_PUTS_WR_TX);
          case NUM_REMOTE_PUT:
             return localTransactionStatistics.getValue(NUM_SUCCESSFUL_REMOTE_PUTS_WR_TX);
          case LOCAL_GET_EXECUTION:
-            long num = localTransactionStatistics.getValue(IspnStats.NUM_GET) - localTransactionStatistics.getValue(IspnStats.NUM_LOCAL_REMOTE_GET) ;
+            long num = localTransactionStatistics.getValue(IspnStats.NUM_GET) - localTransactionStatistics.getValue(IspnStats.NUM_LOCAL_REMOTE_GET);
             if (num == 0) {
                return new Long(0L);
             } else {
                long local_get_time = localTransactionStatistics.getValue(ALL_GET_EXECUTION) -
-                       localTransactionStatistics.getValue(LOCAL_REMOTE_GET_R);
+                     localTransactionStatistics.getValue(LOCAL_REMOTE_GET_R);
 
                return new Long(convertNanosToMicro(local_get_time) / num);
             }

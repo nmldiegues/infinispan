@@ -61,8 +61,8 @@ public class ExposedStatistics {
       LOCK_HOLD_TIME_REMOTE(false, false), //ONLY FOR QUERY
       LOCK_CONTENTION_TO_LOCAL(true, true),  // C
       LOCK_CONTENTION_TO_REMOTE(true, true), // C
-      REMOTE_LOCK_CONTENTION_TO_LOCAL(false,false), //just to query
-      REMOTE_LOCK_CONTENTION_TO_REMOTE(false,false), //just to query
+      REMOTE_LOCK_CONTENTION_TO_LOCAL(false, false), //just to query
+      REMOTE_LOCK_CONTENTION_TO_REMOTE(false, false), //just to query
       NUM_SUCCESSFUL_PUTS(true, false),   // L, this includes also repeated puts over the same item
       PUTS_PER_LOCAL_TX(false, false), // ONLY FOR QUERY, derived on the fly
       NUM_WAITED_FOR_LOCKS(true, true),   // C
@@ -230,7 +230,7 @@ public class ExposedStatistics {
       WAIT_TIME_IN_COMMIT_QUEUE(true, true),
       WAIT_TIME_IN_REMOTE_COMMIT_QUEUE(false, false), //used just for query     from customInterceptor
       NUM_WAITS_IN_COMMIT_QUEUE(true, true),
-      NUM_WAITS_IN_REMOTE_COMMIT_QUEUE(false,true), //just for query
+      NUM_WAITS_IN_REMOTE_COMMIT_QUEUE(false, true), //just for query
       NUM_OWNED_RD_ITEMS_IN_OK_PREPARE(true, true),
       NUM_OWNED_WR_ITEMS_IN_OK_PREPARE(true, true),
       NUM_OWNED_RD_ITEMS_IN_LOCAL_PREPARE(true, false), //just for query
@@ -240,8 +240,8 @@ public class ExposedStatistics {
       NUM_ABORTED_TX_DUE_TO_VALIDATION(true, false),
       NUM_KILLED_TX_DUE_TO_VALIDATION(true, true),
       NUM_REMOTELY_ABORTED(true, false),
-      NUM_EARLY_ABORTS(true,false),
-      NUM_LOCALPREPARE_ABORTS(true,false),
+      NUM_EARLY_ABORTS(true, false),
+      NUM_LOCALPREPARE_ABORTS(true, false),
       GET_OPERATION_S(true, false),
       NUM_REMOTE_REMOTE_GETS(false, true),
       NUM_WAITS_REMOTE_REMOTE_GETS(false, true),
@@ -252,7 +252,6 @@ public class ExposedStatistics {
       READ_ONLY_TX_TOTAL_S(true, false),
       TERMINATION_COST(true, true),
       FIRST_WRITE_INDEX(true, false);
-
       private boolean local;
       private boolean remote;
 

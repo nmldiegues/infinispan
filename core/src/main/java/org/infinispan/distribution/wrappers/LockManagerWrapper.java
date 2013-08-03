@@ -26,10 +26,10 @@ import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.LocalTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
+import org.infinispan.stats.LockRelatedStatsHelper;
 import org.infinispan.stats.TransactionsStatisticsRegistry;
 import org.infinispan.stats.topK.StreamLibContainer;
 import org.infinispan.stats.translations.ExposedStatistics.IspnStats;
-import org.infinispan.stats.LockRelatedStatsHelper;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.concurrent.TimeoutException;
 import org.infinispan.util.concurrent.locks.LockManager;
@@ -46,7 +46,6 @@ import java.util.Collection;
  */
 public class LockManagerWrapper implements LockManager {
    private static final Log log = LogFactory.getLog(LockManagerWrapper.class);
-
    private final LockManager actual;
    private final StreamLibContainer streamLibContainer;
    private boolean sampleHoldTimes = false;
@@ -57,86 +56,65 @@ public class LockManagerWrapper implements LockManager {
       this.sampleHoldTimes = sampleHoldTimes;
    }
 
-   private boolean updateContentionStats(Object key, TxInvocationContext tctx) {
-      GlobalTransaction holder = (GlobalTransaction) getOwner(key);
-      if (holder != null) {
-         GlobalTransaction me = tctx.getGlobalTransaction();
-         if (holder != me) {
-            if (holder.isRemote()) {
-               TransactionsStatisticsRegistry.incrementValue(IspnStats.LOCK_CONTENTION_TO_REMOTE);
-            } else {
-               TransactionsStatisticsRegistry.incrementValue(IspnStats.LOCK_CONTENTION_TO_LOCAL);
-            }
-            return true;
-         }
-      }
-      return false;
-   }
-
    @Override
    public boolean lockAndRecord(Object key, InvocationContext ctx, long timeoutMillis) throws InterruptedException {
-      if(log.isTraceEnabled())
+      if (log.isTraceEnabled())
          log.tracef("LockManagerWrapper.lockAndRecord");
       return actual.lockAndRecord(key, ctx, timeoutMillis);
    }
 
    @Override
    public boolean shareLockAndRecord(Object key, InvocationContext ctx, long timeoutMillis) throws InterruptedException {
-      if(log.isTraceEnabled())log.tracef("LockManagerWrapper.shareLockAndRecord");
+      if (log.isTraceEnabled()) log.tracef("LockManagerWrapper.shareLockAndRecord");
       return actual.shareLockAndRecord(key, ctx, timeoutMillis);
    }
 
    @Override
    public void unlock(Collection<Object> lockedKeys, Object lockOwner) {
       flushPendingLocksIfNeeded((GlobalTransaction) lockOwner);
-      if(log.isTraceEnabled())log.tracef("LockManagerWrapper.unlock");
+      if (log.isTraceEnabled()) log.tracef("LockManagerWrapper.unlock");
       actual.unlock(lockedKeys, lockOwner);
-   }
-
-   private void flushPendingLocksIfNeeded(GlobalTransaction lockOwner) {
-      if (sampleHoldTimes && LockRelatedStatsHelper.maybePendingLocks(lockOwner))
-         TransactionsStatisticsRegistry.flushPendingRemoteLocksIfNeeded(lockOwner);
    }
 
    @Override
    public void unlockAll(InvocationContext ctx) {
-      if(log.isTraceEnabled())log.tracef("LockManagerWrapper.unlockAll");
+      if (log.isTraceEnabled()) log.tracef("LockManagerWrapper.unlockAll");
       actual.unlockAll(ctx);
    }
 
    @Override
    public boolean ownsLock(Object key, Object owner) {
-      if(log.isTraceEnabled())log.tracef("LockManagerWrapper.ownsLock");
+      if (log.isTraceEnabled()) log.tracef("LockManagerWrapper.ownsLock");
       return actual.ownsLock(key, owner);
    }
 
    @Override
    public boolean isLocked(Object key) {
-      if(log.isTraceEnabled())log.tracef("LockManagerWrapper.isExclusiveLocked");
+      if (log.isTraceEnabled()) log.tracef("LockManagerWrapper.isExclusiveLocked");
       return actual.isLocked(key);
    }
 
    @Override
    public Object getOwner(Object key) {
-      if(log.isTraceEnabled())log.tracef("LockManagerWrapper.getOwner");
+      if (log.isTraceEnabled()) log.tracef("LockManagerWrapper.getOwner");
       return actual.getOwner(key);
    }
 
    @Override
    public String printLockInfo() {
-      if(log.isTraceEnabled())log.tracef("LockManagerWrapper.printLockInfo");
+      if (log.isTraceEnabled()) log.tracef("LockManagerWrapper.printLockInfo");
       return actual.printLockInfo();
    }
 
    @Override
    public boolean possiblyLocked(CacheEntry entry) {
-      if(log.isTraceEnabled())log.tracef("LockManagerWrapper.possiblyLocked");
+      if (log.isTraceEnabled()) log.tracef("LockManagerWrapper.possiblyLocked");
       return actual.possiblyLocked(entry);
    }
 
    @Override
    public int getNumberOfLocksHeld() {
-      if(log.isTraceEnabled())log.tracef("LockManagerWrapper.getNumberOfLocksHeld");
+      if (log.isTraceEnabled()) log.tracef("LockManagerWrapper.getNumberOfLocksHeld");
       return actual.getNumberOfLocksHeld();
    }
 
@@ -148,7 +126,7 @@ public class LockManagerWrapper implements LockManager {
 
    @Override
    public boolean acquireLock(InvocationContext ctx, Object key, long timeoutMillis, boolean skipLocking, boolean shared) throws InterruptedException, TimeoutException {
-      if(log.isTraceEnabled())log.tracef("LockManagerWrapper.acquireLock");
+      if (log.isTraceEnabled()) log.tracef("LockManagerWrapper.acquireLock");
 
       long lockingTime = 0;
       boolean experiencedContention = false;
@@ -178,9 +156,9 @@ public class LockManagerWrapper implements LockManager {
          TransactionsStatisticsRegistry.incrementValue(IspnStats.NUM_WAITED_FOR_LOCKS);
       }
       if (locked) {
-         if(txScope && ctx.isOriginLocal()){
-            if(log.isTraceEnabled())
-               log.trace("Tacking lock for Xact "+((LocalTxInvocationContext)ctx).getGlobalTransaction().getId());
+         if (txScope && ctx.isOriginLocal()) {
+            if (log.isTraceEnabled())
+               log.trace("Tacking lock for Xact " + ((LocalTxInvocationContext) ctx).getGlobalTransaction().getId());
          }
          TransactionsStatisticsRegistry.addTakenLock(key); //Idempotent
       }
@@ -191,7 +169,7 @@ public class LockManagerWrapper implements LockManager {
 
    @Override
    public boolean acquireLockNoCheck(InvocationContext ctx, Object key, long timeoutMillis, boolean skipLocking, boolean shared) throws InterruptedException, TimeoutException {
-      if(log.isTraceEnabled())log.tracef("LockManagerWrapper.acquireLockNoCheck");
+      if (log.isTraceEnabled()) log.tracef("LockManagerWrapper.acquireLockNoCheck");
 
       long lockingTime = 0;
       boolean experiencedContention = false;
@@ -213,5 +191,26 @@ public class LockManagerWrapper implements LockManager {
          TransactionsStatisticsRegistry.addTakenLock(key); //Idempotent
       }
       return locked;
+   }
+
+   private boolean updateContentionStats(Object key, TxInvocationContext tctx) {
+      GlobalTransaction holder = (GlobalTransaction) getOwner(key);
+      if (holder != null) {
+         GlobalTransaction me = tctx.getGlobalTransaction();
+         if (holder != me) {
+            if (holder.isRemote()) {
+               TransactionsStatisticsRegistry.incrementValue(IspnStats.LOCK_CONTENTION_TO_REMOTE);
+            } else {
+               TransactionsStatisticsRegistry.incrementValue(IspnStats.LOCK_CONTENTION_TO_LOCAL);
+            }
+            return true;
+         }
+      }
+      return false;
+   }
+
+   private void flushPendingLocksIfNeeded(GlobalTransaction lockOwner) {
+      if (sampleHoldTimes && LockRelatedStatsHelper.maybePendingLocks(lockOwner))
+         TransactionsStatisticsRegistry.flushPendingRemoteLocksIfNeeded(lockOwner);
    }
 }

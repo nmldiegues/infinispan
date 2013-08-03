@@ -28,8 +28,7 @@ import org.infinispan.stats.translations.ExposedStatistics;
 import org.infinispan.stats.translations.RemoteStatistics;
 
 /**
- * Websiste: www.cloudtm.eu
- * Date: 20/04/12
+ * Websiste: www.cloudtm.eu Date: 20/04/12
  *
  * @author Diego Didona <didona@gsd.inesc-id.pt>
  * @since 5.2
@@ -38,6 +37,11 @@ public class RemoteTransactionStatistics extends TransactionStatistics {
 
    public RemoteTransactionStatistics(Configuration configuration) {
       super(RemoteStatistics.getSize(), configuration);
+   }
+
+   @Override
+   public final String toString() {
+      return "RemoteTransactionStatistics{" + super.toString();
    }
 
    protected final void onPrepareCommand() {
@@ -72,10 +76,5 @@ public class RemoteTransactionStatistics extends TransactionStatistics {
          throw new NoIspnStatException("Statistic " + stat + " is not available!");
       }
       return ret;
-   }
-
-   @Override
-   public final String toString() {
-      return "RemoteTransactionStatistics{" + super.toString();
    }
 }

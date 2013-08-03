@@ -34,8 +34,8 @@ import org.infinispan.util.logging.LogFactory;
  */
 public class LockRelatedStatsHelper {
 
-   private static boolean enabled = false;
    private static final Log log = LogFactory.getLog(LockRelatedStatsHelper.class);
+   private static boolean enabled = false;
 
    public static void enable() {
       log.trace("Enabling the LockRelatedStatsHelper. Using GMU, then!");
@@ -56,14 +56,14 @@ public class LockRelatedStatsHelper {
    //TODO: consider also recovery=true/false             -->now only considering recovery =  false
    public static boolean shouldAppendLocks(Configuration conf, boolean isCommit, boolean isRemote) {
       if (!enabled) {
-         if(log.isTraceEnabled())
+         if (log.isTraceEnabled())
             log.trace("LockRelatedHelper not enabled. Returning FALSE");
          return false;
       }
       boolean isGmu = conf.versioning().scheme().equals(VersioningScheme.GMU);
       boolean isSyncCommit = conf.transaction().syncCommitPhase();
-      if(log.isTraceEnabled())
-         log.trace("LockRelatedHelper enabled. "+(isGmu?" GMU is on":"RR")+(isSyncCommit? " sync commit":" async commit")+(isRemote? "remote":"local"));
+      if (log.isTraceEnabled())
+         log.trace("LockRelatedHelper enabled. " + (isGmu ? " GMU is on" : "RR") + (isSyncCommit ? " sync commit" : " async commit") + (isRemote ? "remote" : "local"));
       return isRemote && isGmu && isCommit && !isSyncCommit;
    }
 
