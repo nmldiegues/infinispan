@@ -42,6 +42,7 @@ import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.container.versioning.gmu.GMUCacheEntryVersion;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
@@ -60,6 +61,7 @@ import org.infinispan.jmx.annotations.ManagedOperation;
 import org.infinispan.loaders.CacheLoaderException;
 import org.infinispan.loaders.CacheLoaderManager;
 import org.infinispan.loaders.CacheStore;
+import org.infinispan.remoting.transport.Address;
 import org.infinispan.stats.TransactionsStatisticsRegistry;
 import org.infinispan.stats.container.TransactionStatistics;
 import org.infinispan.transaction.LocalTransaction;
@@ -83,6 +85,7 @@ import java.util.List;
 
 import static org.infinispan.stats.ExposedStatistic.*;
 import static org.infinispan.transaction.gmu.GMUHelper.*;
+import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersion;
 import static org.infinispan.transaction.gmu.manager.SortedTransactionQueue.TransactionEntry;
 
 /**
@@ -100,6 +103,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
    private TransactionManager transactionManager;
    private CacheLoaderManager cacheLoaderManager;
    private CacheStore store;
+   private CommitLog commitLog;
 
    @Inject
    public void inject(TransactionCommitManager transactionCommitManager, DataContainer dataContainer,
@@ -112,6 +116,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       this.gmuExecutor = gmuExecutor;
       this.transactionManager = transactionManager;
       this.cacheLoaderManager = cacheLoaderManager;
+      this.commitLog = commitLog;
    }
 
    @Start(priority = 16) //after cache store interceptor
@@ -131,8 +136,11 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       GMUPrepareCommand spc = convert(command, GMUPrepareCommand.class);
 
       if (ctx.isOriginLocal()) {
-         spc.setVersion(ctx.getTransactionVersion());
+         GMUVersion transactionVersion = toGMUVersion(ctx.getTransactionVersion());
+         spc.setVersion(transactionVersion);
          spc.setReadSet(ctx.getReadSet());
+         spc.setAlreadyReadFrom(toAlreadyReadFromMask(ctx.getAlreadyReadFrom(), versionGenerator,
+                                                      transactionVersion.getViewId()));
       } else {
          ctx.setTransactionVersion(spc.getPrepareVersion());
       }
@@ -348,6 +356,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
    /**
     * validates the read set and returns the prepare version from the commit queue
     *
+    *
     * @param ctx     the context
     * @param command the prepare command
     * @throws InterruptedException if interrupted
@@ -381,7 +390,11 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       }
 
       if (!isReadOnly) {
-         cdl.performReadSetValidation(ctx, command);
+         GMUVersion transactionVersion = toGMUVersion(command.getPrepareVersion());
+         List<Address> addressList = fromAlreadyReadFromMask(command.getAlreadyReadFrom(), versionGenerator,
+                                                             transactionVersion.getViewId());
+         GMUVersion maxGMUVersion = versionGenerator.calculateMaxVersionToRead(transactionVersion, addressList);
+         cdl.performReadSetValidation(ctx, command, commitLog.getAvailableVersionLessThan(maxGMUVersion));
          if (hasToUpdateLocalKeys) {
             transactionCommitManager.prepareTransaction(ctx.getCacheTransaction());
          } else {

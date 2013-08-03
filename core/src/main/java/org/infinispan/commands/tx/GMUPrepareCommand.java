@@ -27,6 +27,7 @@ import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.transaction.xa.GlobalTransaction;
 
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 
@@ -42,6 +43,7 @@ public class GMUPrepareCommand extends PrepareCommand {
 
    private Object[] readSet;
    private EntryVersion version;
+   private BitSet alreadyReadFrom;
 
    public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, boolean onePhaseCommit, WriteCommand... modifications) {
       super(cacheName, gtx, onePhaseCommit, modifications);
@@ -74,18 +76,19 @@ public class GMUPrepareCommand extends PrepareCommand {
       int numMods = modifications == null ? 0 : modifications.length;
       int numReads = readSet == null ? 0 : readSet.length;
       int i = 0;
-      final int params = 5;
+      final int params = 6;
       Object[] retVal = new Object[numMods + numReads + params];
       retVal[i++] = globalTx;
       retVal[i++] = onePhaseCommit;
       retVal[i++] = version;
+      retVal[i++] = alreadyReadFrom;
       retVal[i++] = numMods;
-      retVal[i] = numReads;
+      retVal[i++] = numReads;
       if (numMods > 0) {
-         System.arraycopy(modifications, 0, retVal, params, numMods);
+         System.arraycopy(modifications, 0, retVal, i, numMods);
       }
       if (numReads > 0) {
-         System.arraycopy(readSet, 0, retVal, params + numMods, numReads);
+         System.arraycopy(readSet, 0, retVal, i + numMods, numReads);
       }
       return retVal;
    }
@@ -97,6 +100,7 @@ public class GMUPrepareCommand extends PrepareCommand {
       globalTx = (GlobalTransaction) args[i++];
       onePhaseCommit = (Boolean) args[i++];
       version = (EntryVersion) args[i++];
+      alreadyReadFrom = (BitSet) args[i++];
       int numMods = (Integer) args[i++];
       int numReads = (Integer) args[i++];
       if (numMods > 0) {
@@ -117,6 +121,7 @@ public class GMUPrepareCommand extends PrepareCommand {
       copy.onePhaseCommit = onePhaseCommit;
       copy.readSet = readSet == null ? null : readSet.clone();
       copy.version = version;
+      copy.alreadyReadFrom = alreadyReadFrom;
       return copy;
    }
 
@@ -146,5 +151,13 @@ public class GMUPrepareCommand extends PrepareCommand {
 
    public EntryVersion getPrepareVersion() {
       return version;
+   }
+
+   public BitSet getAlreadyReadFrom() {
+      return alreadyReadFrom;
+   }
+
+   public void setAlreadyReadFrom(BitSet alreadyReadFrom) {
+      this.alreadyReadFrom = alreadyReadFrom;
    }
 }

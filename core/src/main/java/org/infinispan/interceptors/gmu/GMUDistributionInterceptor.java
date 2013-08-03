@@ -38,7 +38,6 @@ import org.infinispan.context.InvocationContext;
 import org.infinispan.context.SingleKeyNonTxInvocationContext;
 import org.infinispan.context.impl.LocalTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
-import org.infinispan.dataplacement.ClusterSnapshot;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.interceptors.distribution.TxDistributionInterceptor;
 import org.infinispan.remoting.responses.ClusteredGetResponseValidityFilter;
@@ -206,22 +205,8 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
       Collection<Address> alreadyReadFrom = txInvocationContext.getAlreadyReadFrom();
       GMUVersion transactionVersion = toGMUVersion(txInvocationContext.getTransactionVersion());
 
-      BitSet alreadyReadFromMask;
-
-      if (alreadyReadFrom == null) {
-         alreadyReadFromMask = null;
-      } else {
-         int txViewId = transactionVersion.getViewId();
-         ClusterSnapshot clusterSnapshot = versionGenerator.getClusterSnapshot(txViewId);
-         alreadyReadFromMask = new BitSet(clusterSnapshot.size());
-
-         for (Address address : alreadyReadFrom) {
-            int idx = clusterSnapshot.indexOf(address);
-            if (idx != -1) {
-               alreadyReadFromMask.set(idx);
-            }
-         }
-      }
+      final BitSet alreadyReadFromMask = toAlreadyReadFromMask(alreadyReadFrom, versionGenerator,
+                                                               transactionVersion.getViewId());
 
       ClusteredGetCommand get = cf.buildGMUClusteredGetCommand(key, command.getFlags(), acquireRemoteLock,
                                                                gtx, transactionVersion, alreadyReadFromMask);

@@ -34,6 +34,7 @@ import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.EntryVersionsMap;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.distribution.DistributionManager;
@@ -51,7 +52,6 @@ import org.infinispan.transaction.gmu.GMUHelper;
 import org.infinispan.transaction.xa.CacheTransaction;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -86,9 +86,10 @@ public interface ClusteringDependentLogic {
     * performs the read set validation
     *
     * @param context          the transaction context
-    * @param prepareCommand   the prepare command    
+    * @param prepareCommand   the prepare command
+    * @param readVersion
     */
-   void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand);
+   void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, GMUVersion readVersion);
 
    Address getAddress();
 
@@ -223,7 +224,7 @@ public interface ClusteringDependentLogic {
       }
 
       @Override
-      public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+      public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, GMUVersion readVersion) {
          throw new IllegalStateException("Cannot invoke this method for local caches");
       }
    }
@@ -319,9 +320,9 @@ public interface ClusteringDependentLogic {
       }
 
       @Override
-      public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
+      public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, GMUVersion readVersion) {
          if (stateTransferManager.getCacheTopology().getReadConsistentHash().getMembers().get(0).equals(rpcManager.getAddress())) {
-            GMUHelper.performReadSetValidation(prepareCommand, dataContainer, this);
+            GMUHelper.performReadSetValidation(prepareCommand, dataContainer, this, readVersion);
          }
       }
    }
@@ -489,8 +490,8 @@ public interface ClusteringDependentLogic {
       }
 
       @Override
-      public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand) {
-         GMUHelper.performReadSetValidation(prepareCommand, dataContainer, this);
+      public void performReadSetValidation(TxInvocationContext context, GMUPrepareCommand prepareCommand, GMUVersion readVersion) {
+         GMUHelper.performReadSetValidation(prepareCommand, dataContainer, this, readVersion);
       }
 
       @Override

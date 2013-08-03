@@ -35,6 +35,7 @@ import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.SingleKeyNonTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
+import org.infinispan.dataplacement.ClusterSnapshot;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.loaders.CacheLoader;
 import org.infinispan.remoting.responses.ExceptionResponse;
@@ -45,7 +46,9 @@ import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import java.util.BitSet;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -64,7 +67,7 @@ public class GMUHelper {
 
    public static void performReadSetValidation(GMUPrepareCommand prepareCommand,
                                                DataContainer dataContainer,
-                                               ClusteringDependentLogic keyLogic) {
+                                               ClusteringDependentLogic keyLogic, GMUVersion readVersion) {
       GlobalTransaction gtx = prepareCommand.getGlobalTransaction();
       if (prepareCommand.getReadSet() == null || prepareCommand.getReadSet().length == 0) {
          if (log.isDebugEnabled()) {
@@ -72,21 +75,14 @@ public class GMUHelper {
          }
          return;
       }
-      EntryVersion prepareVersion = prepareCommand.getPrepareVersion();
       for (Object key : prepareCommand.getReadSet()) {
          //if (keyLogic.localNodeIsOwner(key)) {
          if (keyLogic.localNodeIsPrimaryOwner(key)) {      //DIE: for now, hardcoded
-            InternalCacheEntry cacheEntry = dataContainer.get(key, null); //get the most recent
-            EntryVersion currentVersion = cacheEntry.getVersion();
+            final InternalGMUCacheEntry cacheEntry = toInternalGMUCacheEntry(dataContainer.get(key, readVersion));
             if (log.isDebugEnabled()) {
-               log.debugf("[%s] Validate [%s]: Compare %s vs %s", gtx.globalId(), key, currentVersion, prepareVersion);
+               log.debugf("[%s] Validate [%s]: checking %s", gtx.globalId(), key, cacheEntry);
             }
-            if (currentVersion == null) {
-               //this should only happen if the key does not exits. However, this can create some
-               //consistency issues when eviction is enabled
-               continue;
-            }
-            if (currentVersion.compareTo(prepareVersion) == InequalVersionComparisonResult.AFTER) {
+            if (!cacheEntry.isMostRecent()) {
                throw new ValidationException("Validation failed for key [" + key + "]", key);
             }
          } else {
@@ -254,5 +250,38 @@ public class GMUHelper {
       context.addKeyReadInCommand(key, entry);
 
       return loaded;
+   }
+
+   public static BitSet toAlreadyReadFromMask(Collection<Address> alreadyReadFrom, GMUVersionGenerator versionGenerator,
+                                              int viewId) {
+      if (alreadyReadFrom == null || alreadyReadFrom.isEmpty()) {
+         return null;
+      }
+
+      final ClusterSnapshot clusterSnapshot = versionGenerator.getClusterSnapshot(viewId);
+      final BitSet alreadyReadFromMask = new BitSet(clusterSnapshot.size());
+
+      for (Address address : alreadyReadFrom) {
+         int idx = clusterSnapshot.indexOf(address);
+         if (idx != -1) {
+            alreadyReadFromMask.set(idx);
+         }
+      }
+      return alreadyReadFromMask;
+   }
+
+   public static List<Address> fromAlreadyReadFromMask(BitSet alreadyReadFromMask, GMUVersionGenerator versionGenerator,
+                                                       int viewId) {
+      if (alreadyReadFromMask == null || alreadyReadFromMask.isEmpty()) {
+         return Collections.emptyList();
+      }
+      ClusterSnapshot clusterSnapshot = versionGenerator.getClusterSnapshot(viewId);
+      List<Address> addressList = new LinkedList<Address>();
+      for (int i = 0; i < clusterSnapshot.size(); ++i) {
+         if (alreadyReadFromMask.get(i)) {
+            addressList.add(clusterSnapshot.get(i));
+         }
+      }
+      return addressList;
    }
 }

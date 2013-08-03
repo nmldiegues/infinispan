@@ -30,17 +30,16 @@ import org.infinispan.container.versioning.gmu.GMUVersion;
 import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
-import org.infinispan.dataplacement.ClusterSnapshot;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.transaction.gmu.CommitLog;
 import org.infinispan.transaction.gmu.VersionNotAvailableException;
 import org.infinispan.transaction.xa.GlobalTransaction;
 
 import java.util.BitSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import static org.infinispan.transaction.gmu.GMUHelper.fromAlreadyReadFromMask;
 import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersionGenerator;
 
 /**
@@ -122,18 +121,11 @@ public class GMUClusteredGetCommand extends ClusteredGetCommand {
 
       boolean alreadyReadOnThisNode;
       if (alreadyReadFrom != null) {
-         int txViewId = transactionVersion.getViewId();
-         ClusterSnapshot clusterSnapshot = versionGenerator.getClusterSnapshot(txViewId);
-         List<Address> addressList = new LinkedList<Address>();
-         for (int i = 0; i < clusterSnapshot.size(); ++i) {
-            if (alreadyReadFrom.get(i)) {
-               addressList.add(clusterSnapshot.get(i));
-            }
-         }
+         List<Address> addressList = fromAlreadyReadFromMask(alreadyReadFrom, versionGenerator,
+                                                             transactionVersion.getViewId());
          minGMUVersion = versionGenerator.calculateMinVersionToRead(transactionVersion, addressList);
-         int myIndex = clusterSnapshot.indexOf(versionGenerator.getAddress());
-         //to be safe, is better to wait...
-         alreadyReadOnThisNode = myIndex != -1 && alreadyReadFrom.get(myIndex);
+         int myIndex = addressList.indexOf(versionGenerator.getAddress());
+         alreadyReadOnThisNode = myIndex != -1;
 
       } else {
          minGMUVersion = transactionVersion;
@@ -175,14 +167,8 @@ public class GMUClusteredGetCommand extends ClusteredGetCommand {
    private void setMaxGMUVersionToRead(InvocationContext invocationContext) {
       GMUVersion maxGMUVersion;
       if (alreadyReadFrom != null) {
-         int txViewId = transactionVersion.getViewId();
-         ClusterSnapshot clusterSnapshot = versionGenerator.getClusterSnapshot(txViewId);
-         List<Address> addressList = new LinkedList<Address>();
-         for (int i = 0; i < clusterSnapshot.size(); ++i) {
-            if (alreadyReadFrom.get(i)) {
-               addressList.add(clusterSnapshot.get(i));
-            }
-         }
+         List<Address> addressList = fromAlreadyReadFromMask(alreadyReadFrom, versionGenerator,
+                                                             transactionVersion.getViewId());
          maxGMUVersion = versionGenerator.calculateMaxVersionToRead(transactionVersion, addressList);
       } else {
          maxGMUVersion = null;
