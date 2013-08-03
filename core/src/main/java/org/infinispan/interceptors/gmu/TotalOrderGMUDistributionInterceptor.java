@@ -28,7 +28,6 @@ import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.tx.RollbackCommand;
 import org.infinispan.commands.write.ClearCommand;
-import org.infinispan.configuration.cache.Configurations;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
@@ -42,6 +41,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Future;
 
 import static org.infinispan.transaction.gmu.GMUHelper.joinAndSetTransactionVersion;
 
@@ -70,7 +70,7 @@ public class TotalOrderGMUDistributionInterceptor extends GMUDistributionInterce
 
    @Override
    public Object visitRollbackCommand(TxInvocationContext ctx, RollbackCommand command) throws Throwable {
-      if (Configurations.isOnePhaseTotalOrderCommit(cacheConfiguration) || !shouldTotalOrderRollbackBeInvokedRemotely(ctx)) {
+      if (!shouldTotalOrderRollbackBeInvokedRemotely(ctx)) {
          return invokeNextInterceptor(ctx, command);
       }
       totalOrderTxRollback(ctx);
@@ -79,9 +79,6 @@ public class TotalOrderGMUDistributionInterceptor extends GMUDistributionInterce
 
    @Override
    public Object visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
-      if (Configurations.isOnePhaseTotalOrderCommit(cacheConfiguration)) {
-         return invokeNextInterceptor(ctx, command);
-      }
       totalOrderTxCommit(ctx);
       return super.visitCommitCommand(ctx, command);
    }

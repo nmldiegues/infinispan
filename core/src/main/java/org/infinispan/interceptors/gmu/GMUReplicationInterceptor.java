@@ -22,6 +22,7 @@
  */
 package org.infinispan.interceptors.gmu;
 
+import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.container.versioning.gmu.GMUVersionGenerator;
@@ -46,12 +47,21 @@ import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersionGenerator;
 public class GMUReplicationInterceptor extends ReplicationInterceptor {
 
    private static final Log log = LogFactory.getLog(GMUReplicationInterceptor.class);
-
    protected GMUVersionGenerator versionGenerator;
 
    @Inject
-   public void inject(VersionGenerator versionGenerator){
+   public void inject(VersionGenerator versionGenerator) {
       this.versionGenerator = toGMUVersionGenerator(versionGenerator);
+   }
+
+   @Override
+   public Object visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
+      if (!ctx.isInTxScope()) throw new IllegalStateException("This should not be possible!");
+      Object retVal = invokeNextInterceptor(ctx, command);
+      if (shouldInvokeRemoteTxCommand(ctx)) {
+         return sendGMUCommitCommand(retVal, command, null);
+      }
+      return retVal;
    }
 
    @Override

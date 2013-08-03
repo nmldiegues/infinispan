@@ -26,7 +26,6 @@ import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.tx.RollbackCommand;
-import org.infinispan.configuration.cache.Configurations;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.transport.Address;
@@ -63,7 +62,7 @@ public class TotalOrderGMUReplicationInterceptor extends GMUReplicationIntercept
 
    @Override
    public Object visitRollbackCommand(TxInvocationContext ctx, RollbackCommand command) throws Throwable {
-      if (Configurations.isOnePhaseTotalOrderCommit(cacheConfiguration) || !shouldTotalOrderRollbackBeInvokedRemotely(ctx)) {
+      if (!shouldTotalOrderRollbackBeInvokedRemotely(ctx)) {
          return invokeNextInterceptor(ctx, command);
       }
       totalOrderTxRollback(ctx);
@@ -72,9 +71,6 @@ public class TotalOrderGMUReplicationInterceptor extends GMUReplicationIntercept
 
    @Override
    public Object visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
-      if (Configurations.isOnePhaseTotalOrderCommit(cacheConfiguration)) {
-         return invokeNextInterceptor(ctx, command);
-      }
       totalOrderTxCommit(ctx);
       return super.visitCommitCommand(ctx, command);
    }

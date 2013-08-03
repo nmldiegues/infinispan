@@ -25,6 +25,7 @@ package org.infinispan.interceptors;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.FlagAffectedCommand;
 import org.infinispan.commands.read.AbstractDataCommand;
+import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.EntryFactory;
@@ -36,8 +37,11 @@ import org.infinispan.distribution.ch.ConsistentHash;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.interceptors.base.BaseRpcInterceptor;
+import org.infinispan.remoting.transport.Address;
 import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.util.concurrent.locks.LockManager;
+
+import java.util.Collection;
 
 /**
  * Base class for replication and distribution interceptors.
@@ -117,4 +121,13 @@ public abstract class ClusteringInterceptor extends BaseRpcInterceptor {
     * @return an internal cache entry, or null if it cannot be located
     */
    protected abstract InternalCacheEntry retrieveFromRemoteSource(Object key, InvocationContext ctx, boolean acquireRemoteLock, FlagAffectedCommand command) throws Exception;
+
+   protected final Object sendGMUCommitCommand(Object retVal, CommitCommand command, Collection<Address> commitNodes) {
+      if (isSyncCommitPhase()) {
+         return rpcManager.invokeRemotelyWithFuture(commitNodes, command, true, false);
+      } else {
+         rpcManager.invokeRemotely(commitNodes, command, false, true, false);
+      }
+      return retVal;
+   }
 }

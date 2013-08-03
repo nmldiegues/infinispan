@@ -219,7 +219,7 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
       return invokeNextInterceptor(ctx, command);
    }
 
-   private void blockOnL1FutureIfNeeded(Future<?> f) {
+   protected void blockOnL1FutureIfNeeded(Future<?> f) {
       if (f != null && cacheConfiguration.transaction().syncCommitPhase()) {
          try {
             f.get();
@@ -266,7 +266,7 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
       return invokeNextInterceptor(ctx, command);
    }
 
-   private Collection<Address> getCommitNodes(TxInvocationContext ctx) {
+   protected Collection<Address> getCommitNodes(TxInvocationContext ctx) {
       LocalTransaction localTx = (LocalTransaction) ctx.getCacheTransaction();
       Collection<Address> affectedNodes = dm.getAffectedNodes(ctx.getAffectedKeys());
       List<Address> members = dm.getConsistentHash().getMembers();

@@ -41,15 +41,16 @@ import org.infinispan.jmx.annotations.ManagedOperation;
 import org.infinispan.jmx.annotations.MeasurementType;
 import org.infinispan.jmx.annotations.Parameter;
 import org.infinispan.jmx.annotations.Units;
-import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.remoting.ReplicationQueue;
 import org.infinispan.remoting.RpcException;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
+import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.topology.CacheTopology;
 import org.infinispan.topology.LocalTopologyManager;
 import org.infinispan.util.concurrent.NotifyingNotifiableFuture;
+import org.infinispan.util.concurrent.ResponseFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -232,6 +233,44 @@ public class RpcManagerImpl implements RpcManager {
    @Override
    public final Map<Address, Response> invokeRemotely(Collection<Address> recipients, ReplicableCommand rpc, boolean sync, boolean usePriorityQueue, boolean totalOrder) throws RpcException {
       return invokeRemotely(recipients, rpc, sync, usePriorityQueue, configuration.clustering().sync().replTimeout(), totalOrder);
+   }
+
+   @Override
+   public ResponseFuture invokeRemotelyWithFuture(Collection<Address> recipients, ReplicableCommand rpc,
+                                                  boolean usePriorityQueue, boolean totalOrder) {
+      if (!configuration.clustering().cacheMode().isClustered())
+         throw new IllegalStateException("Trying to invoke a remote command but the cache is not clustered");
+
+      long startTimeNanos = 0;
+      if (statisticsEnabled) startTimeNanos = System.nanoTime();
+      try {
+
+         if (rpc instanceof TopologyAffectedCommand) {
+            TopologyAffectedCommand topologyAffectedCommand = (TopologyAffectedCommand) rpc;
+            if (topologyAffectedCommand.getTopologyId() == -1) {
+               topologyAffectedCommand.setTopologyId(stateTransferManager.getCacheTopology().getTopologyId());
+            }
+         }
+         ResponseFuture result = t.invokeRemotelyWithFuture(recipients, rpc,
+                                                            configuration.clustering().sync().replTimeout(),
+                                                            null, totalOrder,
+                                                            configuration.clustering().cacheMode().isDistributed());
+         if (statisticsEnabled) replicationCount.incrementAndGet();
+         return result;
+      } catch (CacheException e) {
+         log.trace("replication exception: ", e);
+         if (statisticsEnabled) replicationFailures.incrementAndGet();
+         throw e;
+      } catch (Throwable th) {
+         log.unexpectedErrorReplicating(th);
+         if (statisticsEnabled) replicationFailures.incrementAndGet();
+         throw new CacheException(th);
+      } finally {
+         if (statisticsEnabled) {
+            long timeTaken = TimeUnit.MILLISECONDS.convert(System.nanoTime() - startTimeNanos, TimeUnit.NANOSECONDS);
+            totalReplicationTime.getAndAdd(timeTaken);
+         }
+      }
    }
 
    public final Map<Address, Response> invokeRemotely(Collection<Address> recipients, ReplicableCommand rpc, boolean sync, boolean usePriorityQueue, long timeout, boolean totalOrder) throws RpcException {

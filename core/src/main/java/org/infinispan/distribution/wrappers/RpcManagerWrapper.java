@@ -40,6 +40,7 @@ import org.infinispan.stats.ExposedStatistic;
 import org.infinispan.stats.TransactionsStatisticsRegistry;
 import org.infinispan.stats.container.TransactionStatistics;
 import org.infinispan.util.concurrent.NotifyingNotifiableFuture;
+import org.infinispan.util.concurrent.ResponseFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.jgroups.blocks.RpcDispatcher;
@@ -80,7 +81,7 @@ public class RpcManagerWrapper implements RpcManager {
                                                 ResponseFilter responseFilter, boolean totalOrder) {
       long currentTime = System.nanoTime();
       Map<Address, Response> ret = actual.invokeRemotely(recipients, rpcCommand, mode, timeout, usePriorityQueue, responseFilter, totalOrder);
-      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients);
+      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients, null);
       return ret;
    }
 
@@ -89,7 +90,7 @@ public class RpcManagerWrapper implements RpcManager {
                                                 ResponseMode mode, long timeout, boolean usePriorityQueue, boolean totalOrder) {
       long currentTime = System.nanoTime();
       Map<Address, Response> ret = actual.invokeRemotely(recipients, rpcCommand, mode, timeout, usePriorityQueue, totalOrder);
-      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients);
+      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients, null);
       return ret;
    }
 
@@ -97,7 +98,7 @@ public class RpcManagerWrapper implements RpcManager {
    public Map<Address, Response> invokeRemotely(Collection<Address> recipients, ReplicableCommand rpcCommand, ResponseMode mode, long timeout, boolean totalOrder) {
       long currentTime = System.nanoTime();
       Map<Address, Response> ret = actual.invokeRemotely(recipients, rpcCommand, mode, timeout, totalOrder);
-      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients);
+      updateStats(rpcCommand, mode.isSynchronous(), currentTime, recipients, null);
       return ret;
    }
 
@@ -105,21 +106,21 @@ public class RpcManagerWrapper implements RpcManager {
    public void broadcastRpcCommand(ReplicableCommand rpc, boolean sync, boolean totalOrder) throws RpcException {
       long currentTime = System.nanoTime();
       actual.broadcastRpcCommand(rpc, sync, totalOrder);
-      updateStats(rpc, sync, currentTime, null);
+      updateStats(rpc, sync, currentTime, null, null);
    }
 
    @Override
    public void broadcastRpcCommand(ReplicableCommand rpc, boolean sync, boolean usePriorityQueue, boolean totalOrder) throws RpcException {
       long currentTime = System.nanoTime();
       actual.broadcastRpcCommand(rpc, sync, usePriorityQueue, totalOrder);
-      updateStats(rpc, sync, currentTime, null);
+      updateStats(rpc, sync, currentTime, null, null);
    }
 
    @Override
    public void broadcastRpcCommandInFuture(ReplicableCommand rpc, NotifyingNotifiableFuture<Object> future) {
       long currentTime = System.nanoTime();
       actual.broadcastRpcCommandInFuture(rpc, future);
-      updateStats(rpc, false, currentTime, null);
+      updateStats(rpc, false, currentTime, null, null);
    }
 
    @Override
@@ -127,14 +128,14 @@ public class RpcManagerWrapper implements RpcManager {
                                            NotifyingNotifiableFuture<Object> future) {
       long currentTime = System.nanoTime();
       actual.broadcastRpcCommandInFuture(rpc, usePriorityQueue, future);
-      updateStats(rpc, false, currentTime, null);
+      updateStats(rpc, false, currentTime, null, null);
    }
 
    @Override
    public Map<Address, Response> invokeRemotely(Collection<Address> recipients, ReplicableCommand rpc, boolean sync, boolean totalOrder) throws RpcException {
       long currentTime = System.nanoTime();
       Map<Address, Response> ret = actual.invokeRemotely(recipients, rpc, sync, totalOrder);
-      updateStats(rpc, sync, currentTime, recipients);
+      updateStats(rpc, sync, currentTime, recipients, null);
       return ret;
    }
 
@@ -151,7 +152,7 @@ public class RpcManagerWrapper implements RpcManager {
       }
       Map<Address, Response> ret = actual.invokeRemotely(recipients, rpc, sync, usePriorityQueue, totalOrder);
       if (transactionStatistics != null) {
-         updateStats(rpc, sync, currentTime, recipients);
+         updateStats(rpc, sync, currentTime, recipients, null);
       }
       return ret;
       //}
@@ -165,11 +166,19 @@ public class RpcManagerWrapper implements RpcManager {
    }
 
    @Override
+   public ResponseFuture invokeRemotelyWithFuture(Collection<Address> recipients, ReplicableCommand rpc, boolean usePriorityQueue, boolean totalOrder) {
+      long currentTime = System.nanoTime();
+      ResponseFuture ret = actual.invokeRemotelyWithFuture(recipients, rpc, usePriorityQueue, totalOrder);
+      updateStats(rpc, true, currentTime, recipients, ret);
+      return ret;
+   }
+
+   @Override
    public void invokeRemotelyInFuture(Collection<Address> recipients, ReplicableCommand rpc,
                                       NotifyingNotifiableFuture<Object> future) {
       long currentTime = System.nanoTime();
       actual.invokeRemotelyInFuture(recipients, rpc, future);
-      updateStats(rpc, false, currentTime, recipients);
+      updateStats(rpc, false, currentTime, recipients, null);
    }
 
    @Override
@@ -177,7 +186,7 @@ public class RpcManagerWrapper implements RpcManager {
                                       NotifyingNotifiableFuture<Object> future) {
       long currentTime = System.nanoTime();
       actual.invokeRemotelyInFuture(recipients, rpc, usePriorityQueue, future);
-      updateStats(rpc, false, currentTime, recipients);
+      updateStats(rpc, false, currentTime, recipients, null);
    }
 
    @Override
@@ -185,7 +194,7 @@ public class RpcManagerWrapper implements RpcManager {
                                       NotifyingNotifiableFuture<Object> future, long timeout) {
       long currentTime = System.nanoTime();
       actual.invokeRemotelyInFuture(recipients, rpc, usePriorityQueue, future, timeout);
-      updateStats(rpc, false, currentTime, recipients);
+      updateStats(rpc, false, currentTime, recipients, null);
    }
 
    @Override
@@ -193,7 +202,7 @@ public class RpcManagerWrapper implements RpcManager {
                                       NotifyingNotifiableFuture<Object> future, long timeout, boolean ignoreLeavers) {
       long currentTime = System.nanoTime();
       actual.invokeRemotelyInFuture(recipients, rpc, usePriorityQueue, future, timeout, ignoreLeavers);
-      updateStats(rpc, false, currentTime, recipients);
+      updateStats(rpc, false, currentTime, recipients, null);
    }
 
    @Override
@@ -216,7 +225,7 @@ public class RpcManagerWrapper implements RpcManager {
       return actual.getTopologyId();
    }
 
-   private void updateStats(ReplicableCommand command, boolean sync, long init, Collection<Address> recipients) {
+   private void updateStats(ReplicableCommand command, boolean sync, long init, Collection<Address> recipients, ResponseFuture future) {
       final TransactionStatistics transactionStatistics = TransactionsStatisticsRegistry.getTransactionStatistics();
       if (!TransactionsStatisticsRegistry.isActive() || transactionStatistics == null &&
             !(command instanceof TxCompletionNotificationCommand)) {
@@ -285,7 +294,10 @@ public class RpcManagerWrapper implements RpcManager {
                           "recipient size stat is %s", command, sync, durationStat, counterStat, recipientSizeStat);
       }
 
-      if (transactionStatistics != null) {
+      if (future != null) {
+         future.setUpdateStats(transactionStatistics, init, durationStat, counterStat, recipientSizeStat, commandSizeStat,
+                               getCommandSize(command), recipientListSize(recipients));
+      } else if (transactionStatistics != null) {
          transactionStatistics.addValue(durationStat, System.nanoTime() - init);
          transactionStatistics.incrementValue(counterStat);
          transactionStatistics.addValue(recipientSizeStat, recipientListSize(recipients));

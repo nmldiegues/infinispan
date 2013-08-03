@@ -61,6 +61,7 @@ import org.infinispan.jmx.annotations.ManagedOperation;
 import org.infinispan.loaders.CacheLoaderException;
 import org.infinispan.loaders.CacheLoaderManager;
 import org.infinispan.loaders.CacheStore;
+import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.stats.TransactionsStatisticsRegistry;
 import org.infinispan.stats.container.TransactionStatistics;
@@ -72,6 +73,7 @@ import org.infinispan.transaction.gmu.manager.TransactionCommitManager;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.concurrent.BlockingTaskAwareExecutorService;
+import org.infinispan.util.concurrent.ResponseFuture;
 import org.infinispan.util.concurrent.TimeoutException;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -82,6 +84,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import static org.infinispan.stats.ExposedStatistic.*;
 import static org.infinispan.transaction.gmu.GMUHelper.*;
@@ -205,6 +208,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
                }
             }
             updateWaitingTime(transactionEntry);
+            awaitCommitCommandAcksIfNeeded(ctx, retVal);
             return retVal;
          }
 
@@ -214,6 +218,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          }
          if (transactionsToCommit.isEmpty()) {
             //nothing to commit
+            awaitCommitCommandAcksIfNeeded(ctx, retVal);
             return retVal;
          }
 
@@ -263,6 +268,9 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
             gmuExecutor.checkForReadyTasks();
          }
       }
+
+      awaitCommitCommandAcksIfNeeded(ctx, retVal);
+
       return retVal;
    }
 
@@ -286,11 +294,6 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       return retVal;
    }
 
-   /*
-    * NOTE: these are the only commands that passes values to the application and these keys needs to be validated
-    * and added to the transaction read set.
-    */
-
    @Override
    public Object visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
       ctx.clearKeyReadInCommand();
@@ -300,6 +303,11 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       updateTransactionVersion(ctx, command);
       return retVal;
    }
+
+   /*
+    * NOTE: these are the only commands that passes values to the application and these keys needs to be validated
+    * and added to the transaction read set.
+    */
 
    @Override
    public Object visitRemoveCommand(InvocationContext ctx, RemoveCommand command) throws Throwable {
@@ -405,6 +413,21 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       if (log.isDebugEnabled()) {
          log.debugf("Transaction %s can commit on this node. Prepare Version is %s",
                     command.getGlobalTransaction().globalId(), ctx.getTransactionVersion());
+      }
+   }
+
+   private void awaitCommitCommandAcksIfNeeded(TxInvocationContext ctx, Object retVal) throws Exception {
+      if (ctx.isOriginLocal() && cacheConfiguration.transaction().syncCommitPhase() &&
+            !ctx.getCacheTransaction().getAllModifications().isEmpty()) {
+         //if no modifications, than it makes no sense to wait.
+         if (retVal instanceof ResponseFuture) {
+            Map<Address, Response> map = ((ResponseFuture) retVal).get();
+            if (log.isTraceEnabled()) {
+               log.tracef("Commit response map is " + map);
+            }
+         } else {
+            throw new IllegalStateException("Synchronous Commit Phase didn't return a ResponseFuture");
+         }
       }
    }
 

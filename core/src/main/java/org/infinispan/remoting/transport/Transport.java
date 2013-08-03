@@ -31,12 +31,14 @@ import org.infinispan.lifecycle.Lifecycle;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.rpc.ResponseFilter;
 import org.infinispan.remoting.rpc.ResponseMode;
+import org.infinispan.util.concurrent.ResponseFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.xsite.XSiteBackup;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 /**
  * An interface that provides a communication link with remote caches.  Also allows remote caches to invoke commands on
@@ -70,6 +72,11 @@ public interface Transport extends Lifecycle {
    Map<Address, Response> invokeRemotely(Collection<Address> recipients, ReplicableCommand rpcCommand, ResponseMode mode, long timeout,
                                  boolean usePriorityQueue, ResponseFilter responseFilter, boolean totalOrder,
                                  boolean anycast) throws Exception;
+
+   ResponseFuture invokeRemotelyWithFuture(Collection<Address> recipients, ReplicableCommand rpcCommand,
+                                           long timeout,
+                                           ResponseFilter responseFilter,
+                                           boolean totalOrder, boolean anycast) throws Exception;
 
 
    BackupResponse backupRemotely(Collection<XSiteBackup> backups, ReplicableCommand rpcCommand) throws Exception;

@@ -24,6 +24,7 @@ package org.infinispan.interceptors.gmu;
 
 import org.infinispan.commands.FlagAffectedCommand;
 import org.infinispan.commands.remote.ClusteredGetCommand;
+import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
@@ -302,4 +303,20 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
       // and we'd return a null even though the key exists on
       return null;
    }
+
+   @Override
+   public Object visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
+      Object retVal = invokeNextInterceptor(ctx, command);
+      if (shouldInvokeRemoteTxCommand(ctx)) {
+         Future<?> f = flushL1Caches(ctx);
+         retVal = sendGMUCommitCommand(retVal, command, getCommitNodes(ctx));
+         blockOnL1FutureIfNeeded(f);
+      } else if (isL1CacheEnabled && !ctx.isOriginLocal() && !ctx.getLockedKeys().isEmpty()) {
+         // We fall into this block if we are a remote node, happen to be the primary data owner and have locked keys.
+         // it is still our responsibility to invalidate L1 caches in the cluster.
+         blockOnL1FutureIfNeeded(flushL1Caches(ctx));
+      }
+      return retVal;
+   }
+
 }

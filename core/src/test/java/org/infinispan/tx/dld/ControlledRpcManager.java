@@ -33,6 +33,7 @@ import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
 import org.infinispan.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.util.concurrent.ReclosableLatch;
+import org.infinispan.util.concurrent.ResponseFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -168,6 +169,16 @@ public class ControlledRpcManager implements RpcManager {
       failIfNeeded(rpcCommand);
       waitBefore(rpcCommand);
       Map<Address, Response> responses = realOne.invokeRemotely(recipients, rpcCommand, sync, usePriorityQueue, totalOrder);
+      waitAfter(rpcCommand);
+      return responses;
+   }
+
+   @Override
+   public ResponseFuture invokeRemotelyWithFuture(Collection<Address> recipients, ReplicableCommand rpcCommand, boolean usePriorityQueue, boolean totalOrder) {
+      log.trace("invokeRemotely6");
+      failIfNeeded(rpcCommand);
+      waitBefore(rpcCommand);
+      ResponseFuture responses = realOne.invokeRemotelyWithFuture(recipients, rpcCommand, usePriorityQueue, totalOrder);
       waitAfter(rpcCommand);
       return responses;
    }

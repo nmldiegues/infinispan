@@ -26,6 +26,7 @@ import org.infinispan.remoting.rpc.ResponseMode;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.BackupResponse;
 import org.infinispan.remoting.transport.Transport;
+import org.infinispan.util.concurrent.ResponseFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.xsite.XSiteBackup;
 
@@ -89,6 +90,11 @@ public class DelegatingTransport implements Transport {
    @Override
    public Map<Address, Response> invokeRemotely(Collection<Address> recipients, ReplicableCommand rpcCommand, ResponseMode mode, long timeout, boolean usePriorityQueue, ResponseFilter responseFilter, boolean totalOrder, boolean anycast) throws Exception {
       return actual.invokeRemotely(recipients, rpcCommand, mode, timeout, usePriorityQueue,responseFilter, totalOrder, anycast);
+   }
+
+   @Override
+   public ResponseFuture invokeRemotelyWithFuture(Collection<Address> recipients, ReplicableCommand rpcCommand, long timeout, ResponseFilter responseFilter, boolean totalOrder, boolean anycast) throws Exception {
+      return actual.invokeRemotelyWithFuture(recipients, rpcCommand, timeout, responseFilter, totalOrder, anycast);
    }
 
    @Override
