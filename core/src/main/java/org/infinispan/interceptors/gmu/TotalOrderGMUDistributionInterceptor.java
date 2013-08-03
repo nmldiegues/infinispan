@@ -102,14 +102,14 @@ public class TotalOrderGMUDistributionInterceptor extends GMUDistributionInterce
 
       try {
          Map<Address, Response> responseMap = totalOrderAnycastPrepare(recipients, command, null);
-         joinAndSetTransactionVersion(responseMap.values(), ctx, versionGenerator);
+         joinAndSetTransactionVersion(responseMap.values(), ctx, versionGenerator, null);
       } finally {
          totalOrderTxPrepare(ctx);
       }
    }
 
    @Override
-   protected void lockAndWrap(InvocationContext ctx, Object key, InternalCacheEntry ice, FlagAffectedCommand command) throws InterruptedException {
+   protected void lockAndWrap(InvocationContext ctx, Object key, InternalCacheEntry ice, FlagAffectedCommand command, boolean remove) throws InterruptedException {
       entryFactory.wrapEntryForPut(ctx, key, ice, false, command);
    }
 }
