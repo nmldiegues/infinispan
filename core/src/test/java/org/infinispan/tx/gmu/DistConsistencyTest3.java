@@ -25,18 +25,23 @@ package org.infinispan.tx.gmu;
 import org.infinispan.Cache;
 import org.infinispan.commands.remote.CacheRpcCommand;
 import org.infinispan.commands.tx.CommitCommand;
+import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.factories.GlobalComponentRegistry;
+import org.infinispan.interceptors.gmu.GMUEntryWrappingInterceptor;
 import org.infinispan.remoting.InboundInvocationHandler;
+import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
 import org.infinispan.remoting.transport.jgroups.CommandAwareRpcDispatcher;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
 import org.infinispan.test.TestingUtil;
+import org.infinispan.transaction.gmu.manager.SortedTransactionQueue;
 import org.infinispan.transaction.gmu.manager.TransactionCommitManager;
 import org.infinispan.transaction.xa.GlobalTransaction;
+import org.infinispan.tx.dld.ControlledRpcManager;
 import org.jgroups.blocks.Response;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -645,6 +650,89 @@ public class DistConsistencyTest3 extends AbstractGMUTest {
       assertNoTransactions();
    }
 
+   public void testConcurrentTransactionWithSameVersion() throws Exception {
+      assertAtLeastCaches(2);
+      final Object key00 = newKey(0);
+      final Object key01 = newKey(0);
+      final Object key10 = newKey(1);
+      final Object key11 = newKey(1);
+
+      tm(0).begin();
+      cache(0).put(key00, VALUE_1);
+      cache(0).put(key01, VALUE_1);
+      cache(0).put(key10, VALUE_1);
+      cache(0).put(key11, VALUE_1);
+      tm(0).commit();
+
+      final ControlledRpcManager rpcManager0 = replaceRpcManager(cache(0));
+      final ControlledRpcManager rpcManager1 = replaceRpcManager(cache(1));
+      final DelayCommit delayCommit0 = addDelayCommit(0, 0, GMUEntryWrappingInterceptor.class);
+      final DelayCommit delayCommit1 = addDelayCommit(1, 0, GMUEntryWrappingInterceptor.class);
+
+      rpcManager0.blockBefore(GMUPrepareCommand.class);
+      rpcManager1.blockBefore(GMUPrepareCommand.class);
+
+      Thread tx0 = fork(new Runnable() {
+         @Override
+         public void run() {
+            try {
+               tm(0).begin();
+               cache(0).put(key00, VALUE_2);
+               cache(0).put(key10, VALUE_2);
+               delayCommit0.blockTransaction(globalTransaction(0));
+               tm(0).commit();
+            } catch (Exception e) {
+               //no-op
+            }
+
+         }
+      }, false);
+
+      Thread tx1 = fork(new Runnable() {
+         @Override
+         public void run() {
+            try {
+               tm(1).begin();
+               cache(1).put(key01, VALUE_2);
+               cache(1).put(key11, VALUE_2);
+               delayCommit1.blockTransaction(globalTransaction(1));
+               tm(1).commit();
+            } catch (Exception e) {
+               //no-op
+            }
+
+         }
+      }, false);
+
+      rpcManager0.waitForCommandToBlock();
+      rpcManager1.waitForCommandToBlock();
+
+      rpcManager0.stopBlocking();
+      rpcManager1.stopBlocking();
+
+      delayCommit0.awaitUntilCommitIsBlocked();
+      delayCommit1.awaitUntilCommitIsBlocked();
+
+      delayCommit0.unblock();
+      delayCommit1.unblock();
+
+      tx0.join();
+      tx1.join();
+
+      assertNoTransactions();
+
+      SortedTransactionQueue queue0 = extractTransactionQueue(cache(0));
+      Assert.assertEquals(queue0.size(), 0, "Wrong queue size for cache 0");
+
+      SortedTransactionQueue queue1 = extractTransactionQueue(cache(1));
+      Assert.assertEquals(queue1.size(), 0, "Wrong queue size for cache 1");
+
+      assertCachesValue(0, key00, VALUE_2);
+      assertCachesValue(0, key10, VALUE_2);
+      assertCachesValue(1, key01, VALUE_2);
+      assertCachesValue(1, key11, VALUE_2);
+   }
+
    @Override
    protected void decorate(ConfigurationBuilder builder) {
       builder.clustering().clustering().hash().numOwners(1);
@@ -685,6 +773,18 @@ public class DistConsistencyTest3 extends AbstractGMUTest {
          e.printStackTrace();
       }
       return notifyInboundInvocationHandler;
+   }
+
+   private ControlledRpcManager replaceRpcManager(Cache cache) {
+      RpcManager actual = TestingUtil.extractComponent(cache, RpcManager.class);
+      ControlledRpcManager controlledRpcManager = new ControlledRpcManager(actual);
+      TestingUtil.replaceComponent(cache, RpcManager.class, controlledRpcManager, true);
+      return controlledRpcManager;
+   }
+
+   private SortedTransactionQueue extractTransactionQueue(Cache cache) {
+      TransactionCommitManager manager = TestingUtil.extractComponent(cache, TransactionCommitManager.class);
+      return (SortedTransactionQueue) TestingUtil.extractField(manager, "sortedTransactionQueue");
    }
 
    private class NotifyInboundInvocationHandler implements InboundInvocationHandler {

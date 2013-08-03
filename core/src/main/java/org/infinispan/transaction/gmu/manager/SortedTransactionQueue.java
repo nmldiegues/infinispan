@@ -195,11 +195,18 @@ public class SortedTransactionQueue {
             if (log.isTraceEnabled()) {
                log.tracef("hasTransactionReadyToCommit() == true. %s", firstTransaction);
             }
-            firstTransaction.markReadyToCommit();
+            transactionToCheck.getPrevious();
+            while (transactionToCheck != firstEntry) {
+               transactionToCheck.markReadyToCommit();
+               if (log.isTraceEnabled()) {
+                  log.tracef("Mark ready to commit: %s", transactionToCheck);
+               }
+               transactionToCheck = transactionToCheck.getPrevious();
+            }
             return true;
          } else if (!transactionToCheck.hasReceiveCommitCommand()) {
             if (log.isTraceEnabled()) {
-               log.tracef("hasTransactionReadyToCommit() == false. %s is waiting for", firstTransaction, transactionToCheck);
+               log.tracef("hasTransactionReadyToCommit() == false. %s is waiting for %s", firstTransaction, transactionToCheck);
             }
             return false;
          }
@@ -208,7 +215,14 @@ public class SortedTransactionQueue {
       if (log.isTraceEnabled()) {
          log.tracef("hasTransactionReadyToCommit() == true. %s", firstTransaction);
       }
-      firstTransaction.markReadyToCommit();
+      transactionToCheck = transactionToCheck.getPrevious();
+      while (transactionToCheck != firstEntry) {
+         transactionToCheck.markReadyToCommit();
+         if (log.isTraceEnabled()) {
+            log.tracef("Mark ready to commit: %s", transactionToCheck);
+         }
+         transactionToCheck = transactionToCheck.getPrevious();
+      }
       return true;
    }
 
@@ -364,6 +378,43 @@ public class SortedTransactionQueue {
       }
    }
 
+   private static enum TxState {
+      COMMIT_RECEIVED(1), //1 << 0
+      READY_TO_COMMIT(1 << 1),
+      COMMITTING(1 << 2),
+      COMMITTED(1 << 3),
+      WAITED(1 << 4),
+      PENDING_TX_BEFORE(1 << 5),;
+      private final byte mask;
+
+      private TxState(int mask) {
+         this.mask = (byte) mask;
+      }
+
+      public final byte set(byte state) {
+         return (byte) (state | mask);
+      }
+
+      public final boolean isSet(byte state) {
+         return (state & mask) != 0;
+      }
+
+      public static final String stateToString(byte state) {
+         if (state == 0) {
+            return "[]";
+         }
+         StringBuilder builder = new StringBuilder();
+         for (TxState txState : values()) {
+            if (txState.isSet(state)) {
+               builder.append(",").append(txState);
+            }
+         }
+         builder.replace(0, 1, "[");
+         builder.append("]");
+         return builder.toString();
+      }
+   }
+
    private interface Node extends TransactionEntry, Comparable<Node> {
       /**
        * adds the commit entry
@@ -446,34 +497,34 @@ public class SortedTransactionQueue {
       long getFirstInQueueTimestamp();
 
       boolean hasWaited();
+
+      boolean committing();
    }
 
    private class TransactionEntryImpl implements Node {
 
       private final CacheTransaction cacheTransaction;
       private final CountDownLatch readyToCommit;
+      private volatile byte state;
       private volatile GMUVersion entryVersion;
-      private volatile boolean receivedCommitCommand;
-      private volatile boolean committed;
       private long concurrentClockNumber; //This is the value of the last committed vector clock's n-th entry on this node n at the time this object was created.
       private volatile long commitReceivedTimestamp = -1;
-      private volatile boolean waitBecauseOfPendingTx = false;
-      private volatile boolean waited = false;
       private volatile long firstInQueueTimestamp = -1;
       private volatile long readyToCommitTimestamp = -1;
       private Node previous;
       private Node next;
 
       private TransactionEntryImpl(CacheTransaction cacheTransaction, long concurrentClockNumber) {
+         this.state = 0;
          this.cacheTransaction = cacheTransaction;
          this.entryVersion = toGMUVersion(cacheTransaction.getTransactionVersion());
          this.readyToCommit = new CountDownLatch(1);
          this.concurrentClockNumber = concurrentClockNumber;
       }
 
-      public void commitVersion(GMUVersion commitVersion) {
+      public synchronized void commitVersion(GMUVersion commitVersion) {
          this.entryVersion = commitVersion;
-         this.receivedCommitCommand = true;
+         this.state = TxState.COMMIT_RECEIVED.set(state);
          if (log.isTraceEnabled()) {
             log.tracef("Set transaction commit version: %s", this);
          }
@@ -483,8 +534,10 @@ public class SortedTransactionQueue {
       }
 
       @Override
-      public void setWaitingType(boolean pendingFound) {
-         this.waitBecauseOfPendingTx = pendingFound;
+      public synchronized void setWaitingType(boolean pendingFound) {
+         if (pendingFound) {
+            this.state = TxState.PENDING_TX_BEFORE.set(state);
+         }
       }
 
       @Override
@@ -495,8 +548,10 @@ public class SortedTransactionQueue {
       }
 
       @Override
-      public void setWaiting(boolean waiting) {
-         this.waited = waiting;
+      public synchronized void setWaiting(boolean waiting) {
+         if (waiting) {
+            this.state = TxState.WAITED.set(state);
+         }
       }
 
       public synchronized GMUVersion getVersion() {
@@ -511,19 +566,20 @@ public class SortedTransactionQueue {
          return cacheTransaction;
       }
 
-      public boolean hasReceiveCommitCommand() {
-         return receivedCommitCommand;
+      public synchronized boolean hasReceiveCommitCommand() {
+         return TxState.COMMIT_RECEIVED.isSet(state);
       }
 
       @Override
-      public void markReadyToCommit() {
+      public synchronized void markReadyToCommit() {
+         this.state = TxState.READY_TO_COMMIT.set(state);
          readyToCommit.countDown();
          readyToCommitTimestamp = System.nanoTime();
       }
 
       @Override
-      public boolean isCommitted() {
-         return committed;
+      public synchronized boolean isCommitted() {
+         return TxState.COMMITTED.isSet(state);
       }
 
       public GlobalTransaction getGlobalTransaction() {
@@ -532,16 +588,25 @@ public class SortedTransactionQueue {
 
       @Override
       public synchronized void awaitUntilCommitted() throws InterruptedException {
-         while (!committed) {
+         while (!isCommitted()) {
             wait();
          }
+      }
+
+      @Override
+      public synchronized boolean committing() {
+         if (TxState.COMMITTING.isSet(state)) {
+            return false;
+         }
+         this.state = TxState.COMMITTING.set(state);
+         return true;
       }
 
       public synchronized void committed() {
          if (log.isTraceEnabled()) {
             log.tracef("Mark transaction committed: %s", this);
          }
-         committed = true;
+         this.state = TxState.COMMITTED.set(state);
          notifyAll();
       }
 
@@ -551,8 +616,8 @@ public class SortedTransactionQueue {
       }
 
       @Override
-      public boolean isReadyToCommit() {
-         return readyToCommit.getCount() == 0;
+      public synchronized boolean isReadyToCommit() {
+         return TxState.READY_TO_COMMIT.isSet(state);
       }
 
       @Override
@@ -565,9 +630,7 @@ public class SortedTransactionQueue {
       public String toString() {
          return "TransactionEntry{" +
                "version=" + getVersion() +
-               ", ready=" + hasReceiveCommitCommand() +
-               ", readyToCommit=" + isReadyToCommit() +
-               ", committed=" + isCommitted() +
+               ", state=" + TxState.stateToString(state) +
                ", gtx=" + cacheTransaction.getGlobalTransaction().globalId() +
                '}';
       }
@@ -620,8 +683,8 @@ public class SortedTransactionQueue {
       }
 
       @Override
-      public final boolean isWaitBecauseOfPendingTx() {
-         return waitBecauseOfPendingTx;
+      public final synchronized boolean isWaitBecauseOfPendingTx() {
+         return TxState.PENDING_TX_BEFORE.isSet(state);
       }
 
       @Override
@@ -636,7 +699,7 @@ public class SortedTransactionQueue {
 
       @Override
       public final boolean hasWaited() {
-         return waited;
+         return TxState.WAITED.isSet(state);
       }
    }
 
@@ -648,6 +711,11 @@ public class SortedTransactionQueue {
       @Override
       public GMUVersion getVersion() {
          throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public boolean committing() {
+         return false;
       }
 
       @Override

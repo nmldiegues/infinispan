@@ -73,7 +73,7 @@ import org.infinispan.util.logging.LogFactory;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -198,40 +198,45 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
             return retVal;
          }
 
-         Iterator<TransactionEntry> toCommit = transactionCommitManager.getTransactionsToCommit().iterator();
-         if (!toCommit.hasNext()) {
-            throw new IllegalStateException();
+         Collection<TransactionEntry> transactionsToCommit = transactionCommitManager.getTransactionsToCommit();
+         if (log.isTraceEnabled()) {
+            log.tracef("Transactions to commit: %s", transactionsToCommit);
          }
-         TransactionEntry first = toCommit.next();
-         if (!first.getGlobalTransaction().equals(transactionEntry.getGlobalTransaction())) {
+         if (transactionsToCommit.isEmpty()) {
             throw new IllegalStateException();
          }
 
-         List<CommittedTransaction> committedTransactions = new ArrayList<CommittedTransaction>(4);
-         List<TransactionEntry> committedTransactionEntries = new ArrayList<TransactionEntry>(4);
+         List<CommittedTransaction> committedTransactions = new ArrayList<CommittedTransaction>(transactionsToCommit.size());
+         List<TransactionEntry> committedTransactionEntries = new ArrayList<TransactionEntry>(transactionsToCommit.size());
          int subVersion = 0;
-         CacheTransaction cacheTransaction = transactionEntry.getCacheTransactionForCommit();
-         CommittedTransaction committedTransaction = new CommittedTransaction(cacheTransaction, subVersion,
-                                                                              transactionEntry.getConcurrentClockNumber());
-         updateCommitVersion(ctx, cacheTransaction, subVersion);
-         commitContextEntries(ctx, false, isFromStateTransfer(ctx));
-
-         committedTransactions.add(committedTransaction);
-         committedTransactionEntries.add(transactionEntry);
-
-         updateWaitingTime(transactionEntry);
 
          //in case of transaction has the same version... should be rare...
-         while (toCommit.hasNext()) {
-            transactionEntry = toCommit.next();
-            subVersion++;
-            cacheTransaction = transactionEntry.getCacheTransactionForCommit();
-            committedTransaction = new CommittedTransaction(cacheTransaction, subVersion,
-                                                            transactionEntry.getConcurrentClockNumber());
-            InvocationContext context = createInvocationContext(cacheTransaction, subVersion);
-            commitContextEntries(context, false, isFromStateTransfer(ctx));
+         for (TransactionEntry toCommit : transactionsToCommit) {
+            if (!toCommit.committing()) {
+               if (log.isTraceEnabled()) {
+                  log.tracef("Other thread already started to commit %s. Waiting...", toCommit);
+               }
+               toCommit.awaitUntilCommitted();
+               continue;
+            }
+            CacheTransaction cacheTransaction = toCommit.getCacheTransactionForCommit();
+            CommittedTransaction committedTransaction = new CommittedTransaction(cacheTransaction, subVersion,
+                                                                                 toCommit.getConcurrentClockNumber());
+            InvocationContext context;
+            if (transactionEntry.getGlobalTransaction().equals(toCommit.getGlobalTransaction())) {
+               updateCommitVersion(ctx, cacheTransaction, subVersion);
+               context = ctx;
+            } else {
+               context = createInvocationContext(cacheTransaction, subVersion);
+            }
+            if (log.isTraceEnabled()) {
+               log.tracef("Committing %s", toCommit);
+            }
+            commitContextEntries(context, false, isFromStateTransfer(context));
             committedTransactions.add(committedTransaction);
-            committedTransactionEntries.add(transactionEntry);
+            committedTransactionEntries.add(toCommit);
+            updateWaitingTime(toCommit);
+            subVersion++;
          }
          for (TransactionEntry txEntry : committedTransactionEntries) {
             store(txEntry.getGlobalTransaction());
@@ -314,17 +319,6 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       }
    }
 
-   private void checkWriteCommand(InvocationContext context, boolean previousAccessed, WriteCommand command) {
-      if (previousAccessed || command.isConditional()) {
-         //if previous accessed, we have nothing to update in transaction version
-         //if conditional, it is forced to read the key
-         return;
-      }
-      if (command.hasFlag(Flag.IGNORE_RETURN_VALUES)) {
-         context.getKeysReadInCommand().clear(); //remove all the keys read!
-      }
-   }
-
    /**
     * validates the read set and returns the prepare version from the commit queue
     *
@@ -372,6 +366,17 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       if (log.isDebugEnabled()) {
          log.debugf("Transaction %s can commit on this node. Prepare Version is %s",
                     command.getGlobalTransaction().globalId(), ctx.getTransactionVersion());
+      }
+   }
+
+   private void checkWriteCommand(InvocationContext context, boolean previousAccessed, WriteCommand command) {
+      if (previousAccessed || command.isConditional()) {
+         //if previous accessed, we have nothing to update in transaction version
+         //if conditional, it is forced to read the key
+         return;
+      }
+      if (command.hasFlag(Flag.IGNORE_RETURN_VALUES)) {
+         context.getKeysReadInCommand().clear(); //remove all the keys read!
       }
    }
 

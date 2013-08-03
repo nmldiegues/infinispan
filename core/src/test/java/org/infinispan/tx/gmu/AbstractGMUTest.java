@@ -93,7 +93,7 @@ public abstract class AbstractGMUTest extends MultipleCacheManagersTest {
    protected final void assertCachesValue(int executedOn, Object key, Object value) {
       for (int i = 0; i < cacheManagers.size(); ++i) {
          if (i == executedOn || syncCommitPhase()) {
-            assertEquals(value, cache(i).get(key));
+            assertEquals("Wrong value for cache " + address(cache(i)) + " and key " + key + ".", value, cache(i).get(key));
          } else {
             assertEventuallyEquals(i, key, value);
          }
@@ -316,6 +316,13 @@ public abstract class AbstractGMUTest extends MultipleCacheManagersTest {
       DelayCommit delayCommit = new DelayCommit(delay);
       advancedCache(cacheIndex).removeInterceptor(DelayCommit.class);
       advancedCache(cacheIndex).addInterceptorAfter(delayCommit, TxInterceptor.class);
+      return delayCommit;
+   }
+
+   protected final DelayCommit addDelayCommit(int cacheIndex, int delay, Class<? extends CommandInterceptor> after) {
+      DelayCommit delayCommit = new DelayCommit(delay);
+      advancedCache(cacheIndex).removeInterceptor(DelayCommit.class);
+      advancedCache(cacheIndex).addInterceptorAfter(delayCommit, after);
       return delayCommit;
    }
 

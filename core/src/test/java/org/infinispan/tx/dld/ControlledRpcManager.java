@@ -76,11 +76,13 @@ public class ControlledRpcManager implements RpcManager {
    public void blockBefore(Class... filter) {
       this.blockBeforeFilter = new HashSet<Class>(Arrays.asList(filter));
       replicationLatch.close();
+      blockingLatch.close();
    }
 
    public void blockAfter(Class... filter) {
       this.blockAfterFilter = new HashSet<Class>(Arrays.asList(filter));
       replicationLatch.close();
+      blockingLatch.close();
    }
 
    public void stopBlocking() {
@@ -109,6 +111,7 @@ public class ControlledRpcManager implements RpcManager {
 
       try {
          log.debugf("Replication trigger called, waiting for latch to open.");
+         blockingLatch.open();
          replicationLatch.await();
          log.trace("Replication latch opened, continuing.");
       } catch (Exception e) {
