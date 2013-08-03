@@ -19,6 +19,7 @@
 
 package org.infinispan.util.concurrent;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -45,4 +46,10 @@ public interface BlockingTaskAwareExecutorService extends ExecutorService {
     */
    void checkForReadyTasks();
 
+   /**
+    * @return the number of enqueued tasks.
+    */
+   int size();
+
+   List<String> printQueue();
 }

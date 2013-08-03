@@ -54,6 +54,9 @@ import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.interceptors.EntryWrappingInterceptor;
+import org.infinispan.jmx.annotations.MBean;
+import org.infinispan.jmx.annotations.ManagedAttribute;
+import org.infinispan.jmx.annotations.ManagedOperation;
 import org.infinispan.loaders.CacheLoaderException;
 import org.infinispan.loaders.CacheLoaderManager;
 import org.infinispan.loaders.CacheStore;
@@ -86,6 +89,7 @@ import static org.infinispan.transaction.gmu.manager.SortedTransactionQueue.Tran
  * @author Pedro Ruivo
  * @since 5.2
  */
+@MBean(objectName = "GMUTransactionManager", description = "Shows information about the transactions committed or prepared")
 public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
 
    private static final Log log = LogFactory.getLog(GMUEntryWrappingInterceptor.class);
@@ -202,7 +206,8 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
             log.tracef("Transactions to commit: %s", transactionsToCommit);
          }
          if (transactionsToCommit.isEmpty()) {
-            throw new IllegalStateException();
+            //nothing to commit
+            return retVal;
          }
 
          List<CommittedTransaction> committedTransactions = new ArrayList<CommittedTransaction>(transactionsToCommit.size());
@@ -244,7 +249,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       } catch (Throwable throwable) {
          //let ignore the exception. we cannot have some nodes applying the write set and another not another one
          //receives the rollback and don't applies the write set
-         log.error("Error while committing transaction", throwable);
+         log.fatal("Error while committing transaction", throwable);
          transactionCommitManager.rollbackTransaction(ctx.getCacheTransaction());
       } finally {
          if (ctx.isOriginLocal()) {
@@ -252,15 +257,6 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          }
       }
       return retVal;
-   }
-
-   private Object invokeNextIgnoringTimeout(TxInvocationContext context, CommitCommand commitCommand) throws Throwable {
-      try {
-         return invokeNextInterceptor(context, commitCommand);
-      } catch (TimeoutException timeout) {
-         //ignored
-         return null;
-      }
    }
 
    @Override
@@ -275,11 +271,6 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       }
    }
 
-   /*
-    * NOTE: these are the only commands that passes values to the application and these keys needs to be validated
-    * and added to the transaction read set.
-    */
-
    @Override
    public Object visitGetKeyValueCommand(InvocationContext ctx, GetKeyValueCommand command) throws Throwable {
       ctx.clearKeyReadInCommand();
@@ -287,6 +278,11 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       updateTransactionVersion(ctx, command);
       return retVal;
    }
+
+   /*
+    * NOTE: these are the only commands that passes values to the application and these keys needs to be validated
+    * and added to the transaction read set.
+    */
 
    @Override
    public Object visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
@@ -316,6 +312,28 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       checkWriteCommand(ctx, previousAccessed, command);
       updateTransactionVersion(ctx, command);
       return retVal;
+   }
+
+   @ManagedAttribute(description = "Returns the commit queue size.",
+                     displayName = "Commit Queue Size")
+   public final int getCommitQueueSize() {
+      return transactionCommitManager.size();
+   }
+
+   @ManagedAttribute(description = "Returns the number of tasks (Commit or Remote gets) enqueued",
+                     displayName = "Executor Queue Size")
+   public final int getExecutorQueueSize() {
+      return gmuExecutor.size();
+   }
+
+   @ManagedOperation
+   public final List<String> printCommitQueue() {
+      return transactionCommitManager.printQueue();
+   }
+
+   @ManagedOperation
+   public final List<String> printExecutorQueue() {
+      return gmuExecutor.printQueue();
    }
 
    @Override
@@ -374,6 +392,15 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       if (log.isDebugEnabled()) {
          log.debugf("Transaction %s can commit on this node. Prepare Version is %s",
                     command.getGlobalTransaction().globalId(), ctx.getTransactionVersion());
+      }
+   }
+
+   private Object invokeNextIgnoringTimeout(TxInvocationContext context, CommitCommand commitCommand) throws Throwable {
+      try {
+         return invokeNextInterceptor(context, commitCommand);
+      } catch (TimeoutException timeout) {
+         //ignored
+         return null;
       }
    }
 
@@ -454,7 +481,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          }
          if (!command.hasFlag(Flag.READ_WITHOUT_REGISTERING)) {
             txInvocationContext.getCacheTransaction().addReadKey(internalGMUCacheEntry.getKey());
-         } 
+         }
          if (cdl.localNodeIsOwner(internalGMUCacheEntry.getKey())) {
             txInvocationContext.setAlreadyReadOnThisNode(true);
             txInvocationContext.addReadFrom(cdl.getAddress());

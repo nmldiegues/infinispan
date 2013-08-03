@@ -186,6 +186,14 @@ public class SortedTransactionQueue {
       return concurrentHashMap.size();
    }
 
+   public final List<String> printQueue() {
+      List<String> result = new ArrayList<String>(concurrentHashMap.size());
+      for (Node node : concurrentHashMap.values()) {
+         result.add(node.toString());
+      }
+      return result;
+   }
+
    private void checkWaitingTime(Node entry) {
       Node iterator = entry.getPrevious();
       boolean waiting = iterator != firstEntry;

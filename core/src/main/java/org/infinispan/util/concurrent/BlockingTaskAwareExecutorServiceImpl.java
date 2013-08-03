@@ -132,6 +132,20 @@ public class BlockingTaskAwareExecutorServiceImpl extends AbstractExecutorServic
    }
 
    @Override
+   public int size() {
+      return blockedTasks.size();
+   }
+
+   @Override
+   public List<String> printQueue() {
+      List<String> queue = new ArrayList<String>(blockedTasks.size());
+      for (BlockingRunnable runnable : blockedTasks) {
+         queue.add(runnable.toString());
+      }
+      return queue;
+   }
+
+   @Override
    public void execute(Runnable command) {
       if (shutdown) {
          throw new RejectedExecutionException("Executor Service is already shutdown");

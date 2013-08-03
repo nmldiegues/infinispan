@@ -64,6 +64,16 @@ public final class LazyInitializingBlockingTaskAwareExecutorService implements B
    }
 
    @Override
+   public int size() {
+      return delegate.size();
+   }
+
+   @Override
+   public List<String> printQueue() {
+      return delegate.printQueue();
+   }
+
+   @Override
    public void shutdown() {
       if (delegate != null) delegate.shutdown();
    }

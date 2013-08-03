@@ -200,6 +200,11 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
                                                                                   command.isOnePhaseCommit());
                }
             }
+
+            @Override
+            public final String toString() {
+               return "TotalOrderPrepareCommand{gtx=" + state.getGlobalTransaction().globalId() + "}";
+            }
          });
          return;
       } else if (cmd instanceof GMUClusteredGetCommand) {
@@ -244,6 +249,11 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
                   TransactionsStatisticsRegistry.addValueAndFlushIfNeeded(REMOTE_REMOTE_GET_REPLY_SIZE, getReplySize(resp), false);
                }
             }
+
+            @Override
+            public final String toString() {
+               return "GMUClusterGet{key=" + gmuClusteredGetCommand.getKey() + "}";
+            }
          });
          return;
       } else if (cmd instanceof GMUCommitCommand) {
@@ -280,6 +290,11 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
                //Before the gmuExecutorService continues handling other stuff, we have to detach the current xact.
                TransactionsStatisticsRegistry.detachRemoteTransactionStatistic(gmuCommitCommand.getGlobalTransaction(), true);
                gmuExecutorService.checkForReadyTasks();
+            }
+
+            @Override
+            public final String toString() {
+               return "GMUCommitCommand{gtx=" + gmuCommitCommand.getGlobalTransaction().globalId() + "}";
             }
          });
          gmuExecutorService.checkForReadyTasks();

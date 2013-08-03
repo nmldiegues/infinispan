@@ -129,4 +129,8 @@ public class TransactionCommitManager {
    public final int size() {
       return sortedTransactionQueue.size();
    }
+
+   public final List<String> printQueue() {
+      return sortedTransactionQueue.printQueue();
+   }
 }
