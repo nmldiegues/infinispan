@@ -97,6 +97,7 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
          for (Map.Entry<Object, GlobalTransaction> entry : remoteDEFs.entrySet()) {
             defAnswers.add(TransactionCoordinator.des.submit(new DEFPrepare(entry.getValue()), entry.getKey()));
          }
+         localTx.sentDEFPrepare = true;
       }
       
       // invoke the locally known prepares

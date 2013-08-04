@@ -74,6 +74,8 @@ public abstract class LocalTransaction extends AbstractCacheTransaction {
    private Map<Object, GlobalTransaction> remoteDEFs;
    private boolean wroteInRemoteDEF;
    public boolean sentDEFCommits;
+   public boolean sentDEFPrepare;
+   public boolean sentDEFRollback;
 
    public LocalTransaction(Transaction transaction, GlobalTransaction tx, boolean implicitTransaction, int topologyId) {
       super(tx, topologyId);

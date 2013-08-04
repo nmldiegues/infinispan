@@ -284,6 +284,7 @@ public class TransactionCoordinator {
             for (Map.Entry<Object, GlobalTransaction> entry : remoteDEFs.entrySet()) {
                defAnswers.add(des.submit(new DEFRollback(entry.getValue()), entry.getKey()));
             }
+            localTransaction.sentDEFRollback = true;
          }
 
          rollbackInternal(localTransaction);
