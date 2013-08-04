@@ -105,16 +105,6 @@ public class DummyTransaction implements Transaction {
          }
          runCommitTx();
       } finally {
-          org.infinispan.transaction.tm.DummyTransaction transaction = tm_.getTransaction();
-if (transaction != null) {
-          java.util.Collection<XAResource> resources = transaction.getEnlistedResources();
-          org.infinispan.transaction.xa.TransactionXaAdapter adapter = (TransactionXaAdapter) resources.iterator().next();
-          org.infinispan.transaction.LocalTransaction localTx = adapter.getLocalTransaction();
-          if (localTx.getRemoteDEFs() != null && !localTx.sentDEFCommits && !localTx.sentDEFRollback) {
-              System.out.println("Left transaction hanging!!");
-              System.exit(-1);
-          }
-}
 
          tm_.setTransaction(null);
       }
@@ -497,15 +487,6 @@ if (transaction != null) {
          status = Status.STATUS_UNKNOWN;
          throw e;
       } finally {
-	  
-          org.infinispan.transaction.tm.DummyTransaction transaction = tm_.getTransaction();
-          java.util.Collection<XAResource> resources = transaction.getEnlistedResources();
-          org.infinispan.transaction.xa.TransactionXaAdapter adapter = (TransactionXaAdapter) resources.iterator().next();
-          org.infinispan.transaction.LocalTransaction localTx = adapter.getLocalTransaction();
-          if (localTx.getRemoteDEFs() != null && !localTx.sentDEFCommits && !localTx.sentDEFRollback) {
-              System.out.println("Left transaction hanging!!");
-              System.exit(-1);
-          }
 	  
          //notify synchronizations
          notifyAfterCompletion(status);
