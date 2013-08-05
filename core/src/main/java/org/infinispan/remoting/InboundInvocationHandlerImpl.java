@@ -353,12 +353,12 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
 		try {
 		    resp = handleInternal(cmd, cr);
 		} catch (Throwable throwable) {
-		    log.exceptionHandlingCommand(cmd, throwable);
-		    resp = new ExceptionResponse(new CacheException("Problems invoking command.", throwable));
+		    resp = new ExceptionResponse(throwable instanceof Exception ? (Exception) throwable : new CacheException("Problems invoking command.", throwable));
 		}
 		reply(response, resp);
 	    }
 	  });
+	  return;
       }
       
       Response resp = handleInternal(cmd, cr);
