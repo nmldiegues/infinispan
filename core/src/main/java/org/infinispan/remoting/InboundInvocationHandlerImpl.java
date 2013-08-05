@@ -22,10 +22,14 @@
  */
 package org.infinispan.remoting;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import org.infinispan.CacheException;
 import org.infinispan.commands.CancellableCommand;
 import org.infinispan.commands.CancellationService;
 import org.infinispan.commands.CommandsFactory;
+import org.infinispan.commands.read.DistributedExecuteCommand;
 import org.infinispan.commands.remote.CacheRpcCommand;
 import org.infinispan.commands.remote.ConfigurationStateCommand;
 import org.infinispan.commands.remote.GMUClusteredGetCommand;
@@ -83,6 +87,7 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
    private CancellationService cancelService;
    private BlockingTaskAwareExecutorService totalOrderExecutorService;
    private BlockingTaskAwareExecutorService gmuExecutorService;
+   private ExecutorService defExecutorService;
    private RpcDispatcher.Marshaller marshaller = null;
 
    @Inject
@@ -96,6 +101,7 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
       this.cancelService = cancelService;
       this.totalOrderExecutorService = totalOrderExecutorService;
       this.gmuExecutorService = gmuExecutorService;
+      this.defExecutorService = Executors.newCachedThreadPool();
    }
 
    @Override
@@ -339,7 +345,17 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
          });
          gmuExecutorService.checkForReadyTasks();
          return;
+      } else if (cmd instanceof DistributedExecuteCommand) {
+	  Response resp;
+	  try {
+	      resp = handleInternal(cmd, cr);
+	  } catch (Throwable throwable) {
+	      log.exceptionHandlingCommand(cmd, throwable);
+	      resp = new ExceptionResponse(new CacheException("Problems invoking command.", throwable));
+	  }
+	  reply(response, resp);
       }
+      
       Response resp = handleInternal(cmd, cr);
 
       // A null response is valid and OK ...

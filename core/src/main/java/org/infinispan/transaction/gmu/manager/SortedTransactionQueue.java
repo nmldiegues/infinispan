@@ -480,9 +480,9 @@ public class SortedTransactionQueue {
       boolean committing();
    }
 
-   public static final transient Set<CacheTransaction> HANG_THREADS = Collections.newSetFromMap(new ConcurrentHashMap<CacheTransaction, Boolean>(64, 0.75f, 128));
+//   public static final transient Set<CacheTransaction> HANG_THREADS = Collections.newSetFromMap(new ConcurrentHashMap<CacheTransaction, Boolean>(64, 0.75f, 128));
    
-   static {
+/*   static {
        Thread t = new Thread() {
 	   public void run() {
 	       while (true) {
@@ -506,7 +506,8 @@ public class SortedTransactionQueue {
        t.setDaemon(true);
        t.start();
    }
-   
+*/   
+
    private class TransactionEntryImpl implements Node {
 
       private final CacheTransaction cacheTransaction;
@@ -618,9 +619,9 @@ public class SortedTransactionQueue {
 
       @Override
       public final void awaitUntilIsReadyToCommit() throws InterruptedException {
-	  HANG_THREADS.add(this.cacheTransaction);
+//	  HANG_THREADS.add(this.cacheTransaction);
          readyToCommit.await();
-         HANG_THREADS.remove(this.cacheTransaction);
+//         HANG_THREADS.remove(this.cacheTransaction);
       }
 
       @Override
