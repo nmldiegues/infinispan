@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 
@@ -479,6 +480,21 @@ public class SortedTransactionQueue {
       boolean committing();
    }
 
+   public static final transient Set<Thread> HANG_THREADS = Collections.newSetFromMap(new ConcurrentHashMap<Thread, Boolean>(64, 0.75f, 128));
+   
+   static {
+       Thread t = new Thread() {
+	   public void run() {
+	       while (true) {
+		   try { Thread.sleep(2000); } catch (Exception e) {}
+		   System.out.println("\n==== There are " + HANG_THREADS.size() + " hung up threads ====\n");
+	       }
+	   };
+       };
+       t.setDaemon(true);
+       t.start();
+   }
+   
    private class TransactionEntryImpl implements Node {
 
       private final CacheTransaction cacheTransaction;
@@ -590,7 +606,9 @@ public class SortedTransactionQueue {
 
       @Override
       public final void awaitUntilIsReadyToCommit() throws InterruptedException {
+	  HANG_THREADS.add(Thread.currentThread());
          readyToCommit.await();
+         HANG_THREADS.remove(Thread.currentThread());
       }
 
       @Override
