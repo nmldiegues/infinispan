@@ -480,14 +480,26 @@ public class SortedTransactionQueue {
       boolean committing();
    }
 
-   public static final transient Set<Thread> HANG_THREADS = Collections.newSetFromMap(new ConcurrentHashMap<Thread, Boolean>(64, 0.75f, 128));
+   public static final transient Set<CacheTransaction> HANG_THREADS = Collections.newSetFromMap(new ConcurrentHashMap<CacheTransaction, Boolean>(64, 0.75f, 128));
    
    static {
        Thread t = new Thread() {
 	   public void run() {
 	       while (true) {
 		   try { Thread.sleep(2000); } catch (Exception e) {}
-		   System.out.println("\n==== There are " + HANG_THREADS.size() + " hung up threads ====\n");
+		   String output = "";
+		   int count = 0;
+		   for (CacheTransaction tx : HANG_THREADS) {
+		       count++;
+		       output += "\n" + tx;
+		       output += "\n\tModifications: " + tx.getModifications();
+		       output += "\n\tLocked keys:   " + tx.getLockedKeys();
+		       output += "\n\tRead from:     " + tx.getReadFrom();
+		       output += "\n\tRead keys:     " + tx.getReadKeys();
+		       output += "\n\tCommit version:" + tx.getTransactionVersion();
+		   }
+		   String together = "\n==== There are " + count + " hung up threads ====\n" + output;
+		   System.out.println(together);
 	       }
 	   };
        };
@@ -606,9 +618,9 @@ public class SortedTransactionQueue {
 
       @Override
       public final void awaitUntilIsReadyToCommit() throws InterruptedException {
-	  HANG_THREADS.add(Thread.currentThread());
+	  HANG_THREADS.add(this.cacheTransaction);
          readyToCommit.await();
-         HANG_THREADS.remove(Thread.currentThread());
+         HANG_THREADS.remove(this.cacheTransaction);
       }
 
       @Override
