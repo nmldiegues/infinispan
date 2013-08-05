@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.infinispan.DelayedComputation;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
@@ -106,6 +107,8 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    public void markForRollback(boolean markForRollback) {
       isMarkedForRollback = markForRollback;
    }
+   
+   protected Set<DelayedComputation<?>> delayedComputations = null;
 
    public AbstractCacheTransaction(GlobalTransaction tx, int topologyId) {
       this.tx = tx;
@@ -385,5 +388,27 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
       newMap.putAll(map);
       return newMap;
    }
+   
+   @Override
+   public DelayedComputation<?>[] getDelayedComputations() {
+      if (delayedComputations != null) {
+         return delayedComputations.toArray(new DelayedComputation<?>[0]);
+      }
+      return null;
+   }
+   
+   @Override
+   public void setDelayedComputations(Set<DelayedComputation<?>> computations) {
+      this.delayedComputations = computations;
+   }
+   
+   @Override
+   public void addDelayedComputation(DelayedComputation<?> computation) {
+      if (this.delayedComputations == null) {
+         this.delayedComputations = new HashSet<DelayedComputation<?>>();
+      }
+      this.delayedComputations.add(computation);
+   }
+   
 
 }

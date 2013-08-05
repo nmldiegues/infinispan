@@ -22,6 +22,7 @@
  */
 package org.infinispan.transaction.xa;
 
+import org.infinispan.DelayedComputation;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.versioning.EntryVersion;
@@ -144,4 +145,10 @@ public interface CacheTransaction {
    boolean hasAlreadyReadOnThisNode();
 
    void setAlreadyReadOnThisNode(boolean value);
+   
+   DelayedComputation<?>[] getDelayedComputations();
+   
+   void setDelayedComputations(Set<DelayedComputation<?>> computations);
+   
+   void addDelayedComputation(DelayedComputation<?> computation);
 }

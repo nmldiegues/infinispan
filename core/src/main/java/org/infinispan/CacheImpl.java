@@ -452,7 +452,29 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
          }
       }
    }
+   
+   @Override
+   public final void delayedComputation(DelayedComputation<?> computation) {
+       TxInvocationContext ctx = (TxInvocationContext) getInvocationContextWithImplicitTransaction(false, null, 1);
+       LocalTransaction tx = txTable.getOrCreateLocalTransaction(ctx.getTransaction(), ctx);
+       txTable.enlist(ctx.getTransaction(), tx);
+       tx.addDelayedComputation(computation);
+   }
 
+   @Override
+   public final Object delayedGet(Object key) {
+       InvocationContext ctx = getInvocationContextForRead(null, null, 1);
+       InternalCacheEntry entry = ((GMUEntryFactoryImpl)EntryWrappingInterceptor.FACTORY).getDelayedFromContainer(key, ctx);
+       ctx.putLookedUpEntry(key, entry);
+       return entry != null ? entry.getValue() : null;
+   }
+   
+   @Override
+   public final void delayedPut(Object key, Object value) {
+       InvocationContext ctx = getInvocationContextWithImplicitTransaction(false, null, 1);
+       ((GMUEntryFactoryImpl)EntryWrappingInterceptor.FACTORY).delayedPut(ctx, key, value);
+   }
+   
    @Override
    public final void evict(K key) {
       evict(key, null, null);

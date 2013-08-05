@@ -134,6 +134,12 @@ public interface Cache<K, V> extends BasicCache<K, V>, Listenable {
     */
    void putForExternalRead(K key, V value);
 
+   public void delayedComputation(DelayedComputation<?> computation);
+   
+   public Object delayedGet(Object key);
+   
+   public void delayedPut(Object key, Object value);
+   
    /**
     * Evicts an entry from the memory of the cache.  Note that the entry is <i>not</i> removed from any configured cache
     * stores or any other caches in the cluster (if used in a clustered mode).  Use {@link #remove(Object)} to remove an
