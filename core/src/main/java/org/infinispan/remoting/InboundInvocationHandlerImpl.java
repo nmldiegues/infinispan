@@ -346,14 +346,19 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
          gmuExecutorService.checkForReadyTasks();
          return;
       } else if (cmd instanceof DistributedExecuteCommand) {
-	  Response resp;
-	  try {
-	      resp = handleInternal(cmd, cr);
-	  } catch (Throwable throwable) {
-	      log.exceptionHandlingCommand(cmd, throwable);
-	      resp = new ExceptionResponse(new CacheException("Problems invoking command.", throwable));
-	  }
-	  reply(response, resp);
+	  defExecutorService.submit(new Runnable(){
+	    @Override
+	    public void run() {
+		Response resp;
+		try {
+		    resp = handleInternal(cmd, cr);
+		} catch (Throwable throwable) {
+		    log.exceptionHandlingCommand(cmd, throwable);
+		    resp = new ExceptionResponse(new CacheException("Problems invoking command.", throwable));
+		}
+		reply(response, resp);
+	    }
+	  });
       }
       
       Response resp = handleInternal(cmd, cr);
