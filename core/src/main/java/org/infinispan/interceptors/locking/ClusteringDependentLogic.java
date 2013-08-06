@@ -23,6 +23,7 @@
 
 package org.infinispan.interceptors.locking;
 
+import org.infinispan.DelayedComputation;
 import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.commands.tx.VersionedPrepareCommand;
 import org.infinispan.commands.tx.totalorder.TotalOrderPrepareCommand;
@@ -51,7 +52,9 @@ import org.infinispan.transaction.WriteSkewHelper;
 import org.infinispan.transaction.gmu.GMUHelper;
 import org.infinispan.transaction.xa.CacheTransaction;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -457,6 +460,7 @@ public interface ClusteringDependentLogic {
       @Override
       public Collection<Address> getInvolvedNodes(CacheTransaction cacheTransaction) {
          Set<Address> involvedNodes = new HashSet<Address>();
+         Collection<Address> delayedOwners = getDelayedOwners(cacheTransaction);
          if (cacheTransaction instanceof LocalTransaction) {
             involvedNodes.addAll(((LocalTransaction) cacheTransaction).getRemoteLocksAcquired());
          }
@@ -466,6 +470,7 @@ public interface ClusteringDependentLogic {
          }
          Collection<Address> readOwners = getReadOwners(cacheTransaction);
          involvedNodes.addAll(readOwners);
+         involvedNodes.addAll(delayedOwners);
          return involvedNodes;
       }
 
@@ -506,6 +511,18 @@ public interface ClusteringDependentLogic {
          return dm.getAffectedNodes(affectedKeys);
       }
 
+      private Collection<Address> getDelayedOwners(CacheTransaction cacheTransaction) {
+	  Collection<Object> affectedKeys = new ArrayList<Object>();
+	  DelayedComputation<?>[] delayedComputations = cacheTransaction.getDelayedComputations();
+	  if (delayedComputations == null) {
+	      return Collections.emptyList();
+	  }
+	  for (DelayedComputation<?> computation : delayedComputations) {
+	      affectedKeys.addAll(computation.getAffectedKeys());
+	  }
+	  return dm.getAffectedNodes(affectedKeys);
+      }
+      
       private Collection<Address> getReadOwners(CacheTransaction cacheTransaction) {
          return dm.getAffectedNodes(cacheTransaction.getReadKeys());
       }

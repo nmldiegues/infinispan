@@ -20,6 +20,7 @@
 package org.infinispan.util.mocks;
 
 import org.infinispan.Cache;
+import org.infinispan.DelayedComputation;
 import org.infinispan.atomic.Delta;
 import org.infinispan.commands.CancelCommand;
 import org.infinispan.commands.CommandsFactory;
@@ -355,8 +356,8 @@ public class ControlledCommandFactory implements CommandsFactory {
    }
 
    @Override
-   public GMUPrepareCommand buildGMUPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, boolean onePhaseCommit) {
-      return actual.buildGMUPrepareCommand(gtx, modifications, onePhaseCommit);
+   public GMUPrepareCommand buildGMUPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, boolean onePhaseCommit) {
+      return actual.buildGMUPrepareCommand(gtx, modifications, computations, onePhaseCommit);
    }
 
    @Override

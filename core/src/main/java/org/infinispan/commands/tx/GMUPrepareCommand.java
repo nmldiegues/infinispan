@@ -22,14 +22,17 @@
  */
 package org.infinispan.commands.tx;
 
-import org.infinispan.commands.write.WriteCommand;
-import org.infinispan.container.versioning.EntryVersion;
-import org.infinispan.transaction.xa.GlobalTransaction;
-
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
+import org.infinispan.DelayedComputation;
+import org.infinispan.commands.write.WriteCommand;
+import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.transaction.xa.GlobalTransaction;
 
 /**
  * @author Pedro Ruivo 
@@ -41,16 +44,27 @@ public class GMUPrepareCommand extends PrepareCommand {
 
    private static final Object[] EMPTY_READ_SET_ARRAY = new Object[0];
 
+   private Object[] delayedKeys;
    private Object[] readSet;
    private EntryVersion version;
    private BitSet alreadyReadFrom;
 
    public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, boolean onePhaseCommit, WriteCommand... modifications) {
       super(cacheName, gtx, onePhaseCommit, modifications);
+      delayedKeys = new Object[0];
    }
 
-   public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, List<WriteCommand> commands, boolean onePhaseCommit) {
+   public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, List<WriteCommand> commands, DelayedComputation<?>[] computations, boolean onePhaseCommit) {
       super(cacheName, gtx, commands, onePhaseCommit);
+      if (computations == null) {
+	  delayedKeys = new Object[0];
+      } else {
+	  Set<Object> keys = new HashSet<Object>();
+	  for (DelayedComputation<?> computation : computations) {
+	      keys.addAll(computation.getAffectedKeys());
+	  }
+	  delayedKeys = keys.toArray();
+      }
    }
 
    public GMUPrepareCommand(String cacheName) {
@@ -70,25 +84,49 @@ public class GMUPrepareCommand extends PrepareCommand {
    public boolean isReturnValueExpected() {
       return true; //we need the version from the other guys...
    }
+   
+   @Override
+   public Set<Object> getAffectedKeys() {
+      int modLength = modifications == null ? 0 : modifications.length;
+      if (delayedKeys == null) {
+         Set<Object> keys = new HashSet<Object>(modLength);
+         if (modLength != 0) {
+            for (WriteCommand wc: modifications) keys.addAll(wc.getAffectedKeys());
+         }
+         return keys;
+      } else {
+         Set<Object> keys = new HashSet<Object>(modLength + delayedKeys.length);
+         if (modLength != 0) {
+            for (WriteCommand wc: modifications) keys.addAll(wc.getAffectedKeys());
+         }
+         for (Object key : delayedKeys) keys.add(key);
+         return keys;
+      }
+   }
 
    @Override
    public Object[] getParameters() {
       int numMods = modifications == null ? 0 : modifications.length;
       int numReads = readSet == null ? 0 : readSet.length;
+      int delayKeys = delayedKeys == null ? 0 : delayedKeys.length;
       int i = 0;
-      final int params = 6;
-      Object[] retVal = new Object[numMods + numReads + params];
+      final int params = 7;
+      Object[] retVal = new Object[numMods + numReads + params + delayKeys];
       retVal[i++] = globalTx;
       retVal[i++] = onePhaseCommit;
       retVal[i++] = version;
       retVal[i++] = alreadyReadFrom;
       retVal[i++] = numMods;
       retVal[i++] = numReads;
+      retVal[i] = delayKeys;
       if (numMods > 0) {
-         System.arraycopy(modifications, 0, retVal, i, numMods);
+	  System.arraycopy(modifications, 0, retVal, params, numMods);
       }
       if (numReads > 0) {
-         System.arraycopy(readSet, 0, retVal, i + numMods, numReads);
+	  System.arraycopy(readSet, 0, retVal, params + numMods, numReads);
+      }
+      if (delayKeys > 0) {
+	  System.arraycopy(delayedKeys, 0, retVal, params + numMods + numReads, delayKeys);
       }
       return retVal;
    }
@@ -103,6 +141,7 @@ public class GMUPrepareCommand extends PrepareCommand {
       alreadyReadFrom = (BitSet) args[i++];
       int numMods = (Integer) args[i++];
       int numReads = (Integer) args[i++];
+      int delayKeys = (Integer) args[i++];
       if (numMods > 0) {
          modifications = new WriteCommand[numMods];
          System.arraycopy(args, i, modifications, 0, numMods);
@@ -110,6 +149,10 @@ public class GMUPrepareCommand extends PrepareCommand {
       if(numReads > 0){
          readSet = new Object[numReads];
          System.arraycopy(args, i + numMods, readSet, 0, numReads);
+      }
+      if(delayKeys > 0){
+         delayedKeys = new Object[delayKeys];
+         System.arraycopy(args, i + numMods + numReads, delayedKeys, 0, delayKeys);
       }
    }
 
@@ -122,6 +165,7 @@ public class GMUPrepareCommand extends PrepareCommand {
       copy.readSet = readSet == null ? null : readSet.clone();
       copy.version = version;
       copy.alreadyReadFrom = alreadyReadFrom;
+      copy.delayedKeys = delayedKeys == null ? null : delayedKeys.clone();
       return copy;
    }
 
@@ -160,4 +204,9 @@ public class GMUPrepareCommand extends PrepareCommand {
    public void setAlreadyReadFrom(BitSet alreadyReadFrom) {
       this.alreadyReadFrom = alreadyReadFrom;
    }
+   
+   public Object[] getDelayedKeys() {
+       return this.delayedKeys;
+    }
+    
 }

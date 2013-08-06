@@ -67,6 +67,8 @@ import java.util.Set;
  */
 public class EntryWrappingInterceptor extends CommandInterceptor {
 
+   public static EntryFactory FACTORY;
+    
    private EntryFactory entryFactory;
    protected DataContainer dataContainer;
    protected ClusteringDependentLogic cdl;
@@ -86,6 +88,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
    @Inject
    public void init(EntryFactory entryFactory, DataContainer dataContainer, ClusteringDependentLogic cdl, CommandsFactory commandFactory, StateConsumer stateConsumer) {
       this.entryFactory = entryFactory;
+      FACTORY = this.entryFactory;
       this.dataContainer = dataContainer;
       this.cdl = cdl;
       this.commandFactory = commandFactory;

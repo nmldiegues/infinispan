@@ -23,6 +23,7 @@
 package org.infinispan.commands;
 
 import org.infinispan.Cache;
+import org.infinispan.DelayedComputation;
 import org.infinispan.atomic.Delta;
 import org.infinispan.commands.control.LockControlCommand;
 import org.infinispan.commands.module.ModuleCommandInitializer;
@@ -645,10 +646,10 @@ public class CommandsFactoryImpl implements CommandsFactory {
 
    @Override
    public GMUPrepareCommand buildGMUPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications,
-                                                   boolean onePhaseCommit) {
+	   DelayedComputation<?>[] computations, boolean onePhaseCommit) {
       return gtx.getReconfigurableProtocol().useTotalOrder() ?
             new TotalOrderGMUPrepareCommand(cacheName, gtx, modifications, onePhaseCommit) :
-            new GMUPrepareCommand(cacheName, gtx, modifications, onePhaseCommit);
+            new GMUPrepareCommand(cacheName, gtx, modifications, computations, onePhaseCommit);
    }
 
    @Override

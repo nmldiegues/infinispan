@@ -23,6 +23,7 @@
 package org.infinispan.container.gmu;
 
 import org.infinispan.container.EntryFactoryImpl;
+import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.MVCCEntry;
 import org.infinispan.container.entries.NullMarkerEntry;
@@ -84,7 +85,33 @@ public class GMUEntryFactoryImpl extends EntryFactoryImpl {
       }
       return new SerializableEntry(key, value, lifespan, version);
    }
+   
+   public InternalCacheEntry getDelayedFromContainer(Object key, InvocationContext context) {
+       try {
+       EntryVersion maxVersionToRead = commitLog.getAvailableVersionLessThan(null);
+       InternalGMUCacheEntry entry = toInternalGMUCacheEntry(container.get(key, maxVersionToRead));
+       return entry.getInternalCacheEntry();
+	} catch (Exception e) {
+	    e.printStackTrace();
+	    System.exit(-1);
+	    throw new RuntimeException(e);
+	}
+    }
 
+   
+   public final Object delayedPut(InvocationContext ctx, Object key, Object value) {
+       try {
+       CacheEntry cacheEntry = ctx.lookupEntry(key);
+       MVCCEntry mvccEntry = wrapMvccEntryForPut(ctx, key, cacheEntry);
+       mvccEntry.copyForUpdate(container, localModeWriteSkewCheck);
+       return mvccEntry.setValue(value);
+	} catch (Exception e) {
+	    e.printStackTrace();
+	    System.exit(-1);
+	    throw new RuntimeException(e);
+	}
+    }
+   
    @Override
    protected InternalCacheEntry getFromContainer(Object key, InvocationContext context) {
       boolean singleRead = context instanceof SingleKeyNonTxInvocationContext;

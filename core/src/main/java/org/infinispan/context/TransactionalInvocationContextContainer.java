@@ -20,6 +20,7 @@
 package org.infinispan.context;
 
 import org.infinispan.CacheException;
+import org.infinispan.CacheImpl;
 import org.infinispan.configuration.cache.ClusterCacheLoaderConfiguration;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.CacheLoaderConfiguration;
@@ -115,6 +116,8 @@ public class TransactionalInvocationContextContainer extends AbstractInvocationC
       if (tx == null) throw new IllegalArgumentException("Cannot create a transactional context without a valid Transaction instance.");
       LocalTxInvocationContext localContext = new LocalTxInvocationContext();
       LocalTransaction localTransaction = transactionTable.getLocalTransaction(tx);
+      // if (CacheImpl.request.get())
+      // System.out.println("\t\tLocal Transaction: " + tx + "\t" + localTransaction + "\t" + (localTransaction != null ? localTransaction.getLookedUpEntries() : ""));
       localContext.setLocalTransaction(localTransaction);
       localContext.setTransaction(tx);
       localContext.setProtocolId(protocolTable.getProtocolId(tx));

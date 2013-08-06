@@ -234,7 +234,7 @@ public class EntryFactoryImpl implements EntryFactory {
       return mvccEntry;
    }
 
-   private MVCCEntry wrapMvccEntryForPut(InvocationContext ctx, Object key, CacheEntry cacheEntry) {
+   protected MVCCEntry wrapMvccEntryForPut(InvocationContext ctx, Object key, CacheEntry cacheEntry) {
       if (cacheEntry instanceof MVCCEntry) return (MVCCEntry) cacheEntry;
       return wrapInternalCacheEntryForPut(ctx, key, (InternalCacheEntry) cacheEntry);
    }

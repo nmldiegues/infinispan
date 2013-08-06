@@ -206,6 +206,15 @@ public class AbstractDelegatingAdvancedCache<K, V> extends AbstractDelegatingCac
     public void delayedComputation(DelayedComputation<?> computation) {
 	cache.delayedComputation(computation);
     }
+   
+   @Override
+    public Object delayedGet(Object key) {
+	return cache.delayedGet(key);
+    }
+   
+   public void delayedPut(Object key, Object value) {
+       cache.delayedPut(key, value);
+   }
 
    public interface AdvancedCacheWrapper<K, V> {
       AdvancedCache<K, V> wrap(AdvancedCache<K, V> cache);

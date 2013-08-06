@@ -40,7 +40,7 @@ public class TotalOrderGMUPrepareCommand extends GMUPrepareCommand implements To
    public static final byte COMMAND_ID = 45;
 
    public TotalOrderGMUPrepareCommand(String cacheName, GlobalTransaction gtx, List<WriteCommand> modifications, boolean onePhase) {
-      super(cacheName, gtx, modifications, onePhase);
+      super(cacheName, gtx, modifications, null, onePhase);
    }
 
    public TotalOrderGMUPrepareCommand(String cacheName) {

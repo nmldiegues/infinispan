@@ -76,6 +76,7 @@ import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
+import org.infinispan.container.gmu.GMUEntryFactoryImpl;
 import org.infinispan.container.versioning.gmu.GMUDistributedVersion;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
@@ -87,8 +88,10 @@ import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.SurvivesRestarts;
+import org.infinispan.interceptors.EntryWrappingInterceptor;
 import org.infinispan.interceptors.InterceptorChain;
 import org.infinispan.interceptors.base.CommandInterceptor;
+import org.infinispan.interceptors.gmu.GMUEntryWrappingInterceptor;
 import org.infinispan.jmx.annotations.DataType;
 import org.infinispan.jmx.annotations.DisplayType;
 import org.infinispan.jmx.annotations.MBean;
@@ -461,17 +464,38 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
        tx.addDelayedComputation(computation);
    }
 
+   public static transient final ThreadLocal<Boolean> request = new ThreadLocal<Boolean>() {
+       protected Boolean initialValue() {
+	   return false;
+       }
+   };
+   
    @Override
    public final Object delayedGet(Object key) {
-       InvocationContext ctx = getInvocationContextForRead(null, null, 1);
-       InternalCacheEntry entry = ((GMUEntryFactoryImpl)EntryWrappingInterceptor.FACTORY).getDelayedFromContainer(key, ctx);
+       //request.set(true);
+       //System.out.println("Requesting context for get");
+       InvocationContext ctx = GMUEntryWrappingInterceptor.CONTEXT_FOR_DELAYED.get(); //getInvocationContextForRead(null, null, 1);
+       //System.out.println("Finished context for get");
+       //request.set(false);
+       InternalCacheEntry entry = null;
+       try {
+       entry = ((GMUEntryFactoryImpl)EntryWrappingInterceptor.FACTORY).getDelayedFromContainer(key, ctx);
+	} catch (Exception e) {
+	    e.printStackTrace();
+	    System.exit(-1);
+	    throw new RuntimeException(e);
+	}
        ctx.putLookedUpEntry(key, entry);
        return entry != null ? entry.getValue() : null;
    }
    
    @Override
    public final void delayedPut(Object key, Object value) {
-       InvocationContext ctx = getInvocationContextWithImplicitTransaction(false, null, 1);
+       //request.set(true);
+       //System.out.println("Requesting context for put");
+       InvocationContext ctx = GMUEntryWrappingInterceptor.CONTEXT_FOR_DELAYED.get(); //getInvocationContextForRead(null, null, 1);
+       //System.out.println("Finished context for put");
+       //request.set(false);
        ((GMUEntryFactoryImpl)EntryWrappingInterceptor.FACTORY).delayedPut(ctx, key, value);
    }
    
@@ -530,8 +554,16 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
          //if we are in the scope of a transaction than return a transactional context. This is relevant e.g.
          // FORCE_WRITE_LOCK is used on read operations - in that case, the lock is held for the the transaction's
          // lifespan (when in tx scope) vs. call lifespan (when not in tx scope).
-         if (transaction != null)
-            return getInvocationContext(transaction, explicitClassLoader);
+         if (transaction != null) {
+             //if (request.get())
+             //System.out.println("\tRequesting ctx");
+             InvocationContext ctx =  getInvocationContext(transaction, explicitClassLoader);
+             //if (request.get())
+             //System.out.println("\tFinished ctx");
+             return ctx;
+         } //else if (transaction == null && request.get()) {
+            // System.out.println("Problem!");
+         //}
       }
       InvocationContext result = icc.createInvocationContext(false, keyCount);
       setInvocationContextClassLoader(result, explicitClassLoader);

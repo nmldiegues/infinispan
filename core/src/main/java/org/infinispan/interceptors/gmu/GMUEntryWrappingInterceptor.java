@@ -23,6 +23,7 @@
 package org.infinispan.interceptors.gmu;
 
 import org.infinispan.CacheException;
+import org.infinispan.DelayedComputation;
 import org.infinispan.commands.AbstractFlagAffectedCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.commands.tx.CommitCommand;
@@ -68,6 +69,7 @@ import org.infinispan.stats.container.TransactionStatistics;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.RemoteTransaction;
 import org.infinispan.transaction.gmu.CommitLog;
+import org.infinispan.transaction.gmu.GMUHelper;
 import org.infinispan.transaction.gmu.manager.CommittedTransaction;
 import org.infinispan.transaction.gmu.manager.TransactionCommitManager;
 import org.infinispan.transaction.xa.CacheTransaction;
@@ -81,7 +83,9 @@ import org.infinispan.util.logging.LogFactory;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -163,6 +167,8 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       return retVal;
    }
 
+   public static transient final ThreadLocal<TxInvocationContext> CONTEXT_FOR_DELAYED = new ThreadLocal<TxInvocationContext>();
+   
    @Override
    public Object visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
       GMUCommitCommand gmuCommitCommand = convert(command, GMUCommitCommand.class);
@@ -170,14 +176,21 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
 
       if (ctx.isOriginLocal()) {
          gmuCommitCommand.setCommitVersion(ctx.getTransactionVersion());
+         gmuCommitCommand.setDelayedComputations(ctx.getCacheTransaction().getDelayedComputations());
          transactionEntry = transactionCommitManager.commitTransaction(gmuCommitCommand.getGlobalTransaction(),
                                                                        gmuCommitCommand.getCommitVersion());
          //see org.infinispan.tx.gmu.DistConsistencyTest3.testNoCommitDeadlock
          //the commitTransaction() can re-order the queue. we need to check for pending commit commands.
          //if not, the queue can be blocked forever.
          gmuExecutor.checkForReadyTasks();
+      } else {
+	  ctx.getCacheTransaction().setDelayedComputations(new HashSet<DelayedComputation<?>>(Arrays.asList(gmuCommitCommand.getDelayedComputations())));
       }
 
+      CONTEXT_FOR_DELAYED.set(ctx);
+      GMUHelper.performDelayedComputations(ctx.getCacheTransaction(), cdl);
+      CONTEXT_FOR_DELAYED.set(null);
+      
       Object retVal = null;
       try {
          retVal = invokeNextIgnoringTimeout(ctx, command);

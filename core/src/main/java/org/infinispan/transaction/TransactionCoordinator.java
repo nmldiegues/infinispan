@@ -22,6 +22,7 @@
  */
 package org.infinispan.transaction;
 
+import org.infinispan.DelayedComputation;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.PrepareCommand;
@@ -115,8 +116,8 @@ public class TransactionCoordinator {
             }
 
             @Override
-            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, boolean onePhaseCommit) {
-               return commandsFactory.buildGMUPrepareCommand(gtx, modifications, onePhaseCommit);
+            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, boolean onePhaseCommit) {
+               return commandsFactory.buildGMUPrepareCommand(gtx, modifications, computations, onePhaseCommit);
             }
          };
       } else if (Configurations.isVersioningEnabled(configuration)) {
@@ -128,7 +129,7 @@ public class TransactionCoordinator {
             }
 
             @Override
-            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, boolean onePhaseCommit) {
+            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, boolean onePhaseCommit) {
                return commandsFactory.buildVersionedPrepareCommand(gtx, modifications, onePhaseCommit);
             }
          };
@@ -140,7 +141,7 @@ public class TransactionCoordinator {
             }
 
             @Override
-            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, boolean onePhaseCommit) {
+            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, boolean onePhaseCommit) {
                return commandsFactory.buildPrepareCommand(gtx, modifications, onePhaseCommit);
             }
          };
@@ -172,7 +173,8 @@ public class TransactionCoordinator {
          return XA_OK;
       }
 
-      PrepareCommand prepareCommand = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), modificationsList, false);
+      DelayedComputation<?>[] computations = localTransaction.getDelayedComputations();
+      PrepareCommand prepareCommand = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), modificationsList, computations, false);
       if (trace) log.tracef("Sending prepare command through the chain: %s", prepareCommand);
 
       LocalTxInvocationContext ctx = icc.createTxInvocationContext();
@@ -225,7 +227,7 @@ public class TransactionCoordinator {
          validateNotMarkedForRollback(localTransaction);
 
          if (trace) log.trace("Doing an 1PC prepare call on the interceptor chain");
-         PrepareCommand command = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), localTransaction.getModifications(), true);
+         PrepareCommand command = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), localTransaction.getModifications(), null, true);
          try {
             invoker.invoke(ctx, command);
          } catch (Throwable e) {
@@ -358,6 +360,6 @@ public class TransactionCoordinator {
 
    private static interface CommandCreator {
       CommitCommand createCommitCommand(GlobalTransaction gtx);
-      PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, boolean onePhaseCommit);
+      PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, boolean onePhaseCommit);
    }
 }
