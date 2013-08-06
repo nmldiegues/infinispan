@@ -203,6 +203,15 @@ public class AbstractDelegatingAdvancedCache<K, V> extends AbstractDelegatingCac
    }
    
    @Override
+    public int addValidationRule(ValidationRule<?> rule) {
+	return cache.addValidationRule(rule);
+    }
+   
+   public V getWithRule(Object key, int ruleIndex) {
+       return cache.getWithRule(key, ruleIndex);
+   }
+   
+   @Override
     public void delayedComputation(DelayedComputation<?> computation) {
 	cache.delayedComputation(computation);
     }

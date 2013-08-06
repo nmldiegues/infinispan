@@ -134,6 +134,10 @@ public interface Cache<K, V> extends BasicCache<K, V>, Listenable {
     */
    void putForExternalRead(K key, V value);
 
+   public V getWithRule(Object key, int ruleIndex);
+   
+   public int addValidationRule(ValidationRule<?> rule);
+   
    public void delayedComputation(DelayedComputation<?> computation);
    
    public Object delayedGet(Object key);

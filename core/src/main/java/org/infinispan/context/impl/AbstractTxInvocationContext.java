@@ -114,6 +114,11 @@ public abstract class AbstractTxInvocationContext extends AbstractInvocationCont
    public Collection<Object> getReadSet() {
       return getCacheTransaction().getReadKeys();
    }
+   
+   @Override
+   public Collection<Object> getReadSetWithRule() {
+      return getCacheTransaction().getReadKeysWithRule();
+   }
 
    @Override
    public void addReadFrom(Address address) {

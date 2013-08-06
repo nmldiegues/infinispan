@@ -126,4 +126,6 @@ public interface TxInvocationContext extends InvocationContext {
     * @return  the key read by this transaction
     */
    Collection<Object> getReadSet();
+   
+   Collection<Object> getReadSetWithRule();
 }

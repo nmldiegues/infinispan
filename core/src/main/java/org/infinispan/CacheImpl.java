@@ -31,8 +31,10 @@ import static org.infinispan.context.InvocationContextContainer.UNBOUNDED;
 import static org.infinispan.factories.KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR;
 import static org.infinispan.factories.KnownComponentNames.CACHE_MARSHALLER;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -454,6 +456,21 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
                log.debug("Had problems trying to resume a transaction after putForExternalRead()", e);
          }
       }
+   }
+   
+   public static transient final List<ValidationRule> RULES = new ArrayList<ValidationRule>(1);
+   
+   @Override
+   public int addValidationRule(ValidationRule<?> rule) {
+	RULES.add(rule);
+	return RULES.size() - 1;
+   }
+   
+   public V getWithRule(Object key, int ignoredForNowAssumeOnlyOne) {
+       assertKeyNotNull(key);
+       InvocationContext ctx = getInvocationContextForRead(null, null, 1);
+       GetKeyValueCommand command = commandsFactory.buildGetKeyValueCommand(key, Collections.singleton(Flag.READ_WITH_RULE));
+       return (V) invoker.invoke(ctx, command);
    }
    
    @Override

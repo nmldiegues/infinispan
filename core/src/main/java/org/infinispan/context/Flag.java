@@ -103,7 +103,9 @@ public enum Flag {
     * read should still reflect a consistent snapshot, but it can never cause a transaction to abort.
     * This application assumes responsability of guaranteeing consistency if using this.
     */
-   READ_WITHOUT_REGISTERING, 
+   READ_WITHOUT_REGISTERING,
+   
+   READ_WITH_RULE,
    
    FORCE_SYNCHRONOUS,
       

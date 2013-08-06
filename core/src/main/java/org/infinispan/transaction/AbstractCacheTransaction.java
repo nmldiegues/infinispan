@@ -318,6 +318,11 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    }
    
    @Override
+   public void addReadKeyWithRule(Object key) {
+       
+   }
+   
+   @Override
    public boolean keyRead(Object key) {
       return false;
    }
@@ -341,6 +346,11 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    @Override
    public Collection<Object> getReadKeys() {
       return Collections.emptyList();
+   }
+   
+   @Override
+   public Collection<Object> getReadKeysWithRule() {
+       return Collections.emptyList();
    }
 
    @Override

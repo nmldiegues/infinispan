@@ -46,6 +46,7 @@ public class GMUPrepareCommand extends PrepareCommand {
 
    private Object[] delayedKeys;
    private Object[] readSet;
+   private Object[] readSetWithRule;
    private EntryVersion version;
    private BitSet alreadyReadFrom;
 
@@ -108,16 +109,18 @@ public class GMUPrepareCommand extends PrepareCommand {
    public Object[] getParameters() {
       int numMods = modifications == null ? 0 : modifications.length;
       int numReads = readSet == null ? 0 : readSet.length;
+      int numReadsWithRule = readSetWithRule == null ? 0 : readSetWithRule.length;
       int delayKeys = delayedKeys == null ? 0 : delayedKeys.length;
       int i = 0;
-      final int params = 7;
-      Object[] retVal = new Object[numMods + numReads + params + delayKeys];
+      final int params = 8;
+      Object[] retVal = new Object[numMods + numReads + numReadsWithRule + params + delayKeys];
       retVal[i++] = globalTx;
       retVal[i++] = onePhaseCommit;
       retVal[i++] = version;
       retVal[i++] = alreadyReadFrom;
       retVal[i++] = numMods;
       retVal[i++] = numReads;
+      retVal[i++] = numReadsWithRule;
       retVal[i] = delayKeys;
       if (numMods > 0) {
 	  System.arraycopy(modifications, 0, retVal, params, numMods);
@@ -125,8 +128,11 @@ public class GMUPrepareCommand extends PrepareCommand {
       if (numReads > 0) {
 	  System.arraycopy(readSet, 0, retVal, params + numMods, numReads);
       }
+      if (numReadsWithRule > 0) {
+	  System.arraycopy(readSetWithRule, 0, retVal, params + numMods + numReads, numReadsWithRule);
+      }
       if (delayKeys > 0) {
-	  System.arraycopy(delayedKeys, 0, retVal, params + numMods + numReads, delayKeys);
+	  System.arraycopy(delayedKeys, 0, retVal, params + numMods + numReads + numReadsWithRule, delayKeys);
       }
       return retVal;
    }
@@ -141,6 +147,7 @@ public class GMUPrepareCommand extends PrepareCommand {
       alreadyReadFrom = (BitSet) args[i++];
       int numMods = (Integer) args[i++];
       int numReads = (Integer) args[i++];
+      int numReadsWithRule = (Integer) args[i++];
       int delayKeys = (Integer) args[i++];
       if (numMods > 0) {
          modifications = new WriteCommand[numMods];
@@ -150,9 +157,13 @@ public class GMUPrepareCommand extends PrepareCommand {
          readSet = new Object[numReads];
          System.arraycopy(args, i + numMods, readSet, 0, numReads);
       }
+      if (numReadsWithRule > 0) {
+	  readSetWithRule = new Object[numReadsWithRule];
+	  System.arraycopy(args, i+ numMods + numReads, readSetWithRule, 0, numReadsWithRule);
+      }
       if(delayKeys > 0){
          delayedKeys = new Object[delayKeys];
-         System.arraycopy(args, i + numMods + numReads, delayedKeys, 0, delayKeys);
+         System.arraycopy(args, i + numMods + numReads + numReadsWithRule, delayedKeys, 0, delayKeys);
       }
    }
 
@@ -163,6 +174,7 @@ public class GMUPrepareCommand extends PrepareCommand {
       copy.modifications = modifications == null ? null : modifications.clone();
       copy.onePhaseCommit = onePhaseCommit;
       copy.readSet = readSet == null ? null : readSet.clone();
+      copy.readSetWithRule = readSetWithRule == null ? null : readSetWithRule.clone();
       copy.version = version;
       copy.alreadyReadFrom = alreadyReadFrom;
       copy.delayedKeys = delayedKeys == null ? null : delayedKeys.clone();
@@ -177,6 +189,7 @@ public class GMUPrepareCommand extends PrepareCommand {
             ", gtx=" + globalTx +
             ", cacheName='" + cacheName + '\'' +
             ", readSet=" + (readSet == null ? null : Arrays.asList(readSet)) +
+            ", readSetWithRule=" + (readSetWithRule == null ? null : Arrays.asList(readSetWithRule)) +
             ", modifications=" + getAffectedKeys() +
             '}';
    }
@@ -184,6 +197,10 @@ public class GMUPrepareCommand extends PrepareCommand {
    public void setReadSet(Collection<Object> readSet) {
       this.readSet = readSet == null || readSet.isEmpty() ? null : readSet.toArray();
    }
+   
+   public void setReadSetWithRule(Collection<Object> readSetWithRule) {
+       this.readSetWithRule = readSetWithRule == null || readSetWithRule.isEmpty() ? null : readSetWithRule.toArray();
+    }
 
    public void setVersion(EntryVersion version) {
       this.version = version;
@@ -192,6 +209,10 @@ public class GMUPrepareCommand extends PrepareCommand {
    public Object[] getReadSet() {
       return readSet == null ? EMPTY_READ_SET_ARRAY : readSet;
    }
+   
+   public Object[] getReadSetWithRule() {
+       return readSetWithRule == null ? EMPTY_READ_SET_ARRAY : readSetWithRule;
+    }
 
    public EntryVersion getPrepareVersion() {
       return version;

@@ -23,6 +23,7 @@
 package org.infinispan.transaction.gmu;
 
 import org.infinispan.CacheException;
+import org.infinispan.CacheImpl;
 import org.infinispan.DelayedComputation;
 import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.container.DataContainer;
@@ -48,6 +49,7 @@ import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import java.io.Serializable;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
@@ -92,6 +94,17 @@ public class GMUHelper {
                log.debugf("[%s] Validate [%s]: keys is not local", gtx.globalId(), key);
             }
          }
+      }
+      for (Object key : prepareCommand.getReadSetWithRule()) {
+	  if (keyLogic.localNodeIsPrimaryOwner(key)) {
+	      final InternalGMUCacheEntry cacheEntry = toInternalGMUCacheEntry(dataContainer.get(key, readVersion));
+	      if (!cacheEntry.isMostRecent()) {
+		  final InternalGMUCacheEntry latestEntry = toInternalGMUCacheEntry(dataContainer.get(key, null));
+		  if (!CacheImpl.RULES.get(0).isStillValid((Serializable) latestEntry.getValue())) {
+		      throw new ValidationException("Validation failed for key [" + key + "]", key);
+		  }
+	      }
+	  }
       }
    }
 

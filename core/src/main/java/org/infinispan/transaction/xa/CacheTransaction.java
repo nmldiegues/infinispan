@@ -121,6 +121,8 @@ public interface CacheTransaction {
    boolean keyRead(Object key);
 
    void addReadKey(Object key);
+   
+   void addReadKeyWithRule(Object key);
 
    boolean isMarkedForRollback();
 
@@ -133,6 +135,8 @@ public interface CacheTransaction {
    EntryVersion calculateVersionToRead(VersionGenerator versionGenerator);
 
    Collection<Object> getReadKeys();
+   
+   Collection<Object> getReadKeysWithRule();
 
    void addReadFrom(Address address);
 
