@@ -258,7 +258,13 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
          Iterator<Map.Entry<Object, CacheEntry>> it = entries.iterator();
          final Log log = getLog();
          while (it.hasNext()) {
-            Map.Entry<Object, CacheEntry> e = it.next();
+            Map.Entry<Object, CacheEntry> e = null;
+            try {
+               e = it.next();
+            } catch (Exception e2) {
+               e2.printStackTrace();
+               System.exit(-1);
+            }
             CacheEntry entry = e.getValue();
             if (!commitEntryIfNeeded(ctx, skipOwnershipCheck, e.getKey(), entry, isPutForStateTransfer)) {
                if (trace) {

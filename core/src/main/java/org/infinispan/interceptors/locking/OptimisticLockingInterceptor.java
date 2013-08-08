@@ -94,7 +94,7 @@ public class OptimisticLockingInterceptor extends AbstractTxLockingInterceptor {
 
    private void markKeyAsRead(InvocationContext ctx, AbstractDataCommand command) {
       Object key = command.getKey();
-      if (needToMarkReads && !command.hasFlag(Flag.IGNORE_RETURN_VALUES) && ctx.isInTxScope()) {
+      if (needToMarkReads && !command.hasFlag(Flag.IGNORE_RETURN_VALUES) && !command.hasFlag(Flag.READ_WITH_RULE) && ctx.isInTxScope()) {
          TxInvocationContext tctx = (TxInvocationContext) ctx;
          tctx.getCacheTransaction().addReadKey(key);
       }

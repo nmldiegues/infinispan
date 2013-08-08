@@ -108,7 +108,7 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
       isMarkedForRollback = markForRollback;
    }
    
-   protected Set<DelayedComputation<?>> delayedComputations = null;
+   protected Map<Object, DelayedComputation<?>> delayedComputations = null;
 
    public AbstractCacheTransaction(GlobalTransaction tx, int topologyId) {
       this.tx = tx;
@@ -402,22 +402,28 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    @Override
    public DelayedComputation<?>[] getDelayedComputations() {
       if (delayedComputations != null) {
-         return delayedComputations.toArray(new DelayedComputation<?>[0]);
+         return delayedComputations.values().toArray(new DelayedComputation<?>[0]);
       }
       return null;
    }
    
    @Override
-   public void setDelayedComputations(Set<DelayedComputation<?>> computations) {
+   public void setDelayedComputations(Map<Object, DelayedComputation<?>> computations) {
       this.delayedComputations = computations;
    }
    
    @Override
    public void addDelayedComputation(DelayedComputation<?> computation) {
       if (this.delayedComputations == null) {
-         this.delayedComputations = new HashSet<DelayedComputation<?>>();
+         this.delayedComputations = new HashMap<Object, DelayedComputation<?>>();
       }
-      this.delayedComputations.add(computation);
+      Object key = computation.getAffectedKeys().iterator().next();
+      DelayedComputation<?> alreadyExisting = this.delayedComputations.get(key);
+      if (alreadyExisting != null) {
+         alreadyExisting.mergeNewDelayedComputation(computation);
+      } else {
+         this.delayedComputations.put(key, computation);
+      }
    }
    
 

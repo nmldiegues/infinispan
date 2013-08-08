@@ -100,7 +100,14 @@ public class GMUHelper {
 	      final InternalGMUCacheEntry cacheEntry = toInternalGMUCacheEntry(dataContainer.get(key, readVersion));
 	      if (!cacheEntry.isMostRecent()) {
 		  final InternalGMUCacheEntry latestEntry = toInternalGMUCacheEntry(dataContainer.get(key, null));
-		  if (!CacheImpl.RULES.get(0).isStillValid((Serializable) latestEntry.getValue())) {
+		  boolean bla = false;
+		  try {
+		     bla = CacheImpl.RULES.get(0).isStillValid((Serializable) latestEntry.getValue());
+		  } catch (Exception e) {
+		     e.printStackTrace();
+		     System.exit(-1);
+		  }
+		  if (!bla) {
 		      throw new ValidationException("Validation failed for key [" + key + "]", key);
 		  }
 	      }

@@ -85,6 +85,7 @@ import javax.transaction.TransactionManager;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -185,7 +186,12 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          //if not, the queue can be blocked forever.
          gmuExecutor.checkForReadyTasks();
       } else {
-	  ctx.getCacheTransaction().setDelayedComputations(new HashSet<DelayedComputation<?>>(Arrays.asList(gmuCommitCommand.getDelayedComputations())));
+         DelayedComputation<?>[] computations = gmuCommitCommand.getDelayedComputations();
+         Map<Object, DelayedComputation<?>> map = new HashMap<Object, DelayedComputation<?>>(computations.length);
+         for (DelayedComputation<?> computation : computations) {
+            map.put(computation.getAffectedKeys().iterator().next(), computation);
+         }
+         ctx.getCacheTransaction().setDelayedComputations(map);         
       }
 
       CONTEXT_FOR_DELAYED.set(ctx);
