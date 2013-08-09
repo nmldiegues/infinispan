@@ -473,14 +473,16 @@ public class DummyTransaction implements Transaction {
          status = Status.STATUS_COMMITTED;
          
          Collection<XAResource> resources = transaction.getEnlistedResources();
-         TransactionXaAdapter adapter = (TransactionXaAdapter) resources.iterator().next();
-         LocalTransaction localTx = adapter.getLocalTransaction();
-         if (localTx.getRemoteDEFs() != null && !localTx.sentDEFCommits) {
-             EntryVersion commitVersion = localTx.getTransactionVersion();
-             for (Map.Entry<Object, GlobalTransaction> entry : localTx.getRemoteDEFs().entrySet()) {
-                TransactionCoordinator.des.submit(new DEFCommit(entry.getValue(), commitVersion), entry.getKey(), true);
-             }
-             localTx.sentDEFCommits = true;
+         if (resources.size() > 0) {
+            TransactionXaAdapter adapter = (TransactionXaAdapter) resources.iterator().next();
+            LocalTransaction localTx = adapter.getLocalTransaction();
+            if (localTx.getRemoteDEFs() != null && !localTx.sentDEFCommits) {
+               EntryVersion commitVersion = localTx.getTransactionVersion();
+               for (Map.Entry<Object, GlobalTransaction> entry : localTx.getRemoteDEFs().entrySet()) {
+                  TransactionCoordinator.des.submit(new DEFCommit(entry.getValue(), commitVersion), entry.getKey(), true);
+               }
+               localTx.sentDEFCommits = true;
+            }
          }
          
       } catch (HeuristicMixedException e) {
