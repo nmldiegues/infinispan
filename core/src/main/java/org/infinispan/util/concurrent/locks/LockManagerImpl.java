@@ -26,6 +26,7 @@ import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.factories.annotations.Inject;
+import org.infinispan.interceptors.locking.OptimisticLockingInterceptor;
 import org.infinispan.jmx.annotations.DataType;
 import org.infinispan.jmx.annotations.MBean;
 import org.infinispan.jmx.annotations.ManagedAttribute;
@@ -91,6 +92,7 @@ public class LockManagerImpl implements LockManager {
       for (Object k : ctx.getLockedKeys()) {
          if (trace) log.tracef("Attempting to unlock %s", k);
          lockContainer.releaseLock(ctx.getLockOwner(), k);
+         OptimisticLockingInterceptor.unlockDelayed(k, false);
       }
       ctx.clearLockedKeys();
    }
