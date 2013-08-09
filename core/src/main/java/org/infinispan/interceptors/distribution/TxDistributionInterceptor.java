@@ -239,8 +239,8 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
       if (shouldInvokeRemoteTxCommand(ctx)) {
          if (command.isOnePhaseCommit()) flushL1Caches(ctx); // if we are one-phase, don't block on this future.
 
-         boolean affectsAllNodes = ctx.getCacheTransaction().hasModification(ClearCommand.class);
-         Collection<Address> recipients = affectsAllNodes ? dm.getWriteConsistentHash().getMembers() : dm.getAffectedNodes(ctx.getAffectedKeys());
+         // boolean affectsAllNodes = ctx.getCacheTransaction().hasModification(ClearCommand.class);
+         Collection<Address> recipients = cdl.getInvolvedNodes(ctx.getCacheTransaction()); //affectsAllNodes ? dm.getWriteConsistentHash().getMembers() : dm.getAffectedNodes(ctx.getAffectedKeys());
          prepareOnAffectedNodes(ctx, command, recipients, defaultSynchronous);
          
          ((LocalTxInvocationContext) ctx).remoteLocksAcquired(recipients);
@@ -268,7 +268,7 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
 
    protected Collection<Address> getCommitNodes(TxInvocationContext ctx) {
       LocalTransaction localTx = (LocalTransaction) ctx.getCacheTransaction();
-      Collection<Address> affectedNodes = dm.getAffectedNodes(ctx.getAffectedKeys());
+      Collection<Address> affectedNodes = cdl.getInvolvedNodes(ctx.getCacheTransaction()); //dm.getAffectedNodes(ctx.getAffectedKeys());
       List<Address> members = dm.getConsistentHash().getMembers();
       return localTx.getCommitNodes(affectedNodes, rpcManager.getTopologyId(), members);
    }
