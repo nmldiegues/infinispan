@@ -50,6 +50,7 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
@@ -73,7 +74,7 @@ public class GMUHelper {
                                                DataContainer dataContainer,
                                                ClusteringDependentLogic keyLogic, GMUVersion readVersion) {
       GlobalTransaction gtx = prepareCommand.getGlobalTransaction();
-      if (prepareCommand.getReadSet() == null || prepareCommand.getReadSet().length == 0) {
+      if ((prepareCommand.getReadSet() == null || prepareCommand.getReadSet().length == 0) && (prepareCommand.getReadSetWithRule() == null || prepareCommand.getReadSetWithRule().length == 0)) {
          if (log.isDebugEnabled()) {
             log.debugf("Validation of [%s] OK. no read set", gtx.globalId());
          }
@@ -325,6 +326,13 @@ public class GMUHelper {
              continue;
           }
           Object result = computation.compute();
+          
+          List<DelayedComputation> history = CacheImpl.HISTORY.get(computation.getAffectedKeys().iterator().next());
+          if (history == null) {
+             history = new ArrayList<DelayedComputation>();
+             CacheImpl.HISTORY.put(computation.getAffectedKeys().iterator().next(), history);
+          }
+          history.add(computation);
        }
     }
 

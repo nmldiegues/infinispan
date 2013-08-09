@@ -19,6 +19,7 @@
 
 package org.infinispan.interceptors;
 
+import org.infinispan.CacheImpl;
 import org.infinispan.commands.AbstractVisitor;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.FlagAffectedCommand;
@@ -47,9 +48,11 @@ import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.interceptors.base.CommandInterceptor;
+import org.infinispan.interceptors.gmu.GMUEntryWrappingInterceptor;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.statetransfer.StateConsumer;
 import org.infinispan.transaction.LocalTransaction;
+import org.infinispan.transaction.gmu.GMUHelper;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -254,6 +257,17 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
          SingleKeyNonTxInvocationContext singleKeyCtx = (SingleKeyNonTxInvocationContext) ctx;
          commitEntryIfNeeded(ctx, skipOwnershipCheck, singleKeyCtx.getKey(), singleKeyCtx.getCacheEntry(), isPutForStateTransfer);
       } else {
+
+         if (ctx instanceof TxInvocationContext) {
+            TxInvocationContext txCtx = (TxInvocationContext) ctx;
+            GMUEntryWrappingInterceptor.CONTEXT_FOR_DELAYED.set(txCtx);
+            GMUHelper.performDelayedComputations(txCtx.getCacheTransaction(), cdl);
+            GMUEntryWrappingInterceptor.CONTEXT_FOR_DELAYED.set(null);
+               
+               CacheImpl.MAP_DEBUG.remove(txCtx.getCacheTransaction());
+         }
+         
+         
          Set<Map.Entry<Object, CacheEntry>> entries = ctx.getLookedUpEntries().entrySet();
          Iterator<Map.Entry<Object, CacheEntry>> it = entries.iterator();
          final Log log = getLog();

@@ -36,10 +36,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -110,6 +113,7 @@ import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.stats.Stats;
 import org.infinispan.stats.StatsImpl;
+import org.infinispan.transaction.AbstractCacheTransaction;
 import org.infinispan.transaction.CacheCallable;
 import org.infinispan.transaction.DEFResult;
 import org.infinispan.transaction.DEFTask;
@@ -472,6 +476,9 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
        GetKeyValueCommand command = commandsFactory.buildGetKeyValueCommand(key, Collections.singleton(Flag.READ_WITH_RULE));
        return (V) invoker.invoke(ctx, command);
    }
+   
+   public static final transient Map<Object, List<DelayedComputation>> HISTORY = new HashMap<Object, List<DelayedComputation>>();
+   public static final transient Map<AbstractCacheTransaction, DelayedActionsHolder> MAP_DEBUG = new ConcurrentHashMap<AbstractCacheTransaction, DelayedActionsHolder>();
    
    @Override
    public final void delayedComputation(DelayedComputation<?> computation) {

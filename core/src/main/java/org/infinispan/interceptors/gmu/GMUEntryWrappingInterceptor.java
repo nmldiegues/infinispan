@@ -23,6 +23,7 @@
 package org.infinispan.interceptors.gmu;
 
 import org.infinispan.CacheException;
+import org.infinispan.CacheImpl;
 import org.infinispan.DelayedComputation;
 import org.infinispan.commands.AbstractFlagAffectedCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
@@ -194,10 +195,6 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          ctx.getCacheTransaction().setDelayedComputations(map);         
       }
 
-      CONTEXT_FOR_DELAYED.set(ctx);
-      GMUHelper.performDelayedComputations(ctx.getCacheTransaction(), cdl);
-      CONTEXT_FOR_DELAYED.set(null);
-      
       Object retVal = null;
       try {
          retVal = invokeNextIgnoringTimeout(ctx, command);
@@ -299,6 +296,9 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       try {
          return invokeNextInterceptor(ctx, command);
       } finally {
+         
+            CacheImpl.MAP_DEBUG.remove(ctx.getCacheTransaction());
+         
          transactionCommitManager.rollbackTransaction(ctx.getCacheTransaction());
          if (ctx.isOriginLocal()) {
             gmuExecutor.checkForReadyTasks();

@@ -32,6 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.infinispan.CacheImpl;
+import org.infinispan.DelayedActionsHolder;
 import org.infinispan.DelayedComputation;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.entries.CacheEntry;
@@ -423,6 +425,13 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
          alreadyExisting.mergeNewDelayedComputation(computation);
       } else {
          this.delayedComputations.put(key, computation);
+         
+            DelayedActionsHolder actions = CacheImpl.MAP_DEBUG.get(this);
+            if (actions == null) {
+               actions = new DelayedActionsHolder();
+               CacheImpl.MAP_DEBUG.put(this, actions);
+            }
+            actions.computations.add(computation);
       }
    }
    
