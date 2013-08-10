@@ -187,10 +187,10 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          //if not, the queue can be blocked forever.
          gmuExecutor.checkForReadyTasks();
       } else {
-         DelayedComputation<?>[] computations = gmuCommitCommand.getDelayedComputations();
-         Map<Object, DelayedComputation<?>> map = new HashMap<Object, DelayedComputation<?>>(computations.length);
-         for (DelayedComputation<?> computation : computations) {
-            map.put(computation.getAffectedKeys().iterator().next(), computation);
+         DelayedComputation[] computations = gmuCommitCommand.getDelayedComputations();
+         Map<Object, DelayedComputation> map = new HashMap<Object, DelayedComputation>(computations.length);
+         for (DelayedComputation computation : computations) {
+            map.put(computation.getAffectedKey(), computation);
          }
          ctx.getCacheTransaction().setDelayedComputations(map);         
       }
@@ -299,7 +299,14 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          
             CacheImpl.MAP_DEBUG.remove(ctx.getCacheTransaction());
          
-         transactionCommitManager.rollbackTransaction(ctx.getCacheTransaction());
+         CacheTransaction cacheTx = ctx.getCacheTransaction();
+         DelayedComputation[] delayedComputations = cacheTx.getDelayedComputations();
+         if (delayedComputations != null) {
+             for (DelayedComputation comp : delayedComputations) {
+        	 GMUHelper.SPEC_COUNTER_MAP.get(comp.getAffectedKey()).addAndGet(-comp.count);
+             }
+         }
+         transactionCommitManager.rollbackTransaction(cacheTx);
          if (ctx.isOriginLocal()) {
             gmuExecutor.checkForReadyTasks();
          }

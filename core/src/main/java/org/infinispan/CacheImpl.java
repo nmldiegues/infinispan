@@ -481,7 +481,7 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
    public static final transient Map<AbstractCacheTransaction, DelayedActionsHolder> MAP_DEBUG = new ConcurrentHashMap<AbstractCacheTransaction, DelayedActionsHolder>();
    
    @Override
-   public final void delayedComputation(DelayedComputation<?> computation) {
+   public final void delayedComputation(DelayedComputation computation) {
        TxInvocationContext ctx = (TxInvocationContext) getInvocationContextWithImplicitTransaction(false, null, 1);
        LocalTransaction tx = txTable.getOrCreateLocalTransaction(ctx.getTransaction(), ctx);
        txTable.enlist(ctx.getTransaction(), tx);

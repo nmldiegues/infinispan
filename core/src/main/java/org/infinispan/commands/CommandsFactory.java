@@ -431,7 +431,7 @@ public interface CommandsFactory {
     * @return
     */
    GMUPrepareCommand buildGMUPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications,
-	   DelayedComputation<?>[] computations, boolean onePhaseCommit);
+	   DelayedComputation[] computations, boolean onePhaseCommit);
 
    /**
     * 

@@ -356,7 +356,7 @@ public class ControlledCommandFactory implements CommandsFactory {
    }
 
    @Override
-   public GMUPrepareCommand buildGMUPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, boolean onePhaseCommit) {
+   public GMUPrepareCommand buildGMUPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation[] computations, boolean onePhaseCommit) {
       return actual.buildGMUPrepareCommand(gtx, modifications, computations, onePhaseCommit);
    }
 

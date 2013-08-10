@@ -646,7 +646,7 @@ public class CommandsFactoryImpl implements CommandsFactory {
 
    @Override
    public GMUPrepareCommand buildGMUPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications,
-	   DelayedComputation<?>[] computations, boolean onePhaseCommit) {
+	   DelayedComputation[] computations, boolean onePhaseCommit) {
       return gtx.getReconfigurableProtocol().useTotalOrder() ?
             new TotalOrderGMUPrepareCommand(cacheName, gtx, modifications, onePhaseCommit) :
             new GMUPrepareCommand(cacheName, gtx, modifications, computations, onePhaseCommit);

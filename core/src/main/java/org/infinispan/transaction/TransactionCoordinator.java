@@ -116,7 +116,7 @@ public class TransactionCoordinator {
             }
 
             @Override
-            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, boolean onePhaseCommit) {
+            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation[] computations, boolean onePhaseCommit) {
                return commandsFactory.buildGMUPrepareCommand(gtx, modifications, computations, onePhaseCommit);
             }
          };
@@ -129,7 +129,7 @@ public class TransactionCoordinator {
             }
 
             @Override
-            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, boolean onePhaseCommit) {
+            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation[] computations, boolean onePhaseCommit) {
                return commandsFactory.buildVersionedPrepareCommand(gtx, modifications, onePhaseCommit);
             }
          };
@@ -141,7 +141,7 @@ public class TransactionCoordinator {
             }
 
             @Override
-            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, boolean onePhaseCommit) {
+            public PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation[] computations, boolean onePhaseCommit) {
                return commandsFactory.buildPrepareCommand(gtx, modifications, onePhaseCommit);
             }
          };
@@ -173,7 +173,7 @@ public class TransactionCoordinator {
          return XA_OK;
       }
 
-      DelayedComputation<?>[] computations = localTransaction.getDelayedComputations();
+      DelayedComputation[] computations = localTransaction.getDelayedComputations();
       PrepareCommand prepareCommand = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), modificationsList, computations, false);
       if (trace) log.tracef("Sending prepare command through the chain: %s", prepareCommand);
 
@@ -360,6 +360,6 @@ public class TransactionCoordinator {
 
    private static interface CommandCreator {
       CommitCommand createCommitCommand(GlobalTransaction gtx);
-      PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation<?>[] computations, boolean onePhaseCommit);
+      PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, DelayedComputation[] computations, boolean onePhaseCommit);
    }
 }

@@ -54,8 +54,12 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.infinispan.container.gmu.GMUEntryFactoryImpl.wrap;
 import static org.infinispan.container.versioning.InequalVersionComparisonResult.*;
@@ -70,6 +74,8 @@ public class GMUHelper {
 
    private static final Log log = LogFactory.getLog(GMUHelper.class);
 
+   public static transient final Map<Object, AtomicInteger> SPEC_COUNTER_MAP = new ConcurrentHashMap<Object, AtomicInteger>();
+   
    public static void performReadSetValidation(GMUPrepareCommand prepareCommand,
                                                DataContainer dataContainer,
                                                ClusteringDependentLogic keyLogic, GMUVersion readVersion) {
@@ -96,19 +102,46 @@ public class GMUHelper {
             }
          }
       }
+      
+      Object[] delayedKeys = prepareCommand.getDelayedKeys();
+      int[] delayedValues = prepareCommand.getDelayedValues();
+      if (delayedKeys == null) {
+	  return;
+      }
+      
+      Map<Object, Integer> myDelayedActions = new HashMap<Object, Integer>(delayedKeys.length);
+      for (int i = 0; i < delayedKeys.length; i++) {
+	  Object key = delayedKeys[i];
+	  int val = delayedValues[i];
+	  myDelayedActions.put(key, val);
+	  AtomicInteger specCounter = SPEC_COUNTER_MAP.get(key);
+	  if (specCounter == null) {
+	      specCounter = new AtomicInteger(val);
+	      SPEC_COUNTER_MAP.put(key, specCounter);
+	  } else {
+	      specCounter.addAndGet(val);
+	  }
+      }
+      
       for (Object key : prepareCommand.getReadSetWithRule()) {
 	  if (keyLogic.localNodeIsPrimaryOwner(key)) {
-	      final InternalGMUCacheEntry cacheEntry = toInternalGMUCacheEntry(dataContainer.get(key, readVersion));
-	      if (!cacheEntry.isMostRecent()) {
-		  final InternalGMUCacheEntry latestEntry = toInternalGMUCacheEntry(dataContainer.get(key, null));
-		  boolean bla = false;
-		  try {
-		     bla = CacheImpl.RULES.get(0).isStillValid((Serializable) latestEntry.getValue());
-		  } catch (Exception e) {
-		     e.printStackTrace();
-		     System.exit(-1);
+	      
+	      Integer myAction = myDelayedActions.get(key);
+	      Integer specCounterValue = SPEC_COUNTER_MAP.get(key).get();
+	      
+	      if (myAction == null) {
+		 // did not do lazy action on this key - index 2
+		  if (!CacheImpl.RULES.get(2).isStillValid(specCounterValue, myAction)) {
+		      throw new ValidationException("Validation failed for key [" + key + "]", key);
 		  }
-		  if (!bla) {
+	      } else if (myAction < 0) {
+		  // decremented the key - index 1
+		  if (!CacheImpl.RULES.get(1).isStillValid(specCounterValue, myAction)) {
+		      throw new ValidationException("Validation failed for key [" + key + "]", key);
+		  }
+	      } else {
+		  // incremented the key - index 0
+		  if (!CacheImpl.RULES.get(0).isStillValid(specCounterValue, myAction)) {
 		      throw new ValidationException("Validation failed for key [" + key + "]", key);
 		  }
 	      }
@@ -309,30 +342,23 @@ public class GMUHelper {
    }
 
    public static void performDelayedComputations(CacheTransaction cacheTx, ClusteringDependentLogic distributionLogic) {
-       DelayedComputation<?>[] delayedComputations = cacheTx.getDelayedComputations();
+       DelayedComputation[] delayedComputations = cacheTx.getDelayedComputations();
        if (delayedComputations == null) {
           return;
        }
-       for (DelayedComputation<?> computation : delayedComputations) {
-          Collection<Object> keys = computation.getAffectedKeys();
-          boolean doComputation = true;
-          for (Object key : keys) {
-             if (! distributionLogic.localNodeIsOwner(key)) {
-                doComputation = false;
-                break;
-             }
-          }
-          if (! doComputation) {
-             continue;
-          }
-          Object result = computation.compute();
+       for (DelayedComputation computation : delayedComputations) {
+          Object key = computation.getAffectedKey();
+          if (distributionLogic.localNodeIsOwner(key)) {
+              computation.compute();
+              
+              List<DelayedComputation> history = CacheImpl.HISTORY.get(computation.getAffectedKey());
+              if (history == null) {
+        	  history = new ArrayList<DelayedComputation>();
+        	  CacheImpl.HISTORY.put(computation.getAffectedKey(), history);
+              }
+              history.add(computation);
+          } 
           
-          List<DelayedComputation> history = CacheImpl.HISTORY.get(computation.getAffectedKeys().iterator().next());
-          if (history == null) {
-             history = new ArrayList<DelayedComputation>();
-             CacheImpl.HISTORY.put(computation.getAffectedKeys().iterator().next(), history);
-          }
-          history.add(computation);
        }
     }
 

@@ -150,9 +150,9 @@ public interface CacheTransaction {
 
    void setAlreadyReadOnThisNode(boolean value);
    
-   DelayedComputation<?>[] getDelayedComputations();
+   DelayedComputation[] getDelayedComputations();
    
-   void setDelayedComputations(Map<Object, DelayedComputation<?>> computations);
+   void setDelayedComputations(Map<Object, DelayedComputation> computations);
    
-   void addDelayedComputation(DelayedComputation<?> computation);
+   void addDelayedComputation(DelayedComputation computation);
 }

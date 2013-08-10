@@ -45,6 +45,7 @@ public class GMUPrepareCommand extends PrepareCommand {
    private static final Object[] EMPTY_READ_SET_ARRAY = new Object[0];
 
    private Object[] delayedKeys;
+   private int[] delayedValues;
    private Object[] readSet;
    private Object[] readSetWithRule;
    private EntryVersion version;
@@ -53,18 +54,24 @@ public class GMUPrepareCommand extends PrepareCommand {
    public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, boolean onePhaseCommit, WriteCommand... modifications) {
       super(cacheName, gtx, onePhaseCommit, modifications);
       delayedKeys = new Object[0];
+      delayedValues = new int[0];
    }
 
-   public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, List<WriteCommand> commands, DelayedComputation<?>[] computations, boolean onePhaseCommit) {
+   public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, List<WriteCommand> commands, DelayedComputation[] computations, boolean onePhaseCommit) {
       super(cacheName, gtx, commands, onePhaseCommit);
       if (computations == null) {
 	  delayedKeys = new Object[0];
+	  delayedValues = new int[0];
       } else {
-	  Set<Object> keys = new HashSet<Object>();
-	  for (DelayedComputation<?> computation : computations) {
-	      keys.addAll(computation.getAffectedKeys());
+	  Object[] keys = new Object[computations.length];
+	  int[] values = new int[computations.length];
+	  int i = 0;
+	  for (DelayedComputation computation : computations) {
+	      keys[i] = computation.getAffectedKey();
+	      values[i] = computation.count;
 	  }
-	  delayedKeys = keys.toArray();
+	  this.delayedKeys = keys;
+	  this.delayedValues = values;
       }
    }
 
@@ -111,9 +118,10 @@ public class GMUPrepareCommand extends PrepareCommand {
       int numReads = readSet == null ? 0 : readSet.length;
       int numReadsWithRule = readSetWithRule == null ? 0 : readSetWithRule.length;
       int delayKeys = delayedKeys == null ? 0 : delayedKeys.length;
+      int delayValues = delayedValues == null ? 0 : delayedValues.length;
       int i = 0;
-      final int params = 8;
-      Object[] retVal = new Object[numMods + numReads + numReadsWithRule + params + delayKeys];
+      final int params = 9;
+      Object[] retVal = new Object[numMods + numReads + numReadsWithRule + params + delayKeys + delayValues];
       retVal[i++] = globalTx;
       retVal[i++] = onePhaseCommit;
       retVal[i++] = version;
@@ -121,7 +129,8 @@ public class GMUPrepareCommand extends PrepareCommand {
       retVal[i++] = numMods;
       retVal[i++] = numReads;
       retVal[i++] = numReadsWithRule;
-      retVal[i] = delayKeys;
+      retVal[i++] = delayKeys;
+      retVal[i] = delayValues;
       if (numMods > 0) {
 	  System.arraycopy(modifications, 0, retVal, params, numMods);
       }
@@ -133,6 +142,9 @@ public class GMUPrepareCommand extends PrepareCommand {
       }
       if (delayKeys > 0) {
 	  System.arraycopy(delayedKeys, 0, retVal, params + numMods + numReads + numReadsWithRule, delayKeys);
+      }
+      if (delayValues > 0) {
+	  System.arraycopy(delayedValues, 0, retVal, params + numMods + numReads + numReadsWithRule + delayKeys, delayValues);
       }
       return retVal;
    }
@@ -149,6 +161,7 @@ public class GMUPrepareCommand extends PrepareCommand {
       int numReads = (Integer) args[i++];
       int numReadsWithRule = (Integer) args[i++];
       int delayKeys = (Integer) args[i++];
+      int delayValues = (Integer) args[i++];
       if (numMods > 0) {
          modifications = new WriteCommand[numMods];
          System.arraycopy(args, i, modifications, 0, numMods);
@@ -165,6 +178,10 @@ public class GMUPrepareCommand extends PrepareCommand {
          delayedKeys = new Object[delayKeys];
          System.arraycopy(args, i + numMods + numReads + numReadsWithRule, delayedKeys, 0, delayKeys);
       }
+      if(delayValues > 0){
+	  delayedValues = new int[delayValues];
+	  System.arraycopy(args, i + numMods + numReads + numReadsWithRule + delayKeys, delayedValues, 0, delayValues);
+      }
    }
 
    @Override
@@ -178,6 +195,7 @@ public class GMUPrepareCommand extends PrepareCommand {
       copy.version = version;
       copy.alreadyReadFrom = alreadyReadFrom;
       copy.delayedKeys = delayedKeys == null ? null : delayedKeys.clone();
+      copy.delayedValues = delayedValues == null ? null : delayedValues.clone();
       return copy;
    }
 
@@ -229,5 +247,9 @@ public class GMUPrepareCommand extends PrepareCommand {
    public Object[] getDelayedKeys() {
        return this.delayedKeys;
     }
+   
+   public int[] getDelayedValues() {
+       return this.delayedValues;
+   }
     
 }

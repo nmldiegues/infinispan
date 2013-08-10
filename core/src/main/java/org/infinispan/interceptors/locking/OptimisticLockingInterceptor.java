@@ -284,79 +284,10 @@ public class OptimisticLockingInterceptor extends AbstractTxLockingInterceptor {
       }
    }
 
-   // Delayed = positive; Rest = negative
-   public static transient final ConcurrentHashMap<Object, AtomicInteger> DELAYED_LOCKS = new ConcurrentHashMap<Object, AtomicInteger>();
-   
-   public static AtomicInteger getLock(Object key) {
-      AtomicInteger result = DELAYED_LOCKS.get(key);
-      if (result == null) {
-         result = new AtomicInteger(0);
-         AtomicInteger prev = DELAYED_LOCKS.putIfAbsent(key, result);
-         if (prev != null) {
-            result = prev;
-         }
-      }
-      return result;
-   }
-   
-   // consider using timeout to bound some sleep when the counter is on the inverse direction, and proportionally to how far it is from zero
-   // read-write locks are fair most likely by setting a flag when it is in a given mode and someone wants to switch, I could do that here as well
-   // TODO where to throw the timeout exception?
-   public static boolean lockDelayed(Object key, boolean delayed, long timeout) {
-      AtomicInteger lock = DELAYED_LOCKS.get(key);
-      int currentValue = lock.get();
-      long start = System.nanoTime();
-      if (delayed) {
-         int attempt = 0;
-         while (true) {
-            if (currentValue >= 0 && lock.compareAndSet(currentValue, currentValue + 1)) {
-               return true;
-            }
-            
-            attempt++;
-            if (attempt % 10 == 0) {
-               long timePassed = System.nanoTime() - start;
-               if ((timePassed / 1000000) > timeout) {
-                  throw new TimeoutException("Unable to acquire lock after [" + Util.prettyPrintTime(timeout) + "] on key [" + key + "]");
-               }
-            }
-            
-            currentValue = lock.get();
-         }
-      } else {
-         int attempt = 0;
-         while (true) {
-            if (currentValue <= 0 && lock.compareAndSet(currentValue, currentValue - 1)) {
-               return true;
-            }
-            
-            attempt++;
-            if (attempt % 10 == 0) {
-               long timePassed = System.nanoTime() - start;
-               if ((timePassed / 1000000) > timeout) {
-                  throw new TimeoutException("Unable to acquire lock after [" + Util.prettyPrintTime(timeout) + "] on key [" + key + "]");
-               }
-            }
-            
-            currentValue = lock.get();
-         }         
-      }
-   }
-   
-   public static void unlockDelayed(Object key, boolean delayed) {
-      AtomicInteger lock = DELAYED_LOCKS.get(key);
-      if (delayed) {
-         lock.decrementAndGet();
-      } else {
-         lock.addAndGet(1);
-      }
-   }
-   
    private void acquireAllLocks(TxInvocationContext ctx, Object[] orderedKeys) throws InterruptedException {
       long lockTimeout = cacheConfiguration.locking().lockAcquisitionTimeout();
       for (Object key: orderedKeys) {
          lockAndRegisterBackupLock(ctx, key, lockTimeout, false);
-         lockDelayed(key, false, lockTimeout);
          performLocalWriteSkewCheck(ctx, key);
          ctx.addAffectedKey(key);
       }

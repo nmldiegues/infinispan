@@ -212,7 +212,7 @@ public class AbstractDelegatingAdvancedCache<K, V> extends AbstractDelegatingCac
    }
    
    @Override
-    public void delayedComputation(DelayedComputation<?> computation) {
+    public void delayedComputation(DelayedComputation computation) {
 	cache.delayedComputation(computation);
     }
    

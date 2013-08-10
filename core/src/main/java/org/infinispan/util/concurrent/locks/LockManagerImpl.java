@@ -92,7 +92,6 @@ public class LockManagerImpl implements LockManager {
       for (Object k : ctx.getLockedKeys()) {
          if (trace) log.tracef("Attempting to unlock %s", k);
          lockContainer.releaseLock(ctx.getLockOwner(), k);
-         OptimisticLockingInterceptor.unlockDelayed(k, false);
       }
       ctx.clearLockedKeys();
    }

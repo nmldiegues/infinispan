@@ -44,20 +44,13 @@ public class OptimisticReadWriteLockingInterceptor extends OptimisticLockingInte
       GMUPrepareCommand spc = GMUHelper.convert(command, GMUPrepareCommand.class);
       Object[] readSet = ctx.isOriginLocal() ? ctx.getReadSet().toArray() : spc.getReadSet();
       TimSort.sort(readSet, PrepareCommand.KEY_COMPARATOR);
-      Object[] readSetWithRule = ctx.isOriginLocal() ? ctx.getReadSet().toArray() : spc.getReadSet();
-      acquireReadLocks(ctx, readSet, readSetWithRule);
+      acquireReadLocks(ctx, readSet);
    }
 
-   private void acquireReadLocks(TxInvocationContext ctx, Object[] readSet, Object[] readSetWithRule) throws InterruptedException {
+   private void acquireReadLocks(TxInvocationContext ctx, Object[] readSet) throws InterruptedException {
       long lockTimeout = cacheConfiguration.locking().lockAcquisitionTimeout();
       for (Object key : readSet) {
          lockAndRegisterShareBackupLock(ctx, key, lockTimeout, false);
-         lockDelayed(key, false, lockTimeout);
-         ctx.addAffectedKey(key);
-      }
-      for (Object key : readSetWithRule) {
-         lockAndRegisterShareBackupLock(ctx, key, lockTimeout, false);
-         lockDelayed(key, false, lockTimeout);
          ctx.addAffectedKey(key);
       }
    }

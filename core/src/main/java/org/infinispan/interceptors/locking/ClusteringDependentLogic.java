@@ -515,12 +515,12 @@ public interface ClusteringDependentLogic {
 
       private Collection<Address> getDelayedOwners(CacheTransaction cacheTransaction) {
 	  Collection<Object> affectedKeys = new ArrayList<Object>();
-	  DelayedComputation<?>[] delayedComputations = cacheTransaction.getDelayedComputations();
+	  DelayedComputation[] delayedComputations = cacheTransaction.getDelayedComputations();
 	  if (delayedComputations == null) {
 	      return Collections.emptyList();
 	  }
-	  for (DelayedComputation<?> computation : delayedComputations) {
-	      affectedKeys.addAll(computation.getAffectedKeys());
+	  for (DelayedComputation computation : delayedComputations) {
+	      affectedKeys.add(computation.getAffectedKey());
 	  }
 	  return dm.getAffectedNodes(affectedKeys);
       }

@@ -1,28 +1,40 @@
 package org.infinispan;
 
 import java.io.Serializable;
-import java.util.Collection;
 
 
-public abstract class DelayedComputation<T> implements Serializable {
+public abstract class DelayedComputation implements Serializable {
 
-   public abstract Collection<Object> getAffectedKeys();
-   
-   public abstract T compute();
-   
-   @Override
-   public boolean equals(Object obj) {
-      if (! (obj instanceof DelayedComputation)) {
-         return false;
-      }
-      DelayedComputation other = (DelayedComputation) obj;
-      return this.getAffectedKeys().iterator().next().equals(other.getAffectedKeys().iterator().next());
-   }
-   
-   @Override
-   public int hashCode() {
-      return getAffectedKeys().iterator().next().hashCode();
-   }
-   
-   public abstract void mergeNewDelayedComputation(DelayedComputation newComputation);
+    protected Object key;
+    public int count;
+
+    public DelayedComputation(Object key, int count) {
+	this.key = key;
+	this.count = count;
+    }
+    
+    public Object getAffectedKey() {
+	return this.key;
+    }
+
+    public abstract void compute();
+
+    public void mergeNewDelayedComputation(DelayedComputation newComputation) {
+	this.count += newComputation.count;
+    }
+    
+    @Override
+    public boolean equals(Object obj) {
+	if (! (obj instanceof DelayedComputation)) {
+	    return false;
+	}
+	DelayedComputation other = (DelayedComputation) obj;
+	return this.getAffectedKey().equals(other.getAffectedKey());
+    }
+
+    @Override
+    public int hashCode() {
+	return getAffectedKey().hashCode();
+    }
+
 }

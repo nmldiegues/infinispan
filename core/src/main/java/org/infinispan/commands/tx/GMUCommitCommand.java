@@ -40,7 +40,7 @@ public class GMUCommitCommand extends CommitCommand {
    private EntryVersion commitVersion;
    private TransactionCommitManager transactionCommitManager;
    private SortedTransactionQueue.TransactionEntry transactionEntry;
-   private DelayedComputation<?>[] delayedComputations;
+   private DelayedComputation[] delayedComputations;
 
    public GMUCommitCommand(String cacheName, GlobalTransaction gtx) {
       super(cacheName, gtx);
@@ -80,13 +80,13 @@ public class GMUCommitCommand extends CommitCommand {
       return commitVersion;
    }
 
-   public void setDelayedComputations(DelayedComputation<?>[] computations) {
+   public void setDelayedComputations(DelayedComputation[] computations) {
        this.delayedComputations = computations;
     }
     
-    public DelayedComputation<?>[] getDelayedComputations() {
+    public DelayedComputation[] getDelayedComputations() {
        if (this.delayedComputations == null) {
-          return new DelayedComputation<?>[0];
+          return new DelayedComputation[0];
        }
        return this.delayedComputations;
     }
@@ -100,7 +100,7 @@ public class GMUCommitCommand extends CommitCommand {
    public void setParameters(int commandId, Object[] args) {
       globalTx = (GlobalTransaction) args[0];
       commitVersion = (EntryVersion) args[1];
-      delayedComputations = (DelayedComputation<?>[]) args[2];
+      delayedComputations = (DelayedComputation[]) args[2];
    }
 
    public final void init() {
