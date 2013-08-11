@@ -51,6 +51,7 @@ import org.infinispan.transaction.DEFPrepare;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.TransactionCoordinator;
 import org.infinispan.transaction.gmu.CommitLog;
+import org.infinispan.transaction.gmu.ValidationException;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
@@ -122,6 +123,8 @@ public class GMUDistributionInterceptor extends TxDistributionInterceptor {
                Throwable t = e.getCause();
                if (t instanceof RuntimeException) {
                   throw (RuntimeException) t;
+               } else if (t instanceof javax.transaction.RollbackException) {
+        	   throw new ValidationException(t);
                } else {
                   t.printStackTrace();
                   System.err.println("Checked Exception in DEF 2PC");

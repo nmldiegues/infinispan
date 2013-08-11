@@ -477,12 +477,11 @@ public class DefaultExecutorService extends AbstractExecutorService implements D
       if (task == null) throw new NullPointerException();
 
       if(inputKeysSpecified(input)){
-         Map<Address, List<K>> nodesKeysMap = keysToExecutionNodes(task.getTaskExecutionPolicy(), input);
-         checkExecutionPolicy(task, nodesKeysMap, input);
+         Address targetNode = keysToExecutionNodes(task.getTaskExecutionPolicy(), input);
+         // checkExecutionPolicy(task, nodesKeysMap, input);
          Address me = getAddress();
          DistributedExecuteCommand<T> c = factory.buildDistributedExecuteCommand(task.getCallable(), me, Arrays.asList(input));
-         ArrayList<Address> nodes = new ArrayList<Address>(nodesKeysMap.keySet());
-         DistributedTaskPart<T> part = createDistributedTaskPart(task, c, Arrays.asList(input), selectExecutionNode(nodes), 0);
+         DistributedTaskPart<T> part = createDistributedTaskPart(task, c, Arrays.asList(input), targetNode, 0);
          part.execute();
          return part;
       } else {
@@ -527,28 +526,28 @@ public class DefaultExecutorService extends AbstractExecutorService implements D
 
    @Override
    public <T, K> List<Future<T>> submitEverywhere(DistributedTask<T> task, K... input) {
-      if (task == null) throw new NullPointerException();
-      if(inputKeysSpecified(input)) {
-         List<Future<T>> futures = new ArrayList<Future<T>>(input.length * 2);
-         Address me = getAddress();
-         Map<Address, List<K>> nodesKeysMap = keysToExecutionNodes(task.getTaskExecutionPolicy(), input);
-         checkExecutionPolicy(task, nodesKeysMap, input);
-         for (Entry<Address, List<K>> e : nodesKeysMap.entrySet()) {
-            Address target = e.getKey();
-            DistributedExecuteCommand<T> c = null;
-            if (target.equals(me)) {
-               c = factory.buildDistributedExecuteCommand(clone(task.getCallable()), me, e.getValue());
-            } else {
-               c = factory.buildDistributedExecuteCommand(task.getCallable(), me, e.getValue());
-            }            
-            DistributedTaskPart<T> part = createDistributedTaskPart(task, c, e.getValue(), target, 0);
-            futures.add(part);
-            part.execute();
-         }
-         return futures;
-      } else {
-         return submitEverywhere(task);
-      }
+      throw new NullPointerException();
+//      if(inputKeysSpecified(input)) {
+//         List<Future<T>> futures = new ArrayList<Future<T>>(input.length * 2);
+//         Address me = getAddress();
+//         Map<Address, List<K>> nodesKeysMap = keysToExecutionNodes(task.getTaskExecutionPolicy(), input);
+//         checkExecutionPolicy(task, nodesKeysMap, input);
+//         for (Entry<Address, List<K>> e : nodesKeysMap.entrySet()) {
+//            Address target = e.getKey();
+//            DistributedExecuteCommand<T> c = null;
+//            if (target.equals(me)) {
+//               c = factory.buildDistributedExecuteCommand(clone(task.getCallable()), me, e.getValue());
+//            } else {
+//               c = factory.buildDistributedExecuteCommand(task.getCallable(), me, e.getValue());
+//            }            
+//            DistributedTaskPart<T> part = createDistributedTaskPart(task, c, e.getValue(), target, 0);
+//            futures.add(part);
+//            part.execute();
+//         }
+//         return futures;
+//      } else {
+//         return submitEverywhere(task);
+//      }
    }
 
    protected <T> Callable<T> clone(Callable<T> task){
@@ -609,12 +608,12 @@ public class DefaultExecutorService extends AbstractExecutorService implements D
       return chosen;
    }
 
-   protected <K> Map<Address, List<K>> keysToExecutionNodes(DistributedTaskExecutionPolicy policy, K... input) {
+   protected <K> Address keysToExecutionNodes(DistributedTaskExecutionPolicy policy, K... input) {
       DistributionManager dm = cache.getDistributionManager();
       Map<Address, List<K>> addressToKey = new HashMap<Address, List<K>>(input.length * 2);
       boolean usingREPLMode = dm == null;
+      Address ownerOfKey = null;
       for (K key : input) {
-         Address ownerOfKey = null;
          if (usingREPLMode) {
             List<Address> members = new ArrayList<Address>(getMembers());
             members =  filterMembers(policy, members);
@@ -624,22 +623,10 @@ public class DefaultExecutorService extends AbstractExecutorService implements D
             ownerOfKey = members.get(0);
          } else {
             // DIST mode
-            List<Address> owners = dm.locate(key);
-            List<Address> filtered = filterMembers(policy, owners);
-            if(!filtered.isEmpty()){
-               ownerOfKey = filtered.get(0);
-            } else {
-               ownerOfKey = owners.get(0);
-            }
+            ownerOfKey = dm.getPrimaryLocation(key);
          }
-         List<K> keysAtNode = addressToKey.get(ownerOfKey);
-         if (keysAtNode == null) {
-            keysAtNode = new LinkedList<K>();
-            addressToKey.put(ownerOfKey, keysAtNode);
-         }
-         keysAtNode.add(key);
       }
-      return addressToKey;
+      return ownerOfKey;
    }
 
    private List<Address> filterMembers(DistributedTaskExecutionPolicy policy, List<Address> members) {
