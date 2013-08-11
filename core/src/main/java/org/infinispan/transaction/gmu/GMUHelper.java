@@ -29,6 +29,7 @@ import org.infinispan.commands.tx.GMUPrepareCommand;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.gmu.InternalGMUCacheEntry;
+import org.infinispan.container.gmu.GMUEntryFactoryImpl;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.container.versioning.InequalVersionComparisonResult;
 import org.infinispan.container.versioning.VersionGenerator;
@@ -38,6 +39,7 @@ import org.infinispan.context.InvocationContext;
 import org.infinispan.context.SingleKeyNonTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.dataplacement.ClusterSnapshot;
+import org.infinispan.interceptors.EntryWrappingInterceptor;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.loaders.CacheLoader;
 import org.infinispan.remoting.responses.ExceptionResponse;
@@ -74,18 +76,12 @@ public class GMUHelper {
 
    private static final Log log = LogFactory.getLog(GMUHelper.class);
 
-   public static transient final Map<Object, AtomicInteger> SPEC_COUNTER_MAP = new ConcurrentHashMap<Object, AtomicInteger>();
+   public static transient final ConcurrentHashMap<Object, AtomicInteger> SPEC_COUNTER_MAP = new ConcurrentHashMap<Object, AtomicInteger>();
    
    public static void performReadSetValidation(GMUPrepareCommand prepareCommand,
                                                DataContainer dataContainer,
                                                ClusteringDependentLogic keyLogic, GMUVersion readVersion) {
       GlobalTransaction gtx = prepareCommand.getGlobalTransaction();
-      if ((prepareCommand.getReadSet() == null || prepareCommand.getReadSet().length == 0) && (prepareCommand.getReadSetWithRule() == null || prepareCommand.getReadSetWithRule().length == 0)) {
-         if (log.isDebugEnabled()) {
-            log.debugf("Validation of [%s] OK. no read set", gtx.globalId());
-         }
-         return;
-      }
       for (Object key : prepareCommand.getReadSet()) {
          //if (keyLogic.localNodeIsOwner(key)) {
          if (keyLogic.localNodeIsPrimaryOwner(key)) {      //DIE: for now, hardcoded
@@ -104,46 +100,40 @@ public class GMUHelper {
       }
       
       Object[] delayedKeys = prepareCommand.getDelayedKeys();
-      int[] delayedValues = prepareCommand.getDelayedValues();
-      if (delayedKeys == null) {
-	  return;
-      }
+      Object[] delayedValues = prepareCommand.getDelayedValues();
       
-      Map<Object, Integer> myDelayedActions = new HashMap<Object, Integer>(delayedKeys.length);
-      for (int i = 0; i < delayedKeys.length; i++) {
-	  Object key = delayedKeys[i];
-	  int val = delayedValues[i];
-	  myDelayedActions.put(key, val);
-	  AtomicInteger specCounter = SPEC_COUNTER_MAP.get(key);
-	  if (specCounter == null) {
-	      specCounter = new AtomicInteger(val);
-	      SPEC_COUNTER_MAP.put(key, specCounter);
-	  } else {
-	      specCounter.addAndGet(val);
+      if (delayedKeys != null) {
+	  for (int i = 0; i < delayedKeys.length; i++) {
+	      Object key = delayedKeys[i];
+	      if (keyLogic.localNodeIsOwner(key)) {
+		  Integer val = (Integer) delayedValues[i];
+		  AtomicInteger specCounter = SPEC_COUNTER_MAP.get(key);
+		  if (specCounter == null) {
+		      Integer baseVal = (Integer) ((GMUEntryFactoryImpl)EntryWrappingInterceptor.FACTORY).getDelayedFromContainer(key, null).getValue();
+		      specCounter = new AtomicInteger(baseVal + val);
+		      AtomicInteger newCounter = SPEC_COUNTER_MAP.putIfAbsent(key, specCounter);
+		      if (newCounter != null) {
+			  newCounter.addAndGet(val);
+		      }
+		  } else {
+		      specCounter.addAndGet(val);
+		  }
+	      }
 	  }
       }
       
       for (Object key : prepareCommand.getReadSetWithRule()) {
 	  if (keyLogic.localNodeIsPrimaryOwner(key)) {
 	      
-	      Integer myAction = myDelayedActions.get(key);
-	      Integer specCounterValue = SPEC_COUNTER_MAP.get(key).get();
-	      
-	      if (myAction == null) {
-		 // did not do lazy action on this key - index 2
-		  if (!CacheImpl.RULES.get(2).isStillValid(specCounterValue, myAction)) {
-		      throw new ValidationException("Validation failed for key [" + key + "]", key);
-		  }
-	      } else if (myAction < 0) {
-		  // decremented the key - index 1
-		  if (!CacheImpl.RULES.get(1).isStillValid(specCounterValue, myAction)) {
-		      throw new ValidationException("Validation failed for key [" + key + "]", key);
-		  }
+	      AtomicInteger specCounter = SPEC_COUNTER_MAP.get(key);
+	      Integer specCounterValue = null;
+	      if (specCounterValue == null) {
+		  specCounterValue = (Integer) ((GMUEntryFactoryImpl)EntryWrappingInterceptor.FACTORY).getDelayedFromContainer(key, null).getValue();
 	      } else {
-		  // incremented the key - index 0
-		  if (!CacheImpl.RULES.get(0).isStillValid(specCounterValue, myAction)) {
-		      throw new ValidationException("Validation failed for key [" + key + "]", key);
-		  }
+		  specCounterValue = specCounter.get();
+	      }
+	      if (!CacheImpl.RULES.get(0).isStillValid(specCounterValue)) {
+		  throw new ValidationException("Validation failed for key [" + key + "]", key);
 	      }
 	  }
       }

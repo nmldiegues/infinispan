@@ -45,7 +45,7 @@ public class GMUPrepareCommand extends PrepareCommand {
    private static final Object[] EMPTY_READ_SET_ARRAY = new Object[0];
 
    private Object[] delayedKeys;
-   private int[] delayedValues;
+   private Object[] delayedValues;
    private Object[] readSet;
    private Object[] readSetWithRule;
    private EntryVersion version;
@@ -54,21 +54,22 @@ public class GMUPrepareCommand extends PrepareCommand {
    public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, boolean onePhaseCommit, WriteCommand... modifications) {
       super(cacheName, gtx, onePhaseCommit, modifications);
       delayedKeys = new Object[0];
-      delayedValues = new int[0];
+      delayedValues = new Object[0];
    }
 
    public GMUPrepareCommand(String cacheName, GlobalTransaction gtx, List<WriteCommand> commands, DelayedComputation[] computations, boolean onePhaseCommit) {
       super(cacheName, gtx, commands, onePhaseCommit);
       if (computations == null) {
 	  delayedKeys = new Object[0];
-	  delayedValues = new int[0];
+	  delayedValues = new Object[0];
       } else {
 	  Object[] keys = new Object[computations.length];
-	  int[] values = new int[computations.length];
+	  Object[] values = new Object[computations.length];
 	  int i = 0;
 	  for (DelayedComputation computation : computations) {
 	      keys[i] = computation.getAffectedKey();
-	      values[i] = computation.count;
+	      values[i] = (Integer) computation.count;
+	      i++;
 	  }
 	  this.delayedKeys = keys;
 	  this.delayedValues = values;
@@ -179,7 +180,7 @@ public class GMUPrepareCommand extends PrepareCommand {
          System.arraycopy(args, i + numMods + numReads + numReadsWithRule, delayedKeys, 0, delayKeys);
       }
       if(delayValues > 0){
-	  delayedValues = new int[delayValues];
+	  delayedValues = new Object[delayValues];
 	  System.arraycopy(args, i + numMods + numReads + numReadsWithRule + delayKeys, delayedValues, 0, delayValues);
       }
    }
@@ -218,6 +219,9 @@ public class GMUPrepareCommand extends PrepareCommand {
    
    public void setReadSetWithRule(Collection<Object> readSetWithRule) {
        this.readSetWithRule = readSetWithRule == null || readSetWithRule.isEmpty() ? null : readSetWithRule.toArray();
+       if (this.readSetWithRule != null && this.readSetWithRule.length > 0 && (this.delayedKeys == null || this.delayedKeys.length == 0)) {
+	   System.out.println("problem");
+       }
     }
 
    public void setVersion(EntryVersion version) {
@@ -248,7 +252,7 @@ public class GMUPrepareCommand extends PrepareCommand {
        return this.delayedKeys;
     }
    
-   public int[] getDelayedValues() {
+   public Object[] getDelayedValues() {
        return this.delayedValues;
    }
     

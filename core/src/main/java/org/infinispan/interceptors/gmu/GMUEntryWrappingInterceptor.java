@@ -91,6 +91,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.infinispan.stats.ExposedStatistic.*;
 import static org.infinispan.transaction.gmu.GMUHelper.*;
@@ -303,7 +304,10 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          DelayedComputation[] delayedComputations = cacheTx.getDelayedComputations();
          if (delayedComputations != null) {
              for (DelayedComputation comp : delayedComputations) {
-        	 GMUHelper.SPEC_COUNTER_MAP.get(comp.getAffectedKey()).addAndGet(-comp.count);
+        	 AtomicInteger specCounter = GMUHelper.SPEC_COUNTER_MAP.get(comp.getAffectedKey());
+        	 if (specCounter != null) {
+        	     specCounter.addAndGet(-comp.count);
+        	 }
              }
          }
          transactionCommitManager.rollbackTransaction(cacheTx);

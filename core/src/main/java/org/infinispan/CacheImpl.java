@@ -471,6 +471,14 @@ public class CacheImpl<K, V> extends CacheSupport<K, V> implements AdvancedCache
    }
    
    public V getWithRule(Object key, int ignoredForNowAssumeOnlyOne) {
+           TxInvocationContext ctx2 = (TxInvocationContext) getInvocationContextWithImplicitTransaction(false, null, 1);
+           LocalTransaction tx = txTable.getOrCreateLocalTransaction(ctx2.getTransaction(), ctx2);
+           DelayedComputation[] arr = tx.getDelayedComputations();
+           if (arr == null || arr.length == 0) {
+               System.out.println("Problem");
+           }
+       
+       
        assertKeyNotNull(key);
        InvocationContext ctx = getInvocationContextForRead(null, null, 1);
        GetKeyValueCommand command = commandsFactory.buildGetKeyValueCommand(key, Collections.singleton(Flag.READ_WITH_RULE));
