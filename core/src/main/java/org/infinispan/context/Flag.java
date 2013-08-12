@@ -105,8 +105,6 @@ public enum Flag {
     */
    READ_WITHOUT_REGISTERING,
    
-   READ_WITH_RULE,
-   
    FORCE_SYNCHRONOUS,
       
    /**

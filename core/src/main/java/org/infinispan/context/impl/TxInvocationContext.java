@@ -127,5 +127,4 @@ public interface TxInvocationContext extends InvocationContext {
     */
    Collection<Object> getReadSet();
    
-   Collection<Object> getReadSetWithRule();
 }

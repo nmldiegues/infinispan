@@ -263,8 +263,6 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
             GMUEntryWrappingInterceptor.CONTEXT_FOR_DELAYED.set(txCtx);
             GMUHelper.performDelayedComputations(txCtx.getCacheTransaction(), cdl);
             GMUEntryWrappingInterceptor.CONTEXT_FOR_DELAYED.set(null);
-               
-               CacheImpl.MAP_DEBUG.remove(txCtx.getCacheTransaction());
          }
          
          

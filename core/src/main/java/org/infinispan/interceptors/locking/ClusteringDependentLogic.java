@@ -469,9 +469,7 @@ public interface ClusteringDependentLogic {
             involvedNodes.addAll(writeOwners);
          }
          Collection<Address> readOwners = getReadOwners(cacheTransaction);
-         Collection<Address> readWithRulesOwners = getReadWithRulesOwners(cacheTransaction);
          involvedNodes.addAll(readOwners);
-         involvedNodes.addAll(readWithRulesOwners);
          involvedNodes.addAll(delayedOwners);
          return involvedNodes;
       }
@@ -529,8 +527,5 @@ public interface ClusteringDependentLogic {
          return dm.getAffectedNodes(cacheTransaction.getReadKeys());
       }
       
-      private Collection<Address> getReadWithRulesOwners(CacheTransaction cacheTransaction) {
-	  return dm.getAffectedNodes(cacheTransaction.getReadKeysWithRule());
-      }
    }
 }

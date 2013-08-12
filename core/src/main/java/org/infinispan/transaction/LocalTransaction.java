@@ -207,12 +207,6 @@ public abstract class LocalTransaction extends AbstractCacheTransaction {
    }
 
    @Override
-   public void addReadKeyWithRule(Object key) {
-       if (readKeysWithRule == null) readKeysWithRule = new HashSet<Object>(2);
-       readKeysWithRule.add(key);       
-   }
-   
-   @Override
    public boolean keyRead(Object key) {
       return readKeys != null && readKeys.contains(key);
    }
@@ -339,11 +333,6 @@ public abstract class LocalTransaction extends AbstractCacheTransaction {
          log.debugf("[%s] get read keys %s", tx.globalId(), readKeys);
       }
       return readKeys == null ? InfinispanCollections.emptySet() : readKeys;
-   }
-
-   @Override
-   public Collection<Object> getReadKeysWithRule() {
-      return readKeysWithRule == null ? InfinispanCollections.emptySet() : readKeysWithRule;
    }
 
 }

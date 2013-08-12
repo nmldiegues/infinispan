@@ -23,6 +23,8 @@
 
 package org.infinispan.transaction;
 
+import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersionGenerator;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -32,8 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.infinispan.CacheImpl;
-import org.infinispan.DelayedActionsHolder;
 import org.infinispan.DelayedComputation;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.entries.CacheEntry;
@@ -49,8 +49,6 @@ import org.infinispan.util.InfinispanCollections;
 import org.infinispan.util.concurrent.ConcurrentMapFactory;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
-
-import static org.infinispan.transaction.gmu.GMUHelper.toGMUVersionGenerator;
 
 /**
  * Base class for local and remote transaction. Impl note: The aggregated modification list and lookedUpEntries are not
@@ -320,11 +318,6 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
    }
    
    @Override
-   public void addReadKeyWithRule(Object key) {
-       
-   }
-   
-   @Override
    public boolean keyRead(Object key) {
       return false;
    }
@@ -350,11 +343,6 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
       return Collections.emptyList();
    }
    
-   @Override
-   public Collection<Object> getReadKeysWithRule() {
-       return Collections.emptyList();
-   }
-
    @Override
    public void addReadFrom(Address address) {
       //no-op
@@ -425,13 +413,6 @@ public abstract class AbstractCacheTransaction implements CacheTransaction {
          alreadyExisting.mergeNewDelayedComputation(computation);
       } else {
          this.delayedComputations.put(key, computation);
-         
-            DelayedActionsHolder actions = CacheImpl.MAP_DEBUG.get(this);
-            if (actions == null) {
-               actions = new DelayedActionsHolder();
-               CacheImpl.MAP_DEBUG.put(this, actions);
-            }
-            actions.computations.add(computation);
       }
    }
    

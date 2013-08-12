@@ -76,8 +76,6 @@ public class GMUHelper {
 
    private static final Log log = LogFactory.getLog(GMUHelper.class);
 
-   public static transient final ConcurrentHashMap<Object, AtomicInteger> SPEC_COUNTER_MAP = new ConcurrentHashMap<Object, AtomicInteger>();
-   
    public static void performReadSetValidation(GMUPrepareCommand prepareCommand,
                                                DataContainer dataContainer,
                                                ClusteringDependentLogic keyLogic, GMUVersion readVersion) {
@@ -99,44 +97,6 @@ public class GMUHelper {
          }
       }
       
-      Object[] delayedKeys = prepareCommand.getDelayedKeys();
-      Object[] delayedValues = prepareCommand.getDelayedValues();
-      
-      if (delayedKeys != null) {
-	  for (int i = 0; i < delayedKeys.length; i++) {
-	      Object key = delayedKeys[i];
-	      if (keyLogic.localNodeIsOwner(key)) {
-		  Integer val = (Integer) delayedValues[i];
-		  AtomicInteger specCounter = SPEC_COUNTER_MAP.get(key);
-		  if (specCounter == null) {
-		      Integer baseVal = (Integer) ((GMUEntryFactoryImpl)EntryWrappingInterceptor.FACTORY).getDelayedFromContainer(key, null).getValue();
-		      specCounter = new AtomicInteger(baseVal + val);
-		      AtomicInteger newCounter = SPEC_COUNTER_MAP.putIfAbsent(key, specCounter);
-		      if (newCounter != null) {
-			  newCounter.addAndGet(val);
-		      }
-		  } else {
-		      specCounter.addAndGet(val);
-		  }
-	      }
-	  }
-      }
-      
-      for (Object key : prepareCommand.getReadSetWithRule()) {
-	  if (keyLogic.localNodeIsPrimaryOwner(key)) {
-	      
-	      AtomicInteger specCounter = SPEC_COUNTER_MAP.get(key);
-	      Integer specCounterValue = null;
-	      if (specCounterValue == null) {
-		  specCounterValue = (Integer) ((GMUEntryFactoryImpl)EntryWrappingInterceptor.FACTORY).getDelayedFromContainer(key, null).getValue();
-	      } else {
-		  specCounterValue = specCounter.get();
-	      }
-	      if (!CacheImpl.RULES.get(0).isStillValid(specCounterValue)) {
-		  throw new ValidationException("Validation failed for key [" + key + "]", key);
-	      }
-	  }
-      }
    }
 
    public static EntryVersion calculateCommitVersion(EntryVersion mergedVersion, GMUVersionGenerator versionGenerator,
@@ -340,15 +300,7 @@ public class GMUHelper {
           Object key = computation.getAffectedKey();
           if (distributionLogic.localNodeIsOwner(key)) {
               computation.compute();
-              
-              List<DelayedComputation> history = CacheImpl.HISTORY.get(computation.getAffectedKey());
-              if (history == null) {
-        	  history = new ArrayList<DelayedComputation>();
-        	  CacheImpl.HISTORY.put(computation.getAffectedKey(), history);
-              }
-              history.add(computation);
           } 
-          
        }
     }
 

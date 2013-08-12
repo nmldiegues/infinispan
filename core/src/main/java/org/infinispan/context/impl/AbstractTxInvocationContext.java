@@ -116,11 +116,6 @@ public abstract class AbstractTxInvocationContext extends AbstractInvocationCont
    }
    
    @Override
-   public Collection<Object> getReadSetWithRule() {
-      return getCacheTransaction().getReadKeysWithRule();
-   }
-
-   @Override
    public void addReadFrom(Address address) {
       getCacheTransaction().addReadFrom(address);
    }

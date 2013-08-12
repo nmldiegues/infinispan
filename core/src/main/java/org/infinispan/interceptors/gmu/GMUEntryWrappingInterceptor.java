@@ -148,7 +148,6 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          GMUVersion transactionVersion = toGMUVersion(ctx.getTransactionVersion());
          spc.setVersion(transactionVersion);
          spc.setReadSet(ctx.getReadSet());
-         spc.setReadSetWithRule(ctx.getReadSetWithRule());
          spc.setAlreadyReadFrom(toAlreadyReadFromMask(ctx.getAlreadyReadFrom(), versionGenerator,
                                                       transactionVersion.getViewId()));
       } else {
@@ -297,20 +296,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       try {
          return invokeNextInterceptor(ctx, command);
       } finally {
-         
-            CacheImpl.MAP_DEBUG.remove(ctx.getCacheTransaction());
-         
-         CacheTransaction cacheTx = ctx.getCacheTransaction();
-         DelayedComputation[] delayedComputations = cacheTx.getDelayedComputations();
-         if (delayedComputations != null) {
-             for (DelayedComputation comp : delayedComputations) {
-        	 AtomicInteger specCounter = GMUHelper.SPEC_COUNTER_MAP.get(comp.getAffectedKey());
-        	 if (specCounter != null) {
-        	     specCounter.addAndGet(-comp.count);
-        	 }
-             }
-         }
-         transactionCommitManager.rollbackTransaction(cacheTx);
+         transactionCommitManager.rollbackTransaction(ctx.getCacheTransaction());
          if (ctx.isOriginLocal()) {
             gmuExecutor.checkForReadyTasks();
          }
@@ -539,7 +525,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
       }
 
       for (InternalGMUCacheEntry internalGMUCacheEntry : txInvocationContext.getKeysReadInCommand().values()) {
-         if (!command.hasFlag(Flag.READ_WITHOUT_REGISTERING) && !command.hasFlag(Flag.READ_WITH_RULE) && 
+         if (!command.hasFlag(Flag.READ_WITHOUT_REGISTERING) &&  
         	 txInvocationContext.hasModifications() && !internalGMUCacheEntry.isMostRecent()) {
             throw new CacheException("Read-Write transaction read an old value and should rollback");
          }
@@ -547,9 +533,7 @@ public class GMUEntryWrappingInterceptor extends EntryWrappingInterceptor {
          if (internalGMUCacheEntry.getMaximumTransactionVersion() != null) {
             entryVersionList.add(internalGMUCacheEntry.getMaximumTransactionVersion());
          }
-         if (command.hasFlag(Flag.READ_WITH_RULE)) {
-             txInvocationContext.getCacheTransaction().addReadKeyWithRule(internalGMUCacheEntry.getKey());
-         } else if (!command.hasFlag(Flag.READ_WITHOUT_REGISTERING)) {
+         if (!command.hasFlag(Flag.READ_WITHOUT_REGISTERING)) {
             txInvocationContext.getCacheTransaction().addReadKey(internalGMUCacheEntry.getKey());
          }
          if (cdl.localNodeIsOwner(internalGMUCacheEntry.getKey())) {
